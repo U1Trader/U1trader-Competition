@@ -109,10 +109,28 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .hero-dates .datebox:has(#updateDate){display:none!important}
 
 
-.trophy-art svg{display:none!important}
-.trophy-art:after{content:"🏆";display:block;font-size:64px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
-@media(max-width:800px){.trophy-art{opacity:.28!important;right:12px;bottom:12px;width:70px;height:70px}.trophy-art:after{font-size:58px}}
-@media(max-width:460px){.trophy-art{opacity:.22!important;width:60px;height:60px}.trophy-art:after{font-size:50px}}
+
+
+
+/* Final mobile corrections: refined trophy artwork and left-aligned login */
+.trophy-art{right:14px;top:auto;bottom:12px;transform:none;width:72px;height:72px;opacity:.16!important;z-index:0}
+.trophy-art svg{display:block!important;width:100%;height:100%;filter:drop-shadow(0 3px 7px rgba(0,0,0,.22))}
+.trophy-art:after{content:none!important;display:none!important}
+.winner-card>*:not(.trophy-art){position:relative;z-index:2;max-width:100%}
+.winner-prize{display:block;width:fit-content;max-width:calc(100% - 72px);white-space:normal;overflow-wrap:anywhere;line-height:1.4;box-sizing:border-box;position:relative;z-index:3}
+@media(max-width:800px){
+  .top{align-items:flex-start}
+  .top-actions{width:100%;justify-content:flex-start;margin-left:0;align-self:flex-start}
+  #authBtn{margin-left:0;align-self:flex-start}
+  .trophy-art{right:10px;bottom:10px;width:62px;height:62px;opacity:.14!important}
+  .winner-prize{max-width:calc(100% - 60px);padding:7px 9px;font-size:12px}
+}
+@media(max-width:460px){
+  .top-actions{justify-content:flex-start!important}
+  #authBtn{margin:0!important}
+  .trophy-art{right:8px;bottom:9px;width:54px;height:54px;opacity:.12!important}
+  .winner-prize{max-width:calc(100% - 52px);font-size:11.5px}
+}
 
 </style>
 </head>
