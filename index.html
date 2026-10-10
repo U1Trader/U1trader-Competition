@@ -92,7 +92,7 @@
     <div class="hint">Only enter balances here—never enter MT5 passwords or investor passwords. Data is saved in this browser on this device.</div>
   </div>
 </section>
-<section class="card"><div class="cardhead"><div><h3>📅 Recent updates</h3><p>Latest saved balance changes</p></div></div><div class="history" id="history"><div class="muted">No updates yet.</div></div></section>
+
 </aside>
 </div>
 
@@ -226,8 +226,10 @@ function render(){
  $('secondPrize').textContent='Prize: '+(data.secondPrize||'Not set');
  $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><span class="trader">${esc(t.name)}</span></td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
  $('emptyState').style.display=sorted.length?'none':'block';
+ // Preserve the selected trader whenever render() refreshes the dropdown.
+ const selectedTraderId=$('traderSelect').value;
  $('traderSelect').innerHTML='<option value="">Select a trader</option>'+data.traders.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
- $('history').innerHTML=data.history.slice(0,8).map(h=>`<div class="historyitem"><div><strong>${esc(h.name)}</strong><div class="muted">${esc(h.date)}${h.note?' · '+esc(h.note):''}</div></div><div style="text-align:right"><strong>${fmt(h.balance)}</strong><div class="${h.delta>=0?'positive':'negative'}">${h.delta>=0?'+':''}${fmt(h.delta)}</div></div></div>`).join('')||'<div class="muted">No updates yet.</div>';
+ if(selectedTraderId && data.traders.some(t=>String(t.id)===String(selectedTraderId))) $('traderSelect').value=selectedTraderId;
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function selectTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(!t)return;$('traderSelect').value=id;$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name;window.scrollTo({top:0,behavior:'smooth'})}
