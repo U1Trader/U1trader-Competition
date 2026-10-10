@@ -742,5 +742,16 @@ setAdminMode(null);
  },5000);
 })();
 </script>
+
+<style id="admin-login-true-top-right-fix">
+/* Keep the brand at top-left and Admin Login at the same row's far top-right. */
+.top{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;align-items:flex-start!important;gap:12px!important;position:relative!important;width:100%!important}
+.top .brand{flex:0 1 auto!important;min-width:0!important;margin:0!important}
+.top .top-actions{display:flex!important;flex:0 0 auto!important;width:auto!important;max-width:max-content!important;justify-content:flex-end!important;align-items:flex-start!important;align-self:flex-start!important;margin:0 0 0 auto!important;padding:0!important}
+.top .top-actions .btn{white-space:nowrap!important}
+@media(max-width:800px){.top{flex-wrap:nowrap!important;align-items:flex-start!important}.top .brand{gap:9px!important}.top .logo{width:62px!important;height:62px!important;flex:0 0 62px!important}.top .brand h1{font-size:clamp(18px,5vw,25px)!important;line-height:1.12!important}.top .brand .eyebrow{font-size:9px!important;letter-spacing:1px!important}.top .top-actions{width:auto!important;flex:0 0 auto!important;justify-content:flex-end!important;margin:0 0 0 auto!important}.top .top-actions .btn{padding:9px 10px!important;font-size:11px!important}}
+@media(max-width:380px){.top{gap:6px!important}.top .logo{width:48px!important;height:48px!important;flex-basis:48px!important}.top .brand{gap:7px!important}.top .brand h1{font-size:17px!important}.top .brand .eyebrow{font-size:8px!important;letter-spacing:.6px!important}.top .top-actions .btn{padding:8px 7px!important;font-size:10px!important}}
+</style>
+
 </body>
 </html>
