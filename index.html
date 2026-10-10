@@ -85,6 +85,35 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
  .winner-prize{max-width:100%}
  th,td{padding:12px}
 }
+
+/* Final polish: mobile header, dates and winner trophy */
+@media(max-width:800px){
+  .brand{gap:14px;align-items:center}
+  .logo{width:76px;height:76px;flex:0 0 76px;border-radius:15px}
+  .brand h1{font-size:26px!important;line-height:1.15}
+  .brand .eyebrow,.brand small{font-size:12px;letter-spacing:2px}
+  .date-display{font-size:17px!important;line-height:1.4;font-weight:750}
+  .hero-dates .datebox>small{font-size:13px}
+  .trophy-art{right:14px;bottom:12px;top:auto;transform:none;width:70px;height:70px;opacity:.10}
+  .winner-card>*:not(.trophy-art){max-width:calc(100% - 4px)}
+  .winner-prize{max-width:100%;width:auto;box-sizing:border-box;padding-right:12px}
+}
+@media(max-width:460px){
+  .logo{width:72px;height:72px;flex-basis:72px}
+  .brand h1{font-size:24px!important}
+  .date-display{font-size:16px!important}
+  .winner-card{padding:17px}
+  .trophy-art{right:10px;bottom:10px;width:64px;height:64px;opacity:.08}
+}
+#updateDate, label[for="updateDate"], .update-datebox{display:none!important}
+.hero-dates .datebox:has(#updateDate){display:none!important}
+
+
+.trophy-art svg{display:none!important}
+.trophy-art:after{content:"🏆";display:block;font-size:64px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
+@media(max-width:800px){.trophy-art{opacity:.28!important;right:12px;bottom:12px;width:70px;height:70px}.trophy-art:after{font-size:58px}}
+@media(max-width:460px){.trophy-art{opacity:.22!important;width:60px;height:60px}.trophy-art:after{font-size:50px}}
+
 </style>
 </head>
 <body>
