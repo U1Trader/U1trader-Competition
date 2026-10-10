@@ -50,6 +50,8 @@
 .hero-dates{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
 .hero-dates .datebox{min-width:180px}
 .date-display{font-weight:800;line-height:1.4;overflow-wrap:anywhere}
+.competition-countdown{display:block;color:var(--muted);font-size:12px;line-height:1.5;margin-top:7px;overflow-wrap:anywhere}
+#competitionEndInput{margin-top:4px;width:100%;max-width:100%;background:#0c1527;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
 .start-editor-label{display:block;color:var(--muted);font-size:11px;margin-top:8px}
 #competitionStartInput{margin-top:4px;width:100%;max-width:100%;background:#0c1527;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
 body:not(.admin-mode) .grid{grid-template-columns:minmax(0,1fr)}
@@ -94,7 +96,9 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 <section class="hero">
   <div><div class="live"><span class="dot"></span> Competition dashboard</div><div class="competition-title-row"><h2 id="leagueName">Friends Trading Challenge</h2><button type="button" class="btn admin-only" id="editCompetitionName">Edit competition name</button></div><p>Track your friends' demo-account performance. Update each trader's balance daily and the leaderboard will calculate profit, return %, and rank automatically.</p></div>
   <div class="hero-dates">
-    <div class="datebox start-datebox"><small>Competition starts</small><div id="competitionStartDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionStartInput">Set start date &amp; time</label><input class="admin-only" type="datetime-local" id="competitionStartInput"></div>
+    <div class="datebox start-datebox"><small>Competition starts (IST)</small><div id="competitionStartDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionStartInput">Set start date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionStartInput"></div>
+    <div class="datebox end-datebox"><small>Competition ends (IST)</small><div id="competitionEndDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionEndInput">Set end date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionEndInput"></div>
+    <div class="datebox duration-datebox"><small>Competition duration</small><div id="competitionDuration" class="date-display">Set start and end times</div><small id="competitionCountdown" class="competition-countdown">Countdown will appear here</small></div>
     <div class="datebox"><small>Update date</small><input type="date" id="updateDate"></div>
   </div>
 </section>
@@ -173,7 +177,7 @@ const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_8xtYAX6736Bi6cg2N5_qOQ_WV_PRv5e';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let currentUser=null, lastRemoteJson='', loadingRemote=true;
-let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[]};
+let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
 function setSyncStatus(message){const el=$('syncStatus');if(el)el.textContent=message}
 async function persist(){
@@ -259,13 +263,14 @@ function render(){
  $('leagueName').textContent=data.league||'Friends Trading Challenge';$('brandTitle').textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
  const startInput=$('competitionStartInput');
  if(startInput && document.activeElement!==startInput) startInput.value=data.startDateTime||'';
- const startDisplay=$('competitionStartDisplay');
+ const startDisplay=$('competitionStartDisplay'), endInput=$('competitionEndInput'), endDisplay=$('competitionEndDisplay');
  if(startDisplay){
-   if(data.startDateTime){
-     const startDate=new Date(data.startDateTime);
-     startDisplay.textContent=isNaN(startDate.getTime())?data.startDateTime:startDate.toLocaleString([], {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-   }else startDisplay.textContent='Not announced';
+   if(data.startDateTime){const d=new Date(data.startDateTime);startDisplay.textContent=isNaN(d.getTime())?data.startDateTime:d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';}
+   else startDisplay.textContent='Not announced';
  }
+ if(endInput && document.activeElement!==endInput) endInput.value=data.endDateTime||'';
+ if(endDisplay){if(data.endDateTime){const d=new Date(data.endDateTime);endDisplay.textContent=isNaN(d.getTime())?data.endDateTime:d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';}else endDisplay.textContent='Not announced';}
+ updateCompetitionClock();
  const date=$('updateDate').value||new Date().toISOString().slice(0,10);
  const sorted=[...data.traders].sort((a,b)=>profit(b)-profit(a));
  $('topName').textContent=sorted.length?sorted[0].name:'Waiting for trader';
@@ -293,10 +298,26 @@ $('confirmAdd').onclick=()=>{if(!currentUser)return toast('Admin login required'
 $('editLeague').onclick=()=>{if(!currentUser)return toast('Admin login required');const n=prompt('Competition name:',data.league);if(n&&n.trim()){data.league=n.trim();persist();render();toast('Competition name updated')}};
 $('competitionStartInput').addEventListener('change',async()=>{
  if(!currentUser){toast('Admin login required');return}
+ if(data.endDateTime && $('competitionStartInput').value && new Date($('competitionStartInput').value)>=new Date(data.endDateTime)){toast('Start time must be before end time');$('competitionStartInput').value=data.startDateTime||'';return}
  data.startDateTime=$('competitionStartInput').value;
  const ok=await persist();render();
  if(ok)toast('Competition start date & time saved');
 });
+$('competitionEndInput').addEventListener('change',async()=>{
+ if(!currentUser){toast('Admin login required');return}
+ if(data.startDateTime && $('competitionEndInput').value && new Date($('competitionEndInput').value)<=new Date(data.startDateTime)){toast('End time must be after start time');$('competitionEndInput').value=data.endDateTime||'';return}
+ data.endDateTime=$('competitionEndInput').value;
+ const ok=await persist();render();
+ if(ok)toast('Competition end date & time saved');
+});
+function updateCompetitionClock(){
+ const duration=$('competitionDuration'), countdown=$('competitionCountdown');if(!duration||!countdown)return;
+ const start=data.startDateTime?new Date(data.startDateTime).getTime():NaN,end=data.endDateTime?new Date(data.endDateTime).getTime():NaN,now=Date.now();
+ const parts=ms=>{let sec=Math.max(0,Math.floor(ms/1000));const days=Math.floor(sec/86400);sec%=86400;const hours=Math.floor(sec/3600);sec%=3600;const mins=Math.floor(sec/60);const seconds=sec%60;return `${days}d ${hours}h ${mins}m ${seconds}s`;};
+ if(Number.isFinite(start)&&Number.isFinite(end)&&end>start){const total=end-start;duration.textContent=`${Math.floor(total/86400000)} days, ${Math.floor((total%86400000)/3600000)} hours, ${Math.floor((total%3600000)/60000)} minutes`;if(now<start)countdown.textContent='Starts in '+parts(start-now);else if(now<end)countdown.textContent='Ends in '+parts(end-now);else countdown.textContent='Competition ended';}
+ else{duration.textContent='Set start and end times';countdown.textContent='Countdown will appear when both dates are set';}
+}
+setInterval(updateCompetitionClock,1000);
 $('updateDate').value=new Date().toISOString().slice(0,10);$('updateDate').onchange=()=>render();
 $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Current Balance','Profit/Loss','Return %','Last Update'],...([...data.traders].sort((a,b)=>profit(b)-profit(a)).map((t,i)=>[i+1,t.name,t.start,t.current,profit(t),ret(t),t.updated||'']))];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trader-arena-leaderboard.csv';a.click();URL.revokeObjectURL(a.href)};
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeTwoInput').value=data.secondPrize||'';$('prizeModalBack').style.display='flex'};
