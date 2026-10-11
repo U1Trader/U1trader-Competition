@@ -487,6 +487,18 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
  .top .top-actions{width:100%!important;flex:0 0 100%!important;margin-left:0!important;justify-content:flex-end!important;align-self:flex-end!important}
 }
 
+
+/* Trader profile, account mapping and balance chart */
+.trader-link{background:none;border:0;padding:0;color:var(--text);font:inherit;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:#526786;text-underline-offset:3px}
+.trader-link:hover{color:var(--blue)}
+.profile-modal{width:min(850px,100%);max-height:90vh;overflow:auto}
+.profile-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.profile-metric{background:#0b1324;border:1px solid var(--line);border-radius:12px;padding:13px}
+.profile-metric small{display:block;color:var(--muted);font-size:11px}.profile-metric strong{display:block;font-size:20px;margin-top:5px;overflow-wrap:anywhere}
+.profile-chart{width:100%;height:230px;display:block;background:#0b1324;border:1px solid var(--line);border-radius:12px}
+.profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}
+@media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:190px}}
+
 </style>
 </head>
 <body>
@@ -555,7 +567,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 
 <div class="footer admin-only">Shared demo competition • Manual updates • No broker connection • Admin-only editing • Export CSV for backup</div>
 </div>
-<div class="modalback" id="modalBack"><div class="modal"><h3 id="modalTitle">Add trader</h3><div class="field"><label>Trader display name</label><input id="newName" maxlength="40" placeholder="Trader name"></div><div class="formrow"><div class="field"><label>Starting balance ($)</label><input id="newStart" type="number" min="0" step="0.01" placeholder="10000"></div><div class="field"><label>Current balance ($)</label><input id="newCurrent" type="number" min="0" step="0.01" placeholder="10000"></div></div><div class="hint">Use nicknames if you prefer. This dashboard does not connect to MT5 automatically.</div><div class="modalactions"><button class="btn" id="cancelModal">Cancel</button><button class="btn primary" id="confirmAdd">Add trader</button></div></div></div>
+<div class="modalback" id="modalBack"><div class="modal"><h3 id="modalTitle">Add trader</h3><div class="field"><label>Trader display name</label><input id="newName" maxlength="40" placeholder="Trader name"></div><div class="field"><label>Exness MT5 account number</label><input id="newAccountLogin" inputmode="numeric" maxlength="32" placeholder="MT5 login number"></div><div class="formrow"><div class="field"><label>Starting balance ($)</label><input id="newStart" type="number" min="0" step="0.01" placeholder="10000"></div><div class="field"><label>Current balance ($)</label><input id="newCurrent" type="number" min="0" step="0.01" placeholder="10000"></div></div><div class="hint">Account number is stored for account mapping. Automatic MT5 balance and trade sync requires the separate secure sync service; adding an account here does not connect it by itself.</div><div class="modalactions"><button class="btn" id="cancelModal">Cancel</button><button class="btn primary" id="confirmAdd">Add trader</button></div></div></div>
 <div class="modalback" id="prizeModalBack"><div class="modal"><h3>Edit prizes</h3>
 <div class="field"><label>🥇 First place prize (e.g. $100 or ₹5,000)</label><input id="prizeOneInput" maxlength="60" placeholder="Enter first prize"></div>
 <div class="field"><label>🥈 Second place prize (e.g. $50 or ₹2,500)</label><input id="prizeTwoInput" maxlength="60" placeholder="Enter second prize"></div>
@@ -569,6 +581,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Balance history</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 760 230" role="img" aria-label="Trader balance line chart"></svg><div class="hint" id="profileChartNote">Real chart points appear as balance snapshots are collected by the sync service.</div><h4 style="margin:18px 0 8px">Closed trade history</h4><div class="profile-trades"><table><thead><tr><th>Closed at</th><th>Symbol</th><th>Type</th><th>Volume</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -681,7 +694,7 @@ function render(){
  $('secondName').textContent=sorted.length>1?sorted[1].name:'Waiting for trader';
  $('secondReturn').textContent=sorted.length>1?'Return: '+pct(ret(sorted[1])):'Return: —';
  $('secondPrize').textContent='Prize: '+(data.secondPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><span class="trader">${esc(t.name)}</span></td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
+ $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button></td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
  $('emptyState').style.display=sorted.length?'none':'block';
  // Preserve the selected trader whenever render() refreshes the dropdown.
  const selectedTraderId=$('traderSelect').value;
@@ -694,9 +707,9 @@ function removeTrader(id){if(!currentUser){toast('Admin login required');return}
 window.selectTrader=selectTrader;window.removeTrader=removeTrader;
 $('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.id===$('traderSelect').value);if(t){$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name}else{$('editTraderName').value='';$('startBalance').value='';$('currentBalance').value='';$('formTitle').textContent='Update trader'}});
 $('saveBalance').onclick=()=>{if(!currentUser)return toast('Admin login required');const id=$('traderSelect').value,t=data.traders.find(x=>x.id===id);if(!t)return toast('Select a trader first');const st=Number($('startBalance').value),cur=Number($('currentBalance').value),editedName=$('editTraderName').value.trim();if(!editedName)return toast('Enter a trader name');if($('startBalance').value===''||$('currentBalance').value===''||st<0||cur<0)return toast('Enter valid balances');const old=Number(t.current)||0;t.name=editedName;t.start=st;t.current=cur;t.updated=$('updateDate').value||new Date().toISOString().slice(0,10);data.history.unshift({name:t.name,date:t.updated,balance:cur,delta:cur-old,note:$('note').value});persist();render();$('traderSelect').value=id;$('editTraderName').value=t.name;$('formTitle').textContent='Update '+t.name;$('startBalance').value=st;$('currentBalance').value=cur;$('note').value='';toast('Trader name and balance saved')};
-$('addBtn').onclick=()=>{if(!currentUser)return toast('Admin login required');$('newName').value='';$('newStart').value='10000';$('newCurrent').value='10000';$('modalBack').style.display='flex';$('newName').focus()};
+$('addBtn').onclick=()=>{if(!currentUser)return toast('Admin login required');$('newName').value='';$('newAccountLogin').value='';$('newStart').value='10000';$('newCurrent').value='10000';$('modalBack').style.display='flex';$('newName').focus()};
 $('cancelModal').onclick=()=> $('modalBack').style.display='none';
-$('confirmAdd').onclick=()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');data.traders.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name,start:Number(start),current:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10)});persist();render();$('modalBack').style.display='none';toast('Trader added')};
+$('confirmAdd').onclick=()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]});persist();render();$('modalBack').style.display='none';toast('Trader added. MT5 sync still needs setup.')};
 $('editLeague').onclick=()=>{if(!currentUser)return toast('Admin login required');const n=prompt('Competition name:',data.league);if(n&&n.trim()){data.league=n.trim();persist();render();toast('Competition name updated')}};
 $('competitionStartInput').addEventListener('change',async()=>{
  if(!currentUser){toast('Admin login required');return}
@@ -725,6 +738,29 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Cur
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeTwoInput').value=data.secondPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();data.secondPrize=$('prizeTwoInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
+function openTraderProfile(id){
+ const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
+ $('profileName').textContent=t.name;
+ const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
+ $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
+ const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
+ const points=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))):[];
+ if(points.length===0)points.push({date:'Start',balance:Number(t.start)||0},{date:t.updated||'Current',balance:Number(t.current)||0});
+ if(points.length===1)points.unshift({date:'Start',balance:Number(t.start)||0});
+ const vals=points.map(p=>Number(p.balance)||0),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
+ const coords=vals.map((v,i)=>({x:34+i*(692/Math.max(1,vals.length-1)),y:190-((v-min)/span)*145}));
+ const poly=coords.map(p=>p.x+','+p.y).join(' ');
+ let svg='<line x1="34" y1="35" x2="726" y2="35" stroke="#263550"/><line x1="34" y1="105" x2="726" y2="105" stroke="#263550"/><line x1="34" y1="190" x2="726" y2="190" stroke="#263550"/><text x="12" y="20" fill="#94a5c3" font-size="11">'+esc(fmt(max))+'</text><text x="12" y="220" fill="#94a5c3" font-size="11">'+esc(fmt(min))+'</text><polyline points="'+poly+'" fill="none" stroke="#42d392" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+ coords.forEach((p,i)=>{svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#42d392"/><text x="'+p.x+'" y="208" text-anchor="middle" fill="#94a5c3" font-size="10">'+esc(String(points[i].date||'').slice(0,10))+'</text>'});
+ $('profileBalanceChart').innerHTML=svg;
+ $('profileChartNote').textContent=t.balanceHistory&&t.balanceHistory.length>1?'Balance snapshots saved: '+t.balanceHistory.length+'.':'Chart currently shows starting and latest saved balance only; historical points will build after sync is configured.';
+ const trades=Array.isArray(t.trades)?t.trades:[];
+ $('profileTradeRows').innerHTML=trades.length?trades.slice().sort((a,b)=>String(b.closedAt||'').localeCompare(String(a.closedAt||''))).map(x=>'<tr><td>'+esc(x.closedAt||'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.type||'—')+'</td><td>'+esc(x.volume??'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.profit))+'</td></tr>').join(''):'';
+ $('profileTradesEmpty').style.display=trades.length?'none':'block';$('traderProfileBack').style.display='flex';
+}
+window.openTraderProfile=openTraderProfile;
+$('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
+$('traderProfileBack').addEventListener('click',e=>{if(e.target===$('traderProfileBack'))$('traderProfileBack').style.display='none'});
 render();
 setAdminMode(null);
 (async()=>{
