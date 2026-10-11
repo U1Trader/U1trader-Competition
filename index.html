@@ -502,6 +502,15 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 
 .trade-update-card{margin:18px 0}.trade-update-card .sidebody{padding:18px}.trade-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.trade-fields .field{margin-bottom:4px}.trade-fields .wide{grid-column:span 2}.trade-table-wrap{overflow:auto;margin:12px 0}.trade-table{min-width:760px}.trade-table input,.trade-table select{width:100%;min-width:78px;padding:8px;border:1px solid var(--line);border-radius:7px;background:#0b1324;color:var(--text)}.trade-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.ocr-status{margin:8px 0;color:var(--muted);font-size:12px}.ocr-text{width:100%;min-height:75px;background:#0b1324;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;font:12px/1.5 ui-monospace,monospace}.report-list{display:grid;gap:10px;padding:0 18px 18px}.report-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:rgba(255,255,255,.02)}.report-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.report-top strong{font-size:13px}.report-meta{font-size:12px;color:var(--muted);margin-top:4px}.report-trades{font-size:12px;color:var(--muted);margin-top:8px}.report-pnl{font-weight:800}.report-pnl.positive{color:var(--green)}.report-pnl.negative{color:var(--red)}@media(max-width:760px){.trade-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:460px){.trade-fields{grid-template-columns:1fr}.trade-fields .wide{grid-column:auto}}
 
+
+#legacyBalanceUpdate{display:none!important}body.admin-mode #legacyBalanceUpdate{display:none!important}
+.simple-upload-fields{grid-template-columns:minmax(180px,.7fr) minmax(260px,1.3fr)}
+#savedTradeReportsSection{display:none!important}body.admin-mode #savedTradeReportsSection{display:block!important}
+.trader-link{border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:2px 0}
+.profile-modal{width:min(1050px,100%);max-height:92vh;padding:24px}
+.profile-chart{height:300px}
+@media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{padding:15px}.profile-chart{height:230px}}
+
 </style>
 </head>
 <body>
@@ -511,7 +520,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
   <div class="top-actions"><span id="syncStatus" class="hint" style="align-self:center">Connecting…</span><button class="btn primary" id="authBtn">Admin login</button><button class="btn admin-only" id="editLeague">Edit competition</button><button class="btn admin-only" id="editPrizes">Edit prizes</button><button class="btn admin-only" id="exportBtn">Export CSV</button><button class="btn primary admin-only" id="addBtn">+ Add trader</button></div>
 </header>
 <section class="hero">
-  <div><div class="live"><span class="dot"></span> Competition dashboard</div><div class="competition-title-row"><h2 id="leagueName">Friends Trading Challenge</h2><button type="button" class="btn admin-only" id="editCompetitionName">Edit competition name</button></div><p>Track your friends' demo-account performance. Update each trader's balance daily and the leaderboard will calculate profit, return %, and rank automatically.</p></div>
+  <div><div class="live"><span class="dot"></span> Competition dashboard</div><div class="competition-title-row"><h2 id="leagueName">Friends Trading Challenge</h2><button type="button" class="btn admin-only" id="editCompetitionName">Edit competition name</button></div><p>Track your friends' trading performance. Upload a trade-history screenshot to update P&amp;L, balance, rankings, and each trader's history automatically.</p></div>
   <div class="hero-dates">
     <div class="datebox start-datebox"><small>Competition starts (IST)</small><div id="competitionStartDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionStartInput">Set start date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionStartInput"></div>
     <div class="datebox end-datebox"><small>Competition ends (IST)</small><div id="competitionEndDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionEndInput">Set end date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionEndInput"></div>
@@ -535,12 +544,12 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 </section>
 <div class="grid">
 <section class="card">
-  <div class="cardhead"><div><h3>🏆 Live leaderboard</h3><p>Ranks recalculate whenever you save a balance.</p></div><span class="eyebrow">Rankings</span></div>
+  <div class="cardhead"><div><h3>🏆 Live leaderboard</h3><p>Ranks update automatically whenever a trade screenshot is saved.</p></div><span class="eyebrow">Rankings</span></div>
   <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th><th></th></tr></thead><tbody id="leaderRows"></tbody></table></div>
   <div class="empty" id="emptyState">Add your first trader to begin the competition.</div>
 </section>
 <aside style="display:flex;flex-direction:column;gap:16px">
-<section class="card admin-only">
+<section class="card admin-only" id="legacyBalanceUpdate" style="display:none!important">
   <div class="cardhead"><div><h3 id="formTitle">Update trader</h3><p>Enter the latest account balance.</p></div></div>
   <div class="sidebody">
     <div class="field"><label>Select trader</label><select id="traderSelect"><option value="">Select a trader</option></select></div>
@@ -559,25 +568,19 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 </div>
 
 <section class="card trade-update-card admin-only" id="tradeUpdateSection">
-  <div class="cardhead"><div><h3>📸 Daily Trade Screenshot Update</h3><p>Select trader and date, upload MT5 screenshot, review OCR results, then save.</p></div><span class="eyebrow">Admin only</span></div>
+  <div class="cardhead"><div><h3>📸 Upload Trade Screenshot</h3><p>Select the trader and upload the MT5 history screenshot. P&amp;L and date are read automatically.</p></div><span class="eyebrow">Admin only</span></div>
   <div class="sidebody">
-    <div class="trade-fields">
-      <div class="field"><label>Trader</label><select id="reportTrader"><option value="">Select trader</option></select></div>
-      <div class="field"><label>Trading date</label><input id="reportDate" type="date"></div>
-      <div class="field"><label>Account balance ($) · auto-read</label><input id="reportBalance" type="number" min="0" step="0.01" placeholder="Read from screenshot when available"></div>
-      <div class="field"><label>Equity ($) · optional, auto-read</label><input id="reportEquity" type="number" min="0" step="0.01" placeholder="Read from screenshot when available"></div>
-      <div class="field"><label>Daily total P&amp;L ($) · auto-calculated</label><input id="reportDailyPnl" type="number" step="0.01" placeholder="Calculated from screenshot trades"></div>
-      <div class="field wide"><label>Upload MT5 screenshot (OCR starts automatically)</label><input id="reportScreenshot" type="file" accept="image/*"></div>
+    <div class="trade-fields simple-upload-fields">
+      <div class="field"><label>Trader name</label><select id="reportTrader"><option value="">Select trader</option></select></div>
+      <div class="field wide"><label>Upload screenshot</label><input id="reportScreenshot" type="file" accept="image/*"></div>
     </div>
-    <div class="trade-tools"><button class="btn" type="button" id="runOcrBtn">Read / re-read screenshot</button></div>
-    <div class="ocr-status" id="ocrStatus">Choose a trader and date, then upload one screenshot. OCR runs automatically; check the extracted preview before saving.</div>
-    <div class="trade-table-wrap"><table class="trade-table"><thead><tr><th>#</th><th>Symbol</th><th>Buy/Sell</th><th>Lot size</th><th>Entry price</th><th>Exit price</th><th>Profit/Loss ($)</th><th></th></tr></thead><tbody id="reportTradeRows"><tr><td colspan="8" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr></tbody></table></div>
-    <details class="field"><summary class="hint">Show recognized text (optional verification)</summary><textarea class="ocr-text" id="reportOcrText" placeholder="Recognized screenshot text will appear here."></textarea></details>
-    <div class="hint">Only the screenshot is needed from you. Balance/equity are read when visible; daily P&L is calculated from detected trade P&L, or from the balance change against a previous saved balance when trade rows are not detected. Starting balance is used for overall competition profit/return. OCR can make mistakes, so review the preview before saving. The image itself is not uploaded; extracted details are saved. Admin-only editing.</div>
-    <div class="trade-tools"><button class="btn primary" type="button" id="saveTradeReportBtn">Confirm &amp; save report</button><button class="btn" type="button" id="clearTradeReportBtn">Clear form</button></div>
+    <div class="ocr-status" id="ocrStatus">Choose a trader and upload the screenshot. The trade profit/loss and date will be read automatically.</div>
+    <div class="trade-tools"><button class="btn" type="button" id="runOcrBtn">Re-read screenshot</button><button class="btn primary" type="button" id="saveTradeReportBtn">Confirm &amp; update balance</button><button class="btn" type="button" id="clearTradeReportBtn">Clear</button></div>
+    <div class="hint">Only trader name and screenshot are needed. Detected P&amp;L is added to or subtracted from the trader's existing current balance. Starting balance remains unchanged. Review the detected P&amp;L/date status before confirming. Screenshot image itself is not uploaded.</div>
+    <div style="display:none"><input id="reportDate" type="date"><input id="reportBalance" type="number"><input id="reportEquity" type="number"><input id="reportDailyPnl" type="number"><textarea id="reportOcrText"></textarea><table><tbody id="reportTradeRows"></tbody></table></div>
   </div>
 </section>
-<section class="card" id="savedTradeReportsSection">
+<section class="card admin-only" id="savedTradeReportsSection">
   <div class="cardhead"><div><h3>🗓️ Daily Trade Reports</h3><p>Saved screenshot-based trade summaries by trader and date.</p></div><span class="eyebrow">History</span></div>
   <div class="report-list" id="savedTradeReports"><div class="empty">No daily trade reports saved yet.</div></div>
 </section>
@@ -608,7 +611,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Balance history</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 760 230" role="img" aria-label="Trader balance line chart"></svg><div class="hint" id="profileChartNote">Real chart points appear as balance snapshots are collected by the sync service.</div><h4 style="margin:18px 0 8px">Closed trade history</h4><div class="profile-trades"><table><thead><tr><th>Closed at</th><th>Symbol</th><th>Type</th><th>Volume</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 760 230" role="img" aria-label="Trader balance line chart"></svg><div class="hint" id="profileChartNote">Real chart points appear as balance snapshots are collected by the sync service.</div><h4 style="margin:18px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Closed at</th><th>Symbol</th><th>Type</th><th>Volume</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -775,7 +778,7 @@ function estimateDailyPnl(trader,date,balance,trades){
 }
 $('reportDate').value=new Date().toISOString().slice(0,10);
 $('reportTrader').addEventListener('change',()=>{ $('reportBalance').value=''; $('reportEquity').value=''; $('reportDailyPnl').value=''; if($('reportScreenshot').files?.[0]) $('runOcrBtn').click(); });
-$('clearTradeReportBtn').addEventListener('click',()=>{draftTradeRows=[];$('reportDate').value=new Date().toISOString().slice(0,10);$('reportBalance').value='';$('reportEquity').value='';$('reportDailyPnl').value='';$('reportScreenshot').value='';$('reportOcrText').value='';$('ocrStatus').textContent='Choose a trader and date, then upload a screenshot. OCR starts automatically.';$('reportTrader').value='';renderTradeDraft()});
+$('clearTradeReportBtn').addEventListener('click',()=>{draftTradeRows=[];$('reportDate').value='';$('reportBalance').value='';$('reportEquity').value='';$('reportDailyPnl').value='';$('reportScreenshot').value='';$('reportOcrText').value='';$('ocrStatus').textContent='Choose the trader and upload a screenshot. P&L/date will be read automatically.';$('reportTrader').value='';renderTradeDraft()});
 async function readTradeScreenshot(){
  if(!currentUser)return toast('Admin login required');
  const file=$('reportScreenshot').files?.[0];if(!file)return;
@@ -785,30 +788,27 @@ async function readTradeScreenshot(){
  try{
   const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Reading screenshot… '+Math.round((m.progress||0)*100)+'%';}});
   const text=result?.data?.text||'';$('reportOcrText').value=text;
-  const bal=extractSummaryValue(text,'Balance'),eq=extractSummaryValue(text,'Equity');
-  $('reportBalance').value=bal===null?'':bal;$('reportEquity').value=eq===null?'':eq;
   const parsed=parseOcrTradeRows(text);draftTradeRows=parsed;renderTradeDraft();
-  const trader=data.traders.find(t=>String(t.id)===String($('reportTrader').value));
-  const calc=estimateDailyPnl(trader,$('reportDate').value,bal,parsed);
-  $('reportDailyPnl').value=calc.value===null?'':Number(calc.value).toFixed(2);
-  const notes=[];notes.push(`OCR finished: ${parsed.length} possible trade row(s) found.`);notes.push(bal===null?'Balance not detected (optional).':'Balance detected.');notes.push(eq===null?'Equity not detected (optional).':'Equity detected.');notes.push(calc.value===null?'Daily P&L could not be calculated from this screenshot.':`Daily P&L estimate: $${Number(calc.value).toFixed(2)} (${calc.method}).`);if(bal!==null&&trader&&Number.isFinite(Number(trader.start)))notes.push(`Overall P&L vs starting balance: $${(Number(bal)-Number(trader.start)).toFixed(2)}.`);notes.push('Review extracted rows and values before saving.');
-  $('ocrStatus').textContent=notes.join(' ');
+  const dateMatch=text.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/);if(dateMatch){const yyyy=dateMatch[1],mm=String(dateMatch[2]).padStart(2,'0'),dd=String(dateMatch[3]).padStart(2,'0');$('reportDate').value=`${yyyy}-${mm}-${dd}`;}
+  let pnl=extractSummaryValue(text,'Profit');if(pnl===null&&parsed.length)pnl=parsed.reduce((sum,t)=>sum+(numVal(t.pnl)||0),0);$('reportDailyPnl').value=pnl===null?'':Number(pnl).toFixed(2);
+  $('ocrStatus').textContent=`OCR finished. Detected date: ${$('reportDate').value||'not detected'} · Trade P&L: ${pnl===null?'not detected':(pnl>=0?'+':'')+'$'+Number(pnl).toFixed(2)}. Please confirm the value before saving.`;
  }catch(e){console.error(e);$('ocrStatus').textContent='OCR failed: '+(e.message||'Unknown error')+'. Try a clearer screenshot.';toast('Could not read screenshot')}finally{btn.disabled=false}
 }
 $('reportScreenshot').addEventListener('change',readTradeScreenshot);
-$('reportDate').addEventListener('change',()=>{const trader=data.traders.find(t=>String(t.id)===String($('reportTrader').value));if($('reportScreenshot').files?.[0]){const bal=numVal($('reportBalance').value);const calc=estimateDailyPnl(trader,$('reportDate').value,bal,draftTradeRows);$('reportDailyPnl').value=calc.value===null?'':Number(calc.value).toFixed(2);}});
+
 $('runOcrBtn').addEventListener('click',readTradeScreenshot);
 $('saveTradeReportBtn').addEventListener('click',async()=>{
- if(!currentUser)return toast('Admin login required');const traderId=$('reportTrader').value;const trader=data.traders.find(t=>String(t.id)===String(traderId));const date=$('reportDate').value;
- if(!trader)return toast('Select a trader');if(!date)return toast('Select the trading date');if(!$('reportScreenshot').files?.[0])return toast('Upload the screenshot first');
- const trades=draftTradeRows.map(t=>({symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',lotSize:numVal(t.lotSize),entryPrice:numVal(t.entryPrice),exitPrice:numVal(t.exitPrice),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.lotSize!==null||t.entryPrice!==null||t.exitPrice!==null||t.pnl!==null);
- const balance=numVal($('reportBalance').value),equity=numVal($('reportEquity').value);let dailyPnl=numVal($('reportDailyPnl').value);if(dailyPnl===null){const calc=estimateDailyPnl(trader,date,balance,trades);dailyPnl=calc.value;}if(dailyPnl===null)return toast('Screenshot does not contain enough data to calculate daily P&L. Upload an MT5 history screenshot with trade profits, or a balance screenshot after a previous saved update.');
- if(balance!==null&&balance<0||equity!==null&&equity<0)return toast('Balance and equity cannot be negative');
- const report={id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),traderId:trader.id,traderName:trader.name,date,balance,equity,dailyPnl,tradeCount:trades.length,trades,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()};
- if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];const prior=data.dailyTradeReports.findIndex(r=>String(r.traderId)===String(trader.id)&&String(r.date)===String(date));if(prior>=0){if(!confirm(`A report for ${trader.name} on ${date} already exists. Replace it?`))return;data.dailyTradeReports[prior]=report}else data.dailyTradeReports.push(report);
- if(balance!==null){trader.current=balance;trader.updated=date;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];const bh=trader.balanceHistory.findIndex(x=>x.date===date);if(bh>=0)trader.balanceHistory[bh]={date,balance};else trader.balanceHistory.push({date,balance});}
- if(equity!==null)trader.equity=equity;
- const btn=$('saveTradeReportBtn');btn.disabled=true;const ok=await persist();btn.disabled=false;if(!ok)return;render();$('clearTradeReportBtn').click();toast('Daily trade report saved and dashboard updated');
+ if(!currentUser)return toast('Admin login required');
+ const traderId=$('reportTrader').value;const trader=data.traders.find(t=>String(t.id)===String(traderId));const date=$('reportDate').value;
+ if(!trader)return toast('Select a trader');if(!$('reportScreenshot').files?.[0])return toast('Upload the screenshot first');
+ let dailyPnl=numVal($('reportDailyPnl').value);if(dailyPnl===null)return toast('P&L was not detected. Upload a clearer MT5 history screenshot.');
+ const trades=draftTradeRows.map(t=>({symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',lotSize:numVal(t.lotSize),entryPrice:numVal(t.entryPrice),exitPrice:numVal(t.exitPrice),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.pnl!==null);
+ const reportDate=date||new Date().toISOString().slice(0,10);if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
+ const priorIndex=data.dailyTradeReports.findIndex(r=>String(r.traderId)===String(trader.id)&&String(r.date)===String(reportDate));
+ if(priorIndex>=0){if(!confirm(`A report for ${trader.name} on ${reportDate} already exists. Replace it and adjust the balance by the P&L difference?`))return;const old=Number(data.dailyTradeReports[priorIndex].dailyPnl)||0;trader.current=(Number(trader.current)||0)-old+dailyPnl;data.dailyTradeReports[priorIndex]={...data.dailyTradeReports[priorIndex],dailyPnl,trades,tradeCount:trades.length,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()};}
+ else {trader.current=(Number(trader.current)||0)+dailyPnl;data.dailyTradeReports.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),traderId:trader.id,traderName:trader.name,date:reportDate,balance:null,equity:null,dailyPnl,tradeCount:trades.length,trades,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()});}
+ trader.updated=reportDate;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];const bh=trader.balanceHistory.findIndex(x=>x.date===reportDate);if(bh>=0)trader.balanceHistory[bh]={date:reportDate,balance:Number(trader.current)||0};else trader.balanceHistory.push({date:reportDate,balance:Number(trader.current)||0});
+ const btn=$('saveTradeReportBtn');btn.disabled=true;const ok=await persist();btn.disabled=false;if(!ok)return;render();$('clearTradeReportBtn').click();toast(`Saved ${dailyPnl>=0?'+':''}$${dailyPnl.toFixed(2)} P&L. Current balance updated.`);
 });
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -864,7 +864,7 @@ function openTraderProfile(id){
  coords.forEach((p,i)=>{svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#42d392"/><text x="'+p.x+'" y="208" text-anchor="middle" fill="#94a5c3" font-size="10">'+esc(String(points[i].date||'').slice(0,10))+'</text>'});
  $('profileBalanceChart').innerHTML=svg;
  $('profileChartNote').textContent=t.balanceHistory&&t.balanceHistory.length>1?'Balance snapshots saved: '+t.balanceHistory.length+'.':'Chart currently shows starting and latest saved balance only; historical points will build after sync is configured.';
- const trades=Array.isArray(t.trades)?t.trades:[];
+ const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,closedAt:x.closedAt||r.date})): [{closedAt:r.date,symbol:'MT5 trade',type:'History',volume:'—',entryPrice:'—',exitPrice:'—',profit:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
  $('profileTradeRows').innerHTML=trades.length?trades.slice().sort((a,b)=>String(b.closedAt||'').localeCompare(String(a.closedAt||''))).map(x=>'<tr><td>'+esc(x.closedAt||'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.type||'—')+'</td><td>'+esc(x.volume??'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.profit))+'</td></tr>').join(''):'';
  $('profileTradesEmpty').style.display=trades.length?'none':'block';$('traderProfileBack').style.display='flex';
 }
