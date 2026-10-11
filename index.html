@@ -793,6 +793,8 @@ setAdminMode(null);
  const {data:sessionData}=await sb.auth.getSession();
  if(sessionData?.session?.user)setAdminMode(sessionData.session.user);
  await loadSharedData();
+ // Restore MT5 account mappings for existing dashboard traders after a saved admin session is restored.
+ if(sessionData?.session?.user){await ensureMt5Mappings();}
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
    if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
