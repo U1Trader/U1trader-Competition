@@ -591,6 +591,31 @@ const pct=n=>(n>0?'+':'')+Number(n||0).toFixed(2)+'%';
 const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_8xtYAX6736Bi6cg2N5_qOQ_WV_PRv5e';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const MT5_SYNC_FUNCTION_URL=SUPABASE_URL+'/functions/v1/mt5-sync';
+async function registerMt5Account(t){
+ if(!currentUser || !t || !t.accountLogin) return {ok:false, skipped:true};
+ const {data:sessionData}=await sb.auth.getSession();
+ const accessToken=sessionData?.session?.access_token;
+ if(!accessToken) return {ok:false,error:'Admin session missing'};
+ const response=await fetch(MT5_SYNC_FUNCTION_URL,{
+  method:'POST',
+  headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+accessToken},
+  body:JSON.stringify({action:'register-account',account_login:String(t.accountLogin),display_name:String(t.name),initial_balance:Number(t.start),current_balance:Number(t.current),current_equity:Number(t.equity??t.current),broker:'Exness-MT5',currency:'USD'})
+ });
+ let result={};try{result=await response.json()}catch{}
+ if(!response.ok) throw new Error(result.error||('Account mapping failed ('+response.status+')'));
+ t.mt5TraderId=result.trader_id||t.mt5TraderId;
+ t.mt5AccountId=result.account_id||t.mt5AccountId;
+ return {ok:true,result};
+}
+async function ensureMt5Mappings(){
+ if(!currentUser) return;
+ const linked=(data.traders||[]).filter(t=>t.accountLogin);
+ for(const t of linked){
+  try{await registerMt5Account(t)}catch(e){console.error('MT5 account mapping failed for',t.name,e);toast('MT5 link for '+t.name+' failed: '+e.message);}
+ }
+ if(linked.length){await persist();}
+}
 let currentUser=null, lastRemoteJson='', loadingRemote=true;
 let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
@@ -625,6 +650,7 @@ async function loginAdmin(){
  const {data:row}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
  if(row&&(!row.dashboard_data||!Object.keys(row.dashboard_data).length)){await persist();render()}
  toast('Admin login successful');
+ await ensureMt5Mappings();
 }
 $('authBtn').addEventListener('click',async()=>{if(currentUser){await sb.auth.signOut();setAdminMode(null);render();toast('Logged out')}else{$('loginModalBack').style.display='flex';$('adminEmail').focus()}});
 $('cancelLogin').addEventListener('click',()=>$('loginModalBack').style.display='none');
@@ -709,7 +735,7 @@ $('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.
 $('saveBalance').onclick=()=>{if(!currentUser)return toast('Admin login required');const id=$('traderSelect').value,t=data.traders.find(x=>x.id===id);if(!t)return toast('Select a trader first');const st=Number($('startBalance').value),cur=Number($('currentBalance').value),editedName=$('editTraderName').value.trim();if(!editedName)return toast('Enter a trader name');if($('startBalance').value===''||$('currentBalance').value===''||st<0||cur<0)return toast('Enter valid balances');const old=Number(t.current)||0;t.name=editedName;t.start=st;t.current=cur;t.updated=$('updateDate').value||new Date().toISOString().slice(0,10);data.history.unshift({name:t.name,date:t.updated,balance:cur,delta:cur-old,note:$('note').value});persist();render();$('traderSelect').value=id;$('editTraderName').value=t.name;$('formTitle').textContent='Update '+t.name;$('startBalance').value=st;$('currentBalance').value=cur;$('note').value='';toast('Trader name and balance saved')};
 $('addBtn').onclick=()=>{if(!currentUser)return toast('Admin login required');$('newName').value='';$('newAccountLogin').value='';$('newStart').value='10000';$('newCurrent').value='10000';$('modalBack').style.display='flex';$('newName').focus()};
 $('cancelModal').onclick=()=> $('modalBack').style.display='none';
-$('confirmAdd').onclick=()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]});persist();render();$('modalBack').style.display='none';toast('Trader added. MT5 sync still needs setup.')};
+$('confirmAdd').onclick=async()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);const trader={id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]};data.traders.push(trader);const saved=await persist();if(!saved){data.traders=data.traders.filter(t=>t.id!==id);render();return}try{await registerMt5Account(trader);await persist();render();$('modalBack').style.display='none';toast('Trader added and MT5 account linked')}catch(e){console.error(e);render();$('modalBack').style.display='none';toast('Trader saved, but MT5 link failed: '+e.message)}};
 $('editLeague').onclick=()=>{if(!currentUser)return toast('Admin login required');const n=prompt('Competition name:',data.league);if(n&&n.trim()){data.league=n.trim();persist();render();toast('Competition name updated')}};
 $('competitionStartInput').addEventListener('change',async()=>{
  if(!currentUser){toast('Admin login required');return}
