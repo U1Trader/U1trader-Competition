@@ -591,32 +591,9 @@ const pct=n=>(n>0?'+':'')+Number(n||0).toFixed(2)+'%';
 const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_8xtYAX6736Bi6cg2N5_qOQ_WV_PRv5e';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
-const MT5_SYNC_FUNCTION_URL=SUPABASE_URL+'/functions/v1/mt5-sync';
-async function registerMt5Account(t){
- if(!currentUser || !t || !t.accountLogin) return {ok:false, skipped:true};
- const {data:sessionData}=await sb.auth.getSession();
- const accessToken=sessionData?.session?.access_token;
- if(!accessToken) return {ok:false,error:'Admin session missing'};
- const response=await fetch(MT5_SYNC_FUNCTION_URL,{
-  method:'POST',
-  headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+accessToken},
-  body:JSON.stringify({action:'register-account',account_login:String(t.accountLogin),display_name:String(t.name),initial_balance:Number(t.start),current_balance:Number(t.current),current_equity:Number(t.equity??t.current),broker:'Exness-MT5',currency:'USD'})
- });
- let result={};try{result=await response.json()}catch{}
- if(!response.ok) throw new Error(result.error||('Account mapping failed ('+response.status+')'));
- t.mt5TraderId=result.trader_id||t.mt5TraderId;
- t.mt5AccountId=result.account_id||t.mt5AccountId;
- return {ok:true,result};
-}
-async function ensureMt5Mappings(){
- if(!currentUser) return;
- const linked=(data.traders||[]).filter(t=>t.accountLogin);
- for(const t of linked){
-  try{await registerMt5Account(t)}catch(e){console.error('MT5 account mapping failed for',t.name,e);toast('MT5 link for '+t.name+' failed: '+e.message);}
- }
- if(linked.length){await persist();}
-}
 let currentUser=null, lastRemoteJson='', loadingRemote=true;
+// Live MT5 values are read directly from the public-read-only mt5_accounts table.
+let liveAccountsByLogin={};
 let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
 function setSyncStatus(message){const el=$('syncStatus');if(el)el.textContent=message}
@@ -650,7 +627,6 @@ async function loginAdmin(){
  const {data:row}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
  if(row&&(!row.dashboard_data||!Object.keys(row.dashboard_data).length)){await persist();render()}
  toast('Admin login successful');
- await ensureMt5Mappings();
 }
 $('authBtn').addEventListener('click',async()=>{if(currentUser){await sb.auth.signOut();setAdminMode(null);render();toast('Logged out')}else{$('loginModalBack').style.display='flex';$('adminEmail').focus()}});
 $('cancelLogin').addEventListener('click',()=>$('loginModalBack').style.display='none');
@@ -697,7 +673,9 @@ $('logoFile').addEventListener('change',e=>{
  reader.readAsDataURL(file);
 });
 
-function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
+function liveAccountFor(t){return t&&t.accountLogin?liveAccountsByLogin[String(t.accountLogin).trim()]||null:null}
+function currentBalanceFor(t){const a=liveAccountFor(t);return a&&Number.isFinite(Number(a.current_balance))?Number(a.current_balance):(Number(t.current)||0)}
+function profit(t){return currentBalanceFor(t)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
 function render(){
@@ -720,7 +698,7 @@ function render(){
  $('secondName').textContent=sorted.length>1?sorted[1].name:'Waiting for trader';
  $('secondReturn').textContent=sorted.length>1?'Return: '+pct(ret(sorted[1])):'Return: —';
  $('secondPrize').textContent='Prize: '+(data.secondPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button></td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
+ $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button></td><td>${fmt(t.start)}</td><td>${fmt(currentBalanceFor(t))}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
  $('emptyState').style.display=sorted.length?'none':'block';
  // Preserve the selected trader whenever render() refreshes the dropdown.
  const selectedTraderId=$('traderSelect').value;
@@ -728,14 +706,14 @@ function render(){
  if(selectedTraderId && data.traders.some(t=>String(t.id)===String(selectedTraderId))) $('traderSelect').value=selectedTraderId;
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function selectTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(!t)return;$('traderSelect').value=id;$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name;window.scrollTo({top:0,behavior:'smooth'})}
+function selectTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(!t)return;$('traderSelect').value=id;$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=currentBalanceFor(t);$('formTitle').textContent='Update '+t.name;window.scrollTo({top:0,behavior:'smooth'})}
 function removeTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(t&&confirm('Remove '+t.name+' from this dashboard?')){data.traders=data.traders.filter(x=>x.id!==id);persist();render();toast('Trader removed')}}
 window.selectTrader=selectTrader;window.removeTrader=removeTrader;
-$('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.id===$('traderSelect').value);if(t){$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name}else{$('editTraderName').value='';$('startBalance').value='';$('currentBalance').value='';$('formTitle').textContent='Update trader'}});
+$('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.id===$('traderSelect').value);if(t){$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=currentBalanceFor(t);$('formTitle').textContent='Update '+t.name}else{$('editTraderName').value='';$('startBalance').value='';$('currentBalance').value='';$('formTitle').textContent='Update trader'}});
 $('saveBalance').onclick=()=>{if(!currentUser)return toast('Admin login required');const id=$('traderSelect').value,t=data.traders.find(x=>x.id===id);if(!t)return toast('Select a trader first');const st=Number($('startBalance').value),cur=Number($('currentBalance').value),editedName=$('editTraderName').value.trim();if(!editedName)return toast('Enter a trader name');if($('startBalance').value===''||$('currentBalance').value===''||st<0||cur<0)return toast('Enter valid balances');const old=Number(t.current)||0;t.name=editedName;t.start=st;t.current=cur;t.updated=$('updateDate').value||new Date().toISOString().slice(0,10);data.history.unshift({name:t.name,date:t.updated,balance:cur,delta:cur-old,note:$('note').value});persist();render();$('traderSelect').value=id;$('editTraderName').value=t.name;$('formTitle').textContent='Update '+t.name;$('startBalance').value=st;$('currentBalance').value=cur;$('note').value='';toast('Trader name and balance saved')};
 $('addBtn').onclick=()=>{if(!currentUser)return toast('Admin login required');$('newName').value='';$('newAccountLogin').value='';$('newStart').value='10000';$('newCurrent').value='10000';$('modalBack').style.display='flex';$('newName').focus()};
 $('cancelModal').onclick=()=> $('modalBack').style.display='none';
-$('confirmAdd').onclick=async()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);const trader={id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]};data.traders.push(trader);const saved=await persist();if(!saved){data.traders=data.traders.filter(t=>t.id!==id);render();return}try{await registerMt5Account(trader);await persist();render();$('modalBack').style.display='none';toast('Trader added and MT5 account linked')}catch(e){console.error(e);render();$('modalBack').style.display='none';toast('Trader saved, but MT5 link failed: '+e.message)}};
+$('confirmAdd').onclick=async()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const {data:sessionData}=await sb.auth.getSession();const accessToken=sessionData?.session?.access_token;if(!accessToken)return toast('Please log in again as admin');const btn=$('confirmAdd');btn.disabled=true;btn.textContent='Connecting MT5…';try{const response=await fetch(SUPABASE_URL+'/functions/v1/mt5-sync',{method:'POST',headers:{'Authorization':'Bearer '+accessToken,'apikey':SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json'},body:JSON.stringify({action:'register-account',display_name:name,account_login:accountLogin,initial_balance:Number(start),current_balance:Number(current),current_equity:Number(current),broker:'Exness-MT5',currency:'USD'})});const result=await response.json().catch(()=>({}));if(!response.ok||!result.success){console.error('MT5 account registration failed:',result);toast('MT5 registration failed: '+(result.error||response.status));return}}catch(e){console.error(e);toast('Could not connect to MT5 registration service');return}finally{btn.disabled=false;btn.textContent='Add trader'}const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]});const ok=await persist();render();$('modalBack').style.display='none';await refreshMt5LiveAccounts();if(ok)toast('Trader added and MT5 account linked')};
 $('editLeague').onclick=()=>{if(!currentUser)return toast('Admin login required');const n=prompt('Competition name:',data.league);if(n&&n.trim()){data.league=n.trim();persist();render();toast('Competition name updated')}};
 $('competitionStartInput').addEventListener('change',async()=>{
  if(!currentUser){toast('Admin login required');return}
@@ -764,11 +742,28 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Cur
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeTwoInput').value=data.secondPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();data.secondPrize=$('prizeTwoInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
+async function refreshMt5LiveAccounts(){
+ try{
+  const {data:rows,error}=await sb.from('mt5_accounts').select('account_login,current_balance,current_equity,initial_balance,last_synced_at,is_active').eq('is_active',true);
+  if(error){console.warn('MT5 live account read failed:',error.message);return}
+  const next={};
+  (rows||[]).forEach(a=>{next[String(a.account_login).trim()] = a});
+  liveAccountsByLogin=next;
+  render();
+  const profile=$('traderProfileBack');
+  if(profile&&profile.style.display==='flex'){
+   const shown=$('profileName').textContent;
+   const t=data.traders.find(x=>x.name===shown);
+   if(t)openTraderProfile(t.id);
+  }
+  setSyncStatus(currentUser?'Admin connected · MT5 live':'Live leaderboard · MT5 live');
+ }catch(e){console.warn('MT5 live refresh failed:',e)}
+}
 function openTraderProfile(id){
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
- $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
+ $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(currentBalanceFor(t));
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  const points=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))):[];
  if(points.length===0)points.push({date:'Start',balance:Number(t.start)||0},{date:t.updated||'Current',balance:Number(t.current)||0});
@@ -793,8 +788,8 @@ setAdminMode(null);
  const {data:sessionData}=await sb.auth.getSession();
  if(sessionData?.session?.user)setAdminMode(sessionData.session.user);
  await loadSharedData();
- // Restore MT5 account mappings for existing dashboard traders after a saved admin session is restored.
- if(sessionData?.session?.user){await ensureMt5Mappings();}
+ await refreshMt5LiveAccounts();
+ setInterval(refreshMt5LiveAccounts,5000);
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
    if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
