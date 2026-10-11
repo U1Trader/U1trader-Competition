@@ -752,27 +752,32 @@ function renderSavedTradeReports(){
  host.querySelectorAll('[data-delete-report]').forEach(btn=>btn.addEventListener('click',async()=>{if(!currentUser)return toast('Admin login required');const id=btn.dataset.deleteReport;const report=data.dailyTradeReports.find(r=>String(r.id)===String(id));if(!report)return;if(!confirm('Delete this report? Its P&L will also be removed from the trader balance and chart.'))return;const trader=data.traders.find(t=>String(t.id)===String(report.traderId));if(trader){const pnl=Number(report.dailyPnl)||0;trader.current=(Number(trader.current)||0)-pnl;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];trader.balanceHistory.forEach(h=>{if(String(h.date)>String(report.date)&&Number.isFinite(Number(h.balance)))h.balance=Number(h.balance)-pnl;});const sameDate=data.dailyTradeReports.filter(r=>String(r.traderId)===String(report.traderId)&&String(r.date)===String(report.date)&&String(r.id)!==String(id));if(sameDate.length){const sum=sameDate.reduce((a,r)=>a+(Number(r.dailyPnl)||0),0);const before=Number(report.balanceBefore);const remainingPoint=trader.balanceHistory.find(h=>String(h.date)===String(report.date));if(remainingPoint)remainingPoint.balance=Number.isFinite(before)?before+sum:(Number(trader.start)||0)+sum;}else{trader.balanceHistory=trader.balanceHistory.filter(h=>String(h.date)!==String(report.date));const prior=data.dailyTradeReports.filter(r=>String(r.traderId)===String(report.traderId)&&String(r.date)<String(report.date)&&String(r.id)!==String(id)).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];const snap=trader.balanceHistory.filter(h=>String(h.date)<String(report.date)).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];if(prior&&snap){const point=trader.balanceHistory.find(h=>String(h.date)===String(prior.date));if(point)point.balance=Number(snap.balance)||Number(point.balance)||0;}}}data.dailyTradeReports=data.dailyTradeReports.filter(r=>String(r.id)!==String(id));const ok=await persist();render();toast(ok?'Report and its balance change deleted':'Could not delete report')}));
 }
 function parseOcrTradeRows(text){
- // MT5 mobile History uses one repeated visual block per closed position:
- // symbol/side + exit time, entry -> exit prices + P&L, ticket + Open time.
+ // Parse each MT5 closed-position block independently. OCR can vary the arrow and spacing.
  const lines=String(text||'').split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
  const out=[];let cur=null;
  const dateRe=/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/;
  const normDate=m=>m?`${m[1]}.${String(m[2]).padStart(2,'0')}.${String(m[3]).padStart(2,'0')} ${String(m[4]).padStart(2,'0')}:${m[5]}:${m[6]||'00'}`:'';
- const priceRe=/(-?\d[\d ]*\.\d{1,})\s*(?:->|→|➜|›|—>)\s*(-?\d[\d ]*\.\d{1,})/;
- const finish=()=>{if(cur && (cur.symbol||cur.pnl!==null)){cur.entryPrice=cur.entryPrice===''?'':String(cur.entryPrice);cur.exitPrice=cur.exitPrice===''?'':String(cur.exitPrice);out.push(cur)}cur=null};
+ const priceTokens=line=>{const re=/(?<!\d)(\d[\d ]*\d|\d)\.(\d{1,})/g;const vals=[];let m;while((m=re.exec(line))!==null){const v=(m[1].replace(/\s/g,'')+'.'+m[2]);if(Number.isFinite(Number(v)))vals.push({value:v,index:m.index,end:re.lastIndex});}return vals};
+ const finish=()=>{if(cur&&(cur.symbol||cur.pnl!==null)){out.push(cur)}cur=null};
  for(let i=0;i<lines.length;i++){
   const line=lines[i];
   const head=line.match(/\b([A-Z][A-Z0-9._]{2,15})\s*,?\s*(buy|sell)\b/i);
   if(head){finish();cur={tradeNumber:'',side:head[2].toLowerCase()==='buy'?'Buy':'Sell',symbol:head[1],entryDateTime:'',exitDateTime:'',entryPrice:'',exitPrice:'',pnl:null};const dm=line.match(dateRe);if(dm)cur.exitDateTime=normDate(dm);continue}
   if(!cur)continue;
   const ticket=line.match(/#\s*(\d{5,})/);if(ticket)cur.tradeNumber='#'+ticket[1];
-  const open=line.match(/\bOpen\s*:?\s*(.*)/i);if(open){const dm=open[1].match(dateRe);if(dm)cur.entryDateTime=normDate(dm);else{const next=(lines[i+1]||'').match(dateRe);if(next)cur.entryDateTime=normDate(next)}continue}
-  const pm=line.match(priceRe);
-  if(pm){cur.entryPrice=pm[1].replace(/\s/g,'');cur.exitPrice=pm[2].replace(/\s/g,'');const after=line.slice((pm.index||0)+pm[0].length);const nums=(after.match(/-?\d[\d,]*\.\d{2}/g)||[]).map(x=>Number(x.replace(/,/g,'')));if(nums.length)cur.pnl=nums[nums.length-1];continue}
-  // On MT5, P&L is often printed on its own line directly under the price arrow.
-  if(cur.entryPrice!==''&&cur.exitPrice!==''&&cur.pnl===null){const trimmed=line.replace(/,/g,'');if(/^-?\d+\.\d{2}$/.test(trimmed)){cur.pnl=Number(trimmed);continue}}
+  const open=line.match(/\bOpen\s*:?[ \t]*(.*)/i);if(open){let dm=open[1].match(dateRe);if(!dm)dm=(lines.slice(i+1,i+3).join(' ').match(dateRe)||[]);if(dm&&dm.length)cur.entryDateTime=normDate(dm);continue}
+  // Price line: prefer the explicit arrow; otherwise use two prices on the same line.
+  const arrow=line.match(/(\d[\d ]*\.\d{1,})\s*(?:->|→|➜|›|—>|−>|>+)\s*(\d[\d ]*\.\d{1,})/);
+  if(arrow){cur.entryPrice=arrow[1].replace(/\s/g,'');cur.exitPrice=arrow[2].replace(/\s/g,'');const tail=line.slice((arrow.index||0)+arrow[0].length);const afterNums=(tail.match(/-?\s*\d[\d,]*\.\d{2}/g)||[]).map(x=>Number(x.replace(/[\s,]/g,'')));if(afterNums.length)cur.pnl=afterNums[afterNums.length-1];continue}
+  const priceVals=priceTokens(line);
+  if(cur.entryPrice===''&&priceVals.length>=2){cur.entryPrice=priceVals[0].value;cur.exitPrice=priceVals[1].value;const tail=line.slice(priceVals[1].end);const afterNums=(tail.match(/-?\s*\d[\d,]*\.\d{2}/g)||[]).map(x=>Number(x.replace(/[\s,]/g,'')));if(afterNums.length)cur.pnl=afterNums[afterNums.length-1];continue}
+  // The trade P&L is often on the line directly below the price arrow.
+  if(cur.pnl===null){const only=line.match(/^(-?\s*\d[\d,]*\.\d{2})$/);if(only){const n=Number(only[1].replace(/[\s,]/g,''));if(Number.isFinite(n))cur.pnl=n;continue}}
  }
  finish();
+ // A screenshot may show the overall Profit total separately. Use it for the sole trade only
+ // when OCR missed the trade's own P&L and exactly one trade block was detected.
+ if(out.length===1&&out[0].pnl===null){const summary=extractSummaryValue(text,'Profit');if(summary!==null)out[0].pnl=summary;}
  return out;
 }
 function extractSummaryValue(text,label){
@@ -880,7 +885,7 @@ function openTraderProfile(id){
  const vals=points.map(p=>Number(p.balance)||0),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
  const coords=vals.map((v,i)=>({x:34+i*(692/Math.max(1,vals.length-1)),y:190-((v-min)/span)*145}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
- let svg='<line x1="34" y1="35" x2="726" y2="35" stroke="#263550"/><line x1="34" y1="105" x2="726" y2="105" stroke="#263550"/><line x1="34" y1="190" x2="726" y2="190" stroke="#263550"/><text x="12" y="20" fill="#94a5c3" font-size="11">'+esc(fmt(max))+'</text><text x="12" y="220" fill="#94a5c3" font-size="11">'+esc(fmt(min))+'</text><polyline points="'+poly+'" fill="none" stroke="#42d392" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+ let svg='<line x1="34" y1="35" x2="726" y2="35" stroke="#263550"/><line x1="34" y1="105" x2="726" y2="105" stroke="#263550"/><line x1="34" y1="190" x2="726" y2="190" stroke="#263550"/><text x="12" y="20" fill="#94a5c3" font-size="11">'+esc(fmt(max))+'</text><text x="12" y="185" fill="#94a5c3" font-size="11">'+esc(fmt(min))+'</text><polyline points="'+poly+'" fill="none" stroke="#42d392" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
  coords.forEach((p,i)=>{svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#42d392"/><text x="'+p.x+'" y="208" text-anchor="middle" fill="#94a5c3" font-size="10">'+esc(String(points[i].date||'').slice(0,10))+'</text>'});
  $('profileBalanceChart').innerHTML=svg;
  $('profileChartNote').textContent='Chart starts at the original starting balance. Each saved report adds a dated balance point.';
