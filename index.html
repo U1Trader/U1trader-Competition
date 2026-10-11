@@ -499,6 +499,9 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}
 @media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:190px}}
 
+
+.trade-update-card{margin:18px 0}.trade-update-card .sidebody{padding:18px}.trade-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.trade-fields .field{margin-bottom:4px}.trade-fields .wide{grid-column:span 2}.trade-table-wrap{overflow:auto;margin:12px 0}.trade-table{min-width:760px}.trade-table input,.trade-table select{width:100%;min-width:78px;padding:8px;border:1px solid var(--line);border-radius:7px;background:#0b1324;color:var(--text)}.trade-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.ocr-status{margin:8px 0;color:var(--muted);font-size:12px}.ocr-text{width:100%;min-height:75px;background:#0b1324;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;font:12px/1.5 ui-monospace,monospace}.report-list{display:grid;gap:10px;padding:0 18px 18px}.report-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:rgba(255,255,255,.02)}.report-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.report-top strong{font-size:13px}.report-meta{font-size:12px;color:var(--muted);margin-top:4px}.report-trades{font-size:12px;color:var(--muted);margin-top:8px}.report-pnl{font-weight:800}.report-pnl.positive{color:var(--green)}.report-pnl.negative{color:var(--red)}@media(max-width:760px){.trade-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:460px){.trade-fields{grid-template-columns:1fr}.trade-fields .wide{grid-column:auto}}
+
 </style>
 </head>
 <body>
@@ -555,6 +558,30 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 </aside>
 </div>
 
+<section class="card trade-update-card admin-only" id="tradeUpdateSection">
+  <div class="cardhead"><div><h3>📸 Daily Trade Screenshot Update</h3><p>Select trader and date, upload MT5 screenshot, review OCR results, then save.</p></div><span class="eyebrow">Admin only</span></div>
+  <div class="sidebody">
+    <div class="trade-fields">
+      <div class="field"><label>Trader</label><select id="reportTrader"><option value="">Select trader</option></select></div>
+      <div class="field"><label>Trading date</label><input id="reportDate" type="date"></div>
+      <div class="field"><label>Account balance ($)</label><input id="reportBalance" type="number" min="0" step="0.01" placeholder="e.g. 50250.00"></div>
+      <div class="field"><label>Equity ($), optional</label><input id="reportEquity" type="number" min="0" step="0.01" placeholder="e.g. 50310.00"></div>
+      <div class="field"><label>Daily total P&amp;L ($)</label><input id="reportDailyPnl" type="number" step="0.01" placeholder="e.g. 250.00"></div>
+      <div class="field wide"><label>MT5 screenshot</label><input id="reportScreenshot" type="file" accept="image/*"></div>
+    </div>
+    <div class="trade-tools"><button class="btn" type="button" id="runOcrBtn">Read screenshot (OCR)</button><button class="btn" type="button" id="addTradeRowBtn">+ Add trade row</button></div>
+    <div class="ocr-status" id="ocrStatus">Upload an MT5 history/results screenshot, then run OCR. OCR is an estimate; verify every value before saving.</div>
+    <div class="trade-table-wrap"><table class="trade-table"><thead><tr><th>#</th><th>Symbol</th><th>Buy/Sell</th><th>Lot size</th><th>Entry price</th><th>Exit price</th><th>Profit/Loss ($)</th><th></th></tr></thead><tbody id="reportTradeRows"><tr><td colspan="8" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr></tbody></table></div>
+    <div class="field"><label>OCR text (for verification)</label><textarea class="ocr-text" id="reportOcrText" placeholder="Recognized screenshot text will appear here. You can use it to cross-check the trade rows."></textarea></div>
+    <div class="hint">Screenshot processing runs in your browser. The image itself is not uploaded to Supabase; the extracted report, OCR text, trade rows and balances are saved. Only the logged-in admin can create or edit reports; everyone else can view saved reports.</div>
+    <div class="trade-tools"><button class="btn primary" type="button" id="saveTradeReportBtn">Confirm &amp; save report</button><button class="btn" type="button" id="clearTradeReportBtn">Clear form</button></div>
+  </div>
+</section>
+<section class="card" id="savedTradeReportsSection">
+  <div class="cardhead"><div><h3>🗓️ Daily Trade Reports</h3><p>Saved screenshot-based trade summaries by trader and date.</p></div><span class="eyebrow">History</span></div>
+  <div class="report-list" id="savedTradeReports"><div class="empty">No daily trade reports saved yet.</div></div>
+</section>
+
 <section class="panel rules-panel">
   <div class="panelhead"><h3>Competition Rules</h3><span class="tag">Important</span></div>
   <ul class="rules-list">
@@ -565,7 +592,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
   </ul>
 </section>
 
-<div class="footer admin-only">Shared demo competition • Manual updates • No broker connection • Admin-only editing • Export CSV for backup</div>
+<div class="footer admin-only">Shared demo competition • Screenshot-assisted manual trade updates • No broker connection • Admin-only editing • Export CSV for backup</div>
 </div>
 <div class="modalback" id="modalBack"><div class="modal"><h3 id="modalTitle">Add trader</h3><div class="field"><label>Trader display name</label><input id="newName" maxlength="40" placeholder="Trader name"></div><div class="field"><label>Exness MT5 account number</label><input id="newAccountLogin" inputmode="numeric" maxlength="32" placeholder="MT5 login number"></div><div class="formrow"><div class="field"><label>Starting balance ($)</label><input id="newStart" type="number" min="0" step="0.01" placeholder="10000"></div><div class="field"><label>Current balance ($)</label><input id="newCurrent" type="number" min="0" step="0.01" placeholder="10000"></div></div><div class="hint">Account number is stored for account mapping. Automatic MT5 balance and trade sync requires the separate secure sync service; adding an account here does not connect it by itself.</div><div class="modalactions"><button class="btn" id="cancelModal">Cancel</button><button class="btn primary" id="confirmAdd">Add trader</button></div></div></div>
 <div class="modalback" id="prizeModalBack"><div class="modal"><h3>Edit prizes</h3>
@@ -583,6 +610,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
 <div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Balance history</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 760 230" role="img" aria-label="Trader balance line chart"></svg><div class="hint" id="profileChartNote">Real chart points appear as balance snapshots are collected by the sync service.</div><h4 style="margin:18px 0 8px">Closed trade history</h4><div class="profile-trades"><table><thead><tr><th>Closed at</th><th>Symbol</th><th>Type</th><th>Volume</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div></div></div></div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -592,10 +620,9 @@ const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_8xtYAX6736Bi6cg2N5_qOQ_WV_PRv5e';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let currentUser=null, lastRemoteJson='', loadingRemote=true;
-// Live MT5 values are read directly from the public-read-only mt5_accounts table.
-let liveAccountsByLogin={};
-let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[]};
+let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[],dailyTradeReports:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
+if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
 function setSyncStatus(message){const el=$('syncStatus');if(el)el.textContent=message}
 async function persist(){
  const snapshot=JSON.stringify(data);
@@ -673,9 +700,7 @@ $('logoFile').addEventListener('change',e=>{
  reader.readAsDataURL(file);
 });
 
-function liveAccountFor(t){return t&&t.accountLogin?liveAccountsByLogin[String(t.accountLogin).trim()]||null:null}
-function currentBalanceFor(t){const a=liveAccountFor(t);return a&&Number.isFinite(Number(a.current_balance))?Number(a.current_balance):(Number(t.current)||0)}
-function profit(t){return currentBalanceFor(t)-(Number(t.start)||0)}
+function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
 function render(){
@@ -698,22 +723,72 @@ function render(){
  $('secondName').textContent=sorted.length>1?sorted[1].name:'Waiting for trader';
  $('secondReturn').textContent=sorted.length>1?'Return: '+pct(ret(sorted[1])):'Return: —';
  $('secondPrize').textContent='Prize: '+(data.secondPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button></td><td>${fmt(t.start)}</td><td>${fmt(currentBalanceFor(t))}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
+ $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button></td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
  $('emptyState').style.display=sorted.length?'none':'block';
  // Preserve the selected trader whenever render() refreshes the dropdown.
  const selectedTraderId=$('traderSelect').value;
  $('traderSelect').innerHTML='<option value="">Select a trader</option>'+data.traders.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
- if(selectedTraderId && data.traders.some(t=>String(t.id)===String(selectedTraderId))) $('traderSelect').value=selectedTraderId;
+ if(selectedTraderId && data.traders.some(x=>String(x.id)===String(selectedTraderId))) $('traderSelect').value=selectedTraderId;
+ const reportTraderId=$('reportTrader')?.value||'';
+ if($('reportTrader')){$('reportTrader').innerHTML='<option value="">Select trader</option>'+data.traders.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');if(reportTraderId&&data.traders.some(t=>String(t.id)===String(reportTraderId)))$('reportTrader').value=reportTraderId;}
+ renderSavedTradeReports();
 }
+let draftTradeRows=[];
+function numVal(v){if(v===null||v===undefined||String(v).trim()==='')return null;const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:null}
+function renderTradeDraft(){
+ const body=$('reportTradeRows');if(!draftTradeRows.length){body.innerHTML='<tr><td colspan="8" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr>';return}
+ body.innerHTML=draftTradeRows.map((t,i)=>`<tr><td>${i+1}</td><td><input aria-label="Symbol" data-trade-index="${i}" data-trade-field="symbol" value="${esc(t.symbol||'')}" placeholder="XAUUSD"></td><td><select aria-label="Buy or sell" data-trade-index="${i}" data-trade-field="side"><option value="Buy" ${t.side==='Buy'?'selected':''}>Buy</option><option value="Sell" ${t.side==='Sell'?'selected':''}>Sell</option><option value="Unknown" ${!['Buy','Sell'].includes(t.side)?'selected':''}>Unknown</option></select></td><td><input aria-label="Lot size" type="number" min="0" step="0.01" data-trade-index="${i}" data-trade-field="lotSize" value="${t.lotSize??''}" placeholder="0.10"></td><td><input aria-label="Entry price" type="number" step="any" data-trade-index="${i}" data-trade-field="entryPrice" value="${t.entryPrice??''}" placeholder="Entry"></td><td><input aria-label="Exit price" type="number" step="any" data-trade-index="${i}" data-trade-field="exitPrice" value="${t.exitPrice??''}" placeholder="Exit"></td><td><input aria-label="Profit or loss" type="number" step="0.01" data-trade-index="${i}" data-trade-field="pnl" value="${t.pnl??''}" placeholder="0.00"></td><td><button type="button" class="btn danger" data-remove-trade="${i}" aria-label="Remove trade row">×</button></td></tr>`).join('');
+ body.querySelectorAll('[data-trade-field]').forEach(el=>el.addEventListener('change',()=>{const i=Number(el.dataset.tradeIndex),field=el.dataset.tradeField;if(draftTradeRows[i])draftTradeRows[i][field]=el.value;}));
+ body.querySelectorAll('[data-remove-trade]').forEach(el=>el.addEventListener('click',()=>{draftTradeRows.splice(Number(el.dataset.removeTrade),1);renderTradeDraft()}));
+}
+function renderSavedTradeReports(){
+ const host=$('savedTradeReports');if(!host)return;const reports=Array.isArray(data.dailyTradeReports)?[...data.dailyTradeReports]:[];
+ if(!reports.length){host.innerHTML='<div class="empty">No daily trade reports saved yet.</div>';return}
+ reports.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+ host.innerHTML=reports.map(r=>{const pnl=Number(r.dailyPnl)||0;const trades=Array.isArray(r.trades)?r.trades:[];return `<article class="report-card"><div class="report-top"><strong>${esc(r.traderName||'Trader')} · ${esc(r.date||'')}</strong><span class="report-pnl ${pnl>=0?'positive':'negative'}">${pnl>=0?'+':''}${fmt(pnl)}</span></div><div class="report-meta">Balance: ${r.balance===null||r.balance===undefined?'—':fmt(r.balance)} · Equity: ${r.equity===null||r.equity===undefined?'—':fmt(r.equity)} · Trades: ${Number(r.tradeCount??trades.length)}</div><div class="report-trades">${trades.length?trades.map((t,i)=>`${i+1}. ${esc(t.symbol||'—')} ${esc(t.side||'Unknown')} · Lot ${esc(t.lotSize??'—')} · Entry ${esc(t.entryPrice??'—')} → Exit ${esc(t.exitPrice??'—')} · P&amp;L ${fmt(t.pnl)}`).join('<br>'):'No individual trade rows recorded.'}</div>${currentUser?`<div class="trade-tools"><button class="btn danger" type="button" data-delete-report="${esc(r.id)}">Delete report</button></div>`:''}</article>`}).join('');
+ host.querySelectorAll('[data-delete-report]').forEach(btn=>btn.addEventListener('click',async()=>{if(!currentUser)return toast('Admin login required');const id=btn.dataset.deleteReport;if(!confirm('Delete this daily trade report?'))return;data.dailyTradeReports=data.dailyTradeReports.filter(r=>String(r.id)!==String(id));const ok=await persist();render();toast(ok?'Report deleted':'Could not delete report')}));
+}
+function parseOcrTradeRows(text){
+ const lines=String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const out=[];const symbolRe=/\b(?:XAUUSD|XAGUSD|EURUSD|GBPUSD|USDJPY|AUDUSD|NZDUSD|USDCAD|USDCHF|BTCUSD|ETHUSD|NAS100|US30|GER40|SPX500|[A-Z]{3,12}(?:\.[A-Z0-9]+)?)\b/i;
+ for(const line of lines){if(/balance|equity|credit|deposit|withdraw|order|time|symbol|profit|commission|swap|history|deal|ticket|buy\/sell/i.test(line)&&!/(buy|sell)/i.test(line))continue;const sideMatch=line.match(/\b(buy|sell)\b/i),sym=line.match(symbolRe);if(!sideMatch||!sym)continue;const nums=(line.match(/-?\d[\d,]*(?:\.\d+)?/g)||[]).map(x=>Number(x.replace(/,/g,''))).filter(Number.isFinite);if(nums.length<2)continue;let lotIdx=nums.findIndex(n=>n>0&&n<=100);let lot=lotIdx>=0?nums[lotIdx]:'';const after=lotIdx>=0?nums.slice(lotIdx+1):nums.slice(1);const pnl=nums.length?nums[nums.length-1]:'';out.push({symbol:sym[0].toUpperCase(),side:sideMatch[1][0].toUpperCase()+sideMatch[1].slice(1).toLowerCase(),lotSize:lot,entryPrice:after.length>1?after[0]:'',exitPrice:after.length>2?after[1]:'',pnl});}
+ return out;
+}
+function extractSummaryValue(text,label){
+ const lines=String(text||'').split(/\r?\n/);for(const line of lines){if(new RegExp('\\b'+label+'\\b','i').test(line)){const nums=(line.match(/-?\\d[\\d,]*(?:\\.\\d+)?/g)||[]).map(x=>Number(x.replace(/,/g,''))).filter(Number.isFinite);if(nums.length)return nums[nums.length-1];}}return null;
+}
+$('reportDate').value=new Date().toISOString().slice(0,10);
+$('reportTrader').addEventListener('change',()=>{const t=data.traders.find(x=>String(x.id)===String($('reportTrader').value));if(t){$('reportBalance').value=t.current??'';$('reportEquity').value=t.equity??''} });
+$('addTradeRowBtn').addEventListener('click',()=>{if(!currentUser)return toast('Admin login required');draftTradeRows.push({symbol:'',side:'Unknown',lotSize:'',entryPrice:'',exitPrice:'',pnl:''});renderTradeDraft()});
+$('clearTradeReportBtn').addEventListener('click',()=>{draftTradeRows=[];$('reportDate').value=new Date().toISOString().slice(0,10);$('reportBalance').value='';$('reportEquity').value='';$('reportDailyPnl').value='';$('reportScreenshot').value='';$('reportOcrText').value='';$('ocrStatus').textContent='Upload an MT5 history/results screenshot, then run OCR.';renderTradeDraft()});
+$('runOcrBtn').addEventListener('click',async()=>{
+ if(!currentUser)return toast('Admin login required');const file=$('reportScreenshot').files?.[0];if(!file)return toast('Choose a screenshot first');if(!file.type.startsWith('image/'))return toast('Please choose an image file');
+ if(!window.Tesseract)return toast('OCR library did not load. Check internet and reload this page.');
+ const btn=$('runOcrBtn');btn.disabled=true;$('ocrStatus').textContent='Reading screenshot with OCR…';
+ try{const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Reading screenshot… '+Math.round((m.progress||0)*100)+'%';}});const text=result?.data?.text||'';$('reportOcrText').value=text;const bal=extractSummaryValue(text,'Balance'),eq=extractSummaryValue(text,'Equity');if(bal!==null&&$('reportBalance').value==='')$('reportBalance').value=bal;if(eq!==null&&$('reportEquity').value==='')$('reportEquity').value=eq;const parsed=parseOcrTradeRows(text);if(parsed.length){draftTradeRows=parsed;renderTradeDraft();$('ocrStatus').textContent=`OCR finished. ${parsed.length} possible trade row(s) found. Check and correct every field before saving.`;}else{$('ocrStatus').textContent='OCR finished, but trade rows were not confidently identified. Add rows manually and use the OCR text to verify.';if(!draftTradeRows.length){draftTradeRows=[{symbol:'',side:'Unknown',lotSize:'',entryPrice:'',exitPrice:'',pnl:''}];renderTradeDraft();}}}
+ catch(e){console.error(e);$('ocrStatus').textContent='OCR failed: '+(e.message||'Unknown error')+'. You can still enter trade rows manually.';toast('Could not read screenshot')}finally{btn.disabled=false}
+});
+$('saveTradeReportBtn').addEventListener('click',async()=>{
+ if(!currentUser)return toast('Admin login required');const traderId=$('reportTrader').value;const trader=data.traders.find(t=>String(t.id)===String(traderId));const date=$('reportDate').value;
+ if(!trader)return toast('Select a trader');if(!date)return toast('Select the trading date');
+ const trades=draftTradeRows.map(t=>({symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',lotSize:numVal(t.lotSize),entryPrice:numVal(t.entryPrice),exitPrice:numVal(t.exitPrice),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.lotSize!==null||t.entryPrice!==null||t.exitPrice!==null||t.pnl!==null);
+ const balance=numVal($('reportBalance').value),equity=numVal($('reportEquity').value);let dailyPnl=numVal($('reportDailyPnl').value);if(dailyPnl===null&&trades.length)dailyPnl=trades.reduce((sum,t)=>sum+(Number(t.pnl)||0),0);if(dailyPnl===null)return toast('Enter daily total P&L or trade P&L rows');
+ if(balance!==null&&balance<0||equity!==null&&equity<0)return toast('Balance and equity cannot be negative');
+ const report={id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),traderId:trader.id,traderName:trader.name,date,balance,equity,dailyPnl,tradeCount:trades.length,trades,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()};
+ if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];const prior=data.dailyTradeReports.findIndex(r=>String(r.traderId)===String(trader.id)&&String(r.date)===String(date));if(prior>=0){if(!confirm(`A report for ${trader.name} on ${date} already exists. Replace it?`))return;data.dailyTradeReports[prior]=report}else data.dailyTradeReports.push(report);
+ if(balance!==null){trader.current=balance;trader.updated=date;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];const bh=trader.balanceHistory.findIndex(x=>x.date===date);if(bh>=0)trader.balanceHistory[bh]={date,balance};else trader.balanceHistory.push({date,balance});}
+ if(equity!==null)trader.equity=equity;
+ const btn=$('saveTradeReportBtn');btn.disabled=true;const ok=await persist();btn.disabled=false;if(!ok)return;render();$('clearTradeReportBtn').click();toast('Daily trade report saved and dashboard updated');
+});
+
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function selectTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(!t)return;$('traderSelect').value=id;$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=currentBalanceFor(t);$('formTitle').textContent='Update '+t.name;window.scrollTo({top:0,behavior:'smooth'})}
+function selectTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(!t)return;$('traderSelect').value=id;$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name;window.scrollTo({top:0,behavior:'smooth'})}
 function removeTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(t&&confirm('Remove '+t.name+' from this dashboard?')){data.traders=data.traders.filter(x=>x.id!==id);persist();render();toast('Trader removed')}}
 window.selectTrader=selectTrader;window.removeTrader=removeTrader;
-$('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.id===$('traderSelect').value);if(t){$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=currentBalanceFor(t);$('formTitle').textContent='Update '+t.name}else{$('editTraderName').value='';$('startBalance').value='';$('currentBalance').value='';$('formTitle').textContent='Update trader'}});
+$('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.id===$('traderSelect').value);if(t){$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name}else{$('editTraderName').value='';$('startBalance').value='';$('currentBalance').value='';$('formTitle').textContent='Update trader'}});
 $('saveBalance').onclick=()=>{if(!currentUser)return toast('Admin login required');const id=$('traderSelect').value,t=data.traders.find(x=>x.id===id);if(!t)return toast('Select a trader first');const st=Number($('startBalance').value),cur=Number($('currentBalance').value),editedName=$('editTraderName').value.trim();if(!editedName)return toast('Enter a trader name');if($('startBalance').value===''||$('currentBalance').value===''||st<0||cur<0)return toast('Enter valid balances');const old=Number(t.current)||0;t.name=editedName;t.start=st;t.current=cur;t.updated=$('updateDate').value||new Date().toISOString().slice(0,10);data.history.unshift({name:t.name,date:t.updated,balance:cur,delta:cur-old,note:$('note').value});persist();render();$('traderSelect').value=id;$('editTraderName').value=t.name;$('formTitle').textContent='Update '+t.name;$('startBalance').value=st;$('currentBalance').value=cur;$('note').value='';toast('Trader name and balance saved')};
 $('addBtn').onclick=()=>{if(!currentUser)return toast('Admin login required');$('newName').value='';$('newAccountLogin').value='';$('newStart').value='10000';$('newCurrent').value='10000';$('modalBack').style.display='flex';$('newName').focus()};
 $('cancelModal').onclick=()=> $('modalBack').style.display='none';
-$('confirmAdd').onclick=async()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const {data:sessionData}=await sb.auth.getSession();const accessToken=sessionData?.session?.access_token;if(!accessToken)return toast('Please log in again as admin');const btn=$('confirmAdd');btn.disabled=true;btn.textContent='Connecting MT5…';try{const response=await fetch(SUPABASE_URL+'/functions/v1/mt5-sync',{method:'POST',headers:{'Authorization':'Bearer '+accessToken,'apikey':SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json'},body:JSON.stringify({action:'register-account',display_name:name,account_login:accountLogin,initial_balance:Number(start),current_balance:Number(current),current_equity:Number(current),broker:'Exness-MT5',currency:'USD'})});const result=await response.json().catch(()=>({}));if(!response.ok||!result.success){console.error('MT5 account registration failed:',result);toast('MT5 registration failed: '+(result.error||response.status));return}}catch(e){console.error(e);toast('Could not connect to MT5 registration service');return}finally{btn.disabled=false;btn.textContent='Add trader'}const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]});const ok=await persist();render();$('modalBack').style.display='none';await refreshMt5LiveAccounts();if(ok)toast('Trader added and MT5 account linked')};
+$('confirmAdd').onclick=()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||new Date().toISOString().slice(0,10),balanceHistory:[{date:$('updateDate').value||new Date().toISOString().slice(0,10),balance:Number(current)}],trades:[]});persist();render();$('modalBack').style.display='none';toast('Trader added. MT5 sync still needs setup.')};
 $('editLeague').onclick=()=>{if(!currentUser)return toast('Admin login required');const n=prompt('Competition name:',data.league);if(n&&n.trim()){data.league=n.trim();persist();render();toast('Competition name updated')}};
 $('competitionStartInput').addEventListener('change',async()=>{
  if(!currentUser){toast('Admin login required');return}
@@ -742,28 +817,11 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Cur
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeTwoInput').value=data.secondPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();data.secondPrize=$('prizeTwoInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
-async function refreshMt5LiveAccounts(){
- try{
-  const {data:rows,error}=await sb.from('mt5_accounts').select('account_login,current_balance,current_equity,initial_balance,last_synced_at,is_active').eq('is_active',true);
-  if(error){console.warn('MT5 live account read failed:',error.message);return}
-  const next={};
-  (rows||[]).forEach(a=>{next[String(a.account_login).trim()] = a});
-  liveAccountsByLogin=next;
-  render();
-  const profile=$('traderProfileBack');
-  if(profile&&profile.style.display==='flex'){
-   const shown=$('profileName').textContent;
-   const t=data.traders.find(x=>x.name===shown);
-   if(t)openTraderProfile(t.id);
-  }
-  setSyncStatus(currentUser?'Admin connected · MT5 live':'Live leaderboard · MT5 live');
- }catch(e){console.warn('MT5 live refresh failed:',e)}
-}
 function openTraderProfile(id){
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
- $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(currentBalanceFor(t));
+ $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  const points=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))):[];
  if(points.length===0)points.push({date:'Start',balance:Number(t.start)||0},{date:t.updated||'Current',balance:Number(t.current)||0});
@@ -788,8 +846,6 @@ setAdminMode(null);
  const {data:sessionData}=await sb.auth.getSession();
  if(sessionData?.session?.user)setAdminMode(sessionData.session.user);
  await loadSharedData();
- await refreshMt5LiveAccounts();
- setInterval(refreshMt5LiveAccounts,5000);
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
    if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
