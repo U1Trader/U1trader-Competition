@@ -512,6 +512,29 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 @media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{padding:15px}.profile-chart{height:230px}}
 
 </style>
+
+<style id="competition-schedule-right-panel-fix">
+/* Keep the schedule off the welcome hero and show it in the competition page sidebar. */
+.hero{display:block!important}
+.hero-dates{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important;width:100%!important}
+.hero-dates .datebox{width:100%!important;min-width:0!important}
+.schedule-card .sidebody{padding:0 18px 18px}
+.schedule-card .hero-dates{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
+.schedule-card .datebox{min-width:0!important;width:100%!important;background:#0c1527;border:1px solid var(--line);border-radius:12px;padding:13px}
+.schedule-card .datebox>small{display:block;color:var(--muted);margin-bottom:5px}
+.schedule-card .date-display{font-size:15px;font-weight:800;overflow-wrap:anywhere}
+.schedule-card .competition-countdown{font-size:12px;line-height:1.5}
+.schedule-card .admin-only{display:none!important}
+body.admin-mode .schedule-card .admin-only{display:block!important}
+body.admin-mode .schedule-card input.admin-only{display:block!important;width:100%;margin-top:6px}
+body.admin-mode .schedule-card label.admin-only{display:block!important}
+body:not(.admin-mode) .grid{grid-template-columns:minmax(0,1.8fr) minmax(270px,.8fr)!important}
+body:not(.admin-mode) .grid>aside{display:flex!important}
+@media(max-width:800px){
+  body:not(.admin-mode) .grid{grid-template-columns:minmax(0,1fr)!important}
+  .schedule-card .sidebody{padding-left:14px;padding-right:14px}
+}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -521,12 +544,6 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 </header>
 <section class="hero">
   <div><div class="live"><span class="dot"></span> Competition dashboard</div><div class="competition-title-row"><h2 id="leagueName">Friends Trading Challenge</h2><button type="button" class="btn admin-only" id="editCompetitionName">Edit competition name</button></div><p>Track your friends' trading performance. Upload a trade-history screenshot to update P&amp;L, balance, rankings, and each trader's history automatically.</p></div>
-  <div class="hero-dates">
-    <div class="datebox start-datebox"><small>Competition starts (IST)</small><div id="competitionStartDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionStartInput">Set start date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionStartInput"></div>
-    <div class="datebox end-datebox"><small>Competition ends (IST)</small><div id="competitionEndDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionEndInput">Set end date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionEndInput"></div>
-    <div class="datebox duration-datebox"><small>Competition duration</small><div id="competitionDuration" class="date-display">Set start and end times</div><small id="competitionCountdown" class="competition-countdown">Countdown will appear here</small></div>
-    <div class="datebox"><small>Update date</small><input type="date" id="updateDate"></div>
-  </div>
 </section>
 <section class="stats winner-stats">
   <div class="stat winner-card">
@@ -548,7 +565,18 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
   <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th><th></th></tr></thead><tbody id="leaderRows"></tbody></table></div>
   <div class="empty" id="emptyState">Add your first trader to begin the competition.</div>
 </section>
-<aside style="display:flex;flex-direction:column;gap:16px">
+<aside class="competition-sidebar" style="display:flex;flex-direction:column;gap:16px">
+<section class="card schedule-card" id="competitionScheduleCard">
+  <div class="cardhead"><div><h3>🗓️ Competition Schedule</h3><p>Official dates and live countdown (IST)</p></div></div>
+  <div class="sidebody">
+  <div class="hero-dates schedule-dates">
+    <div class="datebox start-datebox"><small>Competition starts (IST)</small><div id="competitionStartDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionStartInput">Set start date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionStartInput"></div>
+    <div class="datebox end-datebox"><small>Competition ends (IST)</small><div id="competitionEndDisplay" class="date-display">Not announced</div><label class="admin-only start-editor-label" for="competitionEndInput">Set end date &amp; time (IST)</label><input class="admin-only" type="datetime-local" id="competitionEndInput"></div>
+    <div class="datebox duration-datebox"><small>Competition duration</small><div id="competitionDuration" class="date-display">Set start and end times</div><small id="competitionCountdown" class="competition-countdown">Countdown will appear here</small></div>
+  </div>
+    <input type="date" id="updateDate" aria-hidden="true" tabindex="-1" style="display:none!important">
+  </div>
+</section>
 <section class="card admin-only" id="legacyBalanceUpdate" style="display:none!important">
   <div class="cardhead"><div><h3 id="formTitle">Update trader</h3><p>Enter the latest account balance.</p></div></div>
   <div class="sidebody">
