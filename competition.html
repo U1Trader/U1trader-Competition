@@ -496,6 +496,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .profile-metric{background:#0b1324;border:1px solid var(--line);border-radius:12px;padding:13px}
 .profile-metric small{display:block;color:var(--muted);font-size:11px}.profile-metric strong{display:block;font-size:20px;margin-top:5px;overflow-wrap:anywhere}
 .profile-chart{width:100%;height:230px;display:block;background:#0b1324;border:1px solid var(--line);border-radius:12px}
+.trader-row-actions{margin-top:5px;display:flex;gap:5px}.trader-row-actions .btn{padding:3px 7px;font-size:10px;min-height:22px}
 .profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}
 @media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:190px}}
 
@@ -792,7 +793,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 <div class="grid">
 <section class="card">
   <div class="cardhead"><div><h3>🏆 Live leaderboard</h3><p>Ranks update automatically whenever a trade screenshot is saved.</p></div><span class="eyebrow">Rankings</span></div>
-  <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th><th></th></tr></thead><tbody id="leaderRows"></tbody></table></div>
+  <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th></tr></thead><tbody id="leaderRows"></tbody></table></div>
   <div class="empty" id="emptyState">Add your first trader to begin the competition.</div>
 </section>
 <aside class="competition-sidebar" style="display:flex;flex-direction:column;gap:16px">
@@ -839,6 +840,8 @@ body:not(.admin-mode) .grid>aside{display:none!important}
     <li><span class="rule-number">02</span><div><strong>Maximum Overall Loss</strong><small>10% — Static Drawdown</small></div></li>
     <li class="demo-warning"><span class="rule-number">03</span><div><strong>Inactivity Rule</strong><small>5 inactive days. Because this is a demo account, if you do not trade for 1 week, the account may be automatically deleted. If the account is deleted, you will be disqualified, and we will be unable to recover the account.</small></div></li>
     <li><span class="rule-number">04</span><div><strong>Layering Rule</strong><small>Only 3 positions are allowed at a time.</small></div></li>
+    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 5% profit/return to qualify for 1st or 2nd place. Traders below 5% remain on the live leaderboard but are not eligible for a prize.</small></div></li>
+    <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>When the competition ends, eligible winners are selected by highest ending account balance: the highest balance takes 1st place and the next-highest eligible balance takes 2nd place. A trader must meet the 5% minimum return to qualify.</small></div></li>
   </ul>
 </section>
 
@@ -967,13 +970,20 @@ function render(){
  updateCompetitionClock();
  const date=$('updateDate').value||new Date().toISOString().slice(0,10);
  const sorted=[...data.traders].sort((a,b)=>profit(b)-profit(a));
- $('topName').textContent=sorted.length?sorted[0].name:'Waiting for trader';
- $('topReturn').textContent=sorted.length?'Return: '+pct(ret(sorted[0])):'Return: —';
+ // Prize eligibility: only traders with at least 5% return qualify. Among eligible traders,
+ // prize places are awarded by highest ending balance; the public leaderboard remains unchanged.
+ const eligible=[...data.traders].filter(t=>ret(t)>=5).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
+ const firstWinner=eligible[0]||null;
+ const secondWinner=eligible[1]||null;
+ $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
+ $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: 5%';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
- $('secondName').textContent=sorted.length>1?sorted[1].name:'Waiting for trader';
- $('secondReturn').textContent=sorted.length>1?'Return: '+pct(ret(sorted[1])):'Return: —';
+ $('secondName').textContent=secondWinner?secondWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
+ $('secondReturn').textContent=secondWinner?'Return: '+pct(ret(secondWinner)):'Minimum return required: 5%';
  $('secondPrize').textContent='Prize: '+(data.secondPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button></td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td><td>${currentUser?`<button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button>`:'—'}</td></tr>`).join('');
+ $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`).join('');
+ // Remove any legacy trailing placeholder/action cells so Last Update is always the final column.
+ $('leaderRows').querySelectorAll('tr').forEach(row=>{while(row.cells.length>7)row.deleteCell(row.cells.length-1);});
  $('emptyState').style.display=sorted.length?'none':'block';
  // Preserve the selected trader whenever render() refreshes the dropdown.
  const selectedTraderId=$('traderSelect').value;
@@ -1138,7 +1148,7 @@ function openTraderProfile(id){
  const axisSpan=Math.max(axisMax-axisMin,tickStep);
  const yTop=34,yBottom=184,plotHeight=yBottom-yTop;
  const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
- const coords=vals.map((v,i)=>({x:38+i*(688/Math.max(1,vals.length-1)),y:yFor(v)}));
+ const plotLeft=92,plotRight=706;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
  let svg='';
  for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);svg+='<line x1="38" y1="'+y+'" x2="726" y2="'+y+'" stroke="#263550"/><text x="12" y="'+Math.max(12,y-5)+'" fill="#94a5c3" font-size="10">'+esc(fmt(tick))+'</text>';}
