@@ -708,6 +708,51 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 }
 </style>
 
+
+<style id="approved-hero-layout-final">
+/* Use only the clean trading-room photo on the left; keep live text and schedule readable. */
+.competition-hero-layout{
+  position:relative!important; overflow:hidden!important;
+  min-height:410px!important; padding:30px!important;
+  display:grid!important; grid-template-columns:minmax(0,1fr) minmax(340px,42%)!important;
+  align-items:start!important; gap:24px!important;
+  background-color:#071326!important;
+  background-image:linear-gradient(90deg,rgba(4,12,26,.18) 0%,rgba(4,12,26,.38) 57%,#071326 74%),url('friends-trading-photo-crop.png')!important;
+  background-size:100% 100%, 72% 100%!important;
+  background-position:center,left center!important; background-repeat:no-repeat!important;
+  border:1px solid #304b70!important; border-radius:20px!important;
+}
+.competition-hero-copy{position:relative!important;z-index:1!important;align-self:start!important;padding-top:6px!important;max-width:100%!important;text-shadow:0 2px 8px rgba(0,0,0,.8)!important}
+.competition-hero-copy .live{color:#52e8aa!important}
+.competition-hero-copy h2{color:#f5f8ff!important;font-size:clamp(26px,3vw,38px)!important;line-height:1.14!important;max-width:680px!important;text-wrap:balance}
+.competition-hero-copy p{color:#edf4ff!important;max-width:640px!important;font-size:15px!important;line-height:1.55!important}
+.hero-schedule-card{position:relative!important;z-index:2!important;align-self:start!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important}
+.hero-schedule-card .sidebody{padding:0!important}
+.hero-schedule-card .hero-dates{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important;align-items:stretch!important}
+.hero-schedule-card .datebox{min-width:0!important;min-height:86px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;padding:13px 12px!important;border-radius:12px!important;background:rgba(7,18,36,.96)!important;border:1px solid rgba(111,159,226,.5)!important}
+.hero-schedule-card .datebox>small{font-size:11px!important;line-height:1.4!important;white-space:normal!important;margin-bottom:7px!important;color:#b8c9e3!important}
+.hero-schedule-card .date-display{font-size:13px!important;line-height:1.4!important;color:#f5f8ff!important;font-weight:800!important;overflow-wrap:anywhere!important}
+.hero-schedule-card .duration-datebox{grid-column:1/-1!important;min-height:76px!important;display:grid!important;grid-template-columns:1fr auto!important;align-content:center!important;gap:7px 12px!important;padding:12px 14px!important;background:rgba(7,18,36,.97)!important}
+.hero-schedule-card .duration-datebox>small:first-child{margin:0!important}
+.hero-schedule-card .duration-datebox .date-display{font-size:12px!important;text-align:right!important}
+.hero-schedule-card .competition-countdown{grid-column:1/-1!important;display:block!important;margin-top:2px!important;font-size:12px!important;line-height:1.4!important;white-space:normal!important;color:#b8c9e3!important}
+.hero-schedule-card .register-cta{display:block!important;width:100%!important;box-sizing:border-box!important;margin-top:12px!important;padding:15px 16px!important;text-align:center!important;font-size:14px!important;font-weight:800!important;border-radius:11px!important;box-shadow:0 6px 18px rgba(0,0,0,.25)!important}
+@media(max-width:800px){
+ .competition-hero-layout{min-height:0!important;grid-template-columns:minmax(0,1fr)!important;gap:18px!important;padding:20px!important;background-image:linear-gradient(180deg,rgba(4,12,26,.55),rgba(4,12,26,.94)),url('friends-trading-photo-crop.png')!important;background-size:100% 100%,100% auto!important;background-position:center,top center!important}
+ .competition-hero-copy,.hero-schedule-card{grid-column:1!important}
+ .hero-schedule-card .datebox{min-height:76px!important}
+}
+@media(max-width:460px){
+ .competition-hero-layout{padding:15px!important}
+ .competition-hero-copy h2{font-size:26px!important}
+ .competition-hero-copy p{font-size:14px!important}
+ .hero-schedule-card .datebox{padding:9px!important;min-height:70px!important}
+ .hero-schedule-card .date-display{font-size:11px!important}
+ .hero-schedule-card .duration-datebox{grid-template-columns:1fr!important}
+ .hero-schedule-card .duration-datebox .date-display{text-align:left!important}
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
