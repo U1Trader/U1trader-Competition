@@ -495,7 +495,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .profile-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
 .profile-metric{background:#0b1324;border:1px solid var(--line);border-radius:12px;padding:13px}
 .profile-metric small{display:block;color:var(--muted);font-size:11px}.profile-metric strong{display:block;font-size:20px;margin-top:5px;overflow-wrap:anywhere}
-.profile-chart{width:100%;height:500px;display:block;background:linear-gradient(180deg,#0a1221 0%,#0b1425 100%);border:1px solid #263954;border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.profile-chart{width:100%;height:520px;display:block;background:#0b0e11;border:1px solid #263238;border-radius:10px;box-shadow:none}
 .trader-row-actions{margin-top:5px;display:flex;gap:5px}.trader-row-actions .btn{padding:3px 7px;font-size:10px;min-height:22px}
 .profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}.profile-pagination{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:14px 0 2px}.profile-pagination button{min-width:34px;padding:7px 10px;border:1px solid var(--line,#263550);border-radius:8px;background:var(--panel,#152238);color:var(--text,#eef4ff);cursor:pointer}.profile-pagination button.active{background:var(--blue,#78aaff);color:#081326;border-color:transparent;font-weight:800}.profile-pagination button:disabled{opacity:.4;cursor:not-allowed}.profile-page-info{width:100%;text-align:center;color:var(--muted,#94a5c3);font-size:12px;padding-top:4px}
 @media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:380px}}
@@ -510,8 +510,8 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .trader-link{border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:2px 0}
 .profile-modal{width:min(1250px,96vw);max-height:94vh;padding:24px}
 .profile-modal h4{margin:10px 0 4px!important}
-.profile-chart{height:520px;overflow:visible}
-@keyframes currentBalancePulse{0%,100%{opacity:.82;stroke-width:1.6;r:7}50%{opacity:.18;stroke-width:2.6;r:10}}
+.profile-chart{height:520px;overflow:visible;background:#0b0e11;border-color:#263238}
+@keyframes currentBalancePulse{0%,100%{opacity:.72;stroke-width:1.2;r:5.5}50%{opacity:.12;stroke-width:2;r:8}}
 .profile-chart .current-balance-pulse{animation:currentBalancePulse 1.35s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){.profile-chart .current-balance-pulse{animation:none;opacity:.75}}
 @media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{width:98vw;padding:15px}.profile-chart{height:390px}}
@@ -1192,19 +1192,19 @@ function openTraderProfile(id){
  const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
  let svg='';
- for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#26364d" stroke-width="0.8"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#b7c7e2" font-size="15" font-weight="600">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
+ for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#202b38" stroke-width="0.7"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#b2b5be" font-size="16" font-weight="500">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
  // Threshold lines span the entire chart so the fixed account limits remain visible.
- svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#ff6475" stroke-width="2"/>';
- svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#36d399" stroke-width="2"/>';
+ svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#f23645" stroke-width="1.35"/>';
+ svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
  // Daily loss allowance resets at the beginning of each trading day and is shown as a dotted segment.
- dailyLossLevels.forEach(d=>{const x1=coords[Math.max(0,Math.min(coords.length-1,d.startIndex))]?.x??plotLeft;const x2=coords[Math.max(0,Math.min(coords.length-1,d.endIndex))]?.x??plotRight;const left=plotLeft;const right=Math.max(left+18,Math.min(1060,Math.max(x1,x2)));svg+='<line x1="'+left+'" y1="'+yFor(d.level)+'" x2="'+right+'" y2="'+yFor(d.level)+'" stroke="#ffb84d" stroke-width="2" stroke-dasharray="2 6"><title>'+esc(d.day)+' daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
- svg+='<polyline points="'+poly+'" fill="none" stroke="#65aaff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+ dailyLossLevels.forEach(d=>{const x1=coords[Math.max(0,Math.min(coords.length-1,d.startIndex))]?.x??plotLeft;const x2=coords[Math.max(0,Math.min(coords.length-1,d.endIndex))]?.x??plotRight;const left=plotLeft;const right=Math.max(left+18,Math.min(1060,Math.max(x1,x2)));svg+='<line x1="'+left+'" y1="'+yFor(d.level)+'" x2="'+right+'" y2="'+yFor(d.level)+'" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"><title>'+esc(d.day)+' daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
+ svg+='<polyline points="'+poly+'" fill="none" stroke="#4c9aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="7" fill="none" stroke="#93c5fd" stroke-width="1.5"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'3.6':'2.6')+'" fill="#75b4ff" stroke="#0b1324" stroke-width="0.7"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#94a5c3" font-size="11">'+esc(label.slice(0,10))+'</text>';}});
+ coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="5.5" fill="none" stroke="#4c9aff" stroke-width="1.2"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.8':'1.9')+'" fill="#4c9aff" stroke="#0b0e11" stroke-width="0.6"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#94a5c3" font-size="11">'+esc(label.slice(0,10))+'</text>';}});
  // Chart legend explains all three risk/target levels.
- svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#ff6475" stroke-width="2"/><text x="108" y="364" fill="#ff9aa4" font-size="10.5">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
- svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#ffb84d" stroke-width="2" stroke-dasharray="2 5"/><text x="416" y="364" fill="#ffcc80" font-size="10.5">Daily loss: 5% below each day start</text>';
- svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#36d399" stroke-width="2"/><text x="746" y="364" fill="#55e0a8" font-size="10.5">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
+ svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#f23645" stroke-width="1.35"/><text x="108" y="364" fill="#ff9aa4" font-size="10.5">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
+ svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#f0c64f" font-size="10.5">Daily loss: 5% below each day start</text>';
+ svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#55e0a8" font-size="10.5">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
  $('profileBalanceChart').innerHTML=svg;
 
  const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
