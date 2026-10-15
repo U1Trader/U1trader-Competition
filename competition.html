@@ -495,10 +495,10 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .profile-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
 .profile-metric{background:#0b1324;border:1px solid var(--line);border-radius:12px;padding:13px}
 .profile-metric small{display:block;color:var(--muted);font-size:11px}.profile-metric strong{display:block;font-size:20px;margin-top:5px;overflow-wrap:anywhere}
-.profile-chart{width:100%;height:230px;display:block;background:#0b1324;border:1px solid var(--line);border-radius:12px}
+.profile-chart{width:100%;height:520px;display:block;background:#0b0e11;border:1px solid #263238;border-radius:10px;box-shadow:none}
 .trader-row-actions{margin-top:5px;display:flex;gap:5px}.trader-row-actions .btn{padding:3px 7px;font-size:10px;min-height:22px}
-.profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}
-@media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:190px}}
+.profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}.profile-pagination{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:14px 0 2px}.profile-pagination button{min-width:34px;padding:7px 10px;border:1px solid var(--line,#263550);border-radius:8px;background:var(--panel,#152238);color:var(--text,#eef4ff);cursor:pointer}.profile-pagination button.active{background:var(--blue,#78aaff);color:#081326;border-color:transparent;font-weight:800}.profile-pagination button:disabled{opacity:.4;cursor:not-allowed}.profile-page-info{width:100%;text-align:center;color:var(--muted,#94a5c3);font-size:12px;padding-top:4px}
+@media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:380px}}
 
 
 .trade-update-card{margin:18px 0}.trade-update-card .sidebody{padding:18px}.trade-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.trade-fields .field{margin-bottom:4px}.trade-fields .wide{grid-column:span 2}.trade-table-wrap{overflow:auto;margin:12px 0}.trade-table{min-width:760px}.trade-table input,.trade-table select{width:100%;min-width:78px;padding:8px;border:1px solid var(--line);border-radius:7px;background:#0b1324;color:var(--text)}.trade-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.ocr-status{margin:8px 0;color:var(--muted);font-size:12px}.ocr-text{width:100%;min-height:75px;background:#0b1324;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;font:12px/1.5 ui-monospace,monospace}.report-list{display:grid;gap:10px;padding:0 18px 18px}.report-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:rgba(255,255,255,.02)}.report-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.report-top strong{font-size:13px}.report-meta{font-size:12px;color:var(--muted);margin-top:4px}.report-trades{font-size:12px;color:var(--muted);margin-top:8px}.report-pnl{font-weight:800}.report-pnl.positive{color:var(--green)}.report-pnl.negative{color:var(--red)}@media(max-width:760px){.trade-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:460px){.trade-fields{grid-template-columns:1fr}.trade-fields .wide{grid-column:auto}}
@@ -508,9 +508,13 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .simple-upload-fields{grid-template-columns:minmax(180px,.7fr) minmax(260px,1.3fr)}
 #savedTradeReportsSection{display:none!important}body.admin-mode #savedTradeReportsSection{display:block!important}
 .trader-link{border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:2px 0}
-.profile-modal{width:min(1050px,100%);max-height:92vh;padding:24px}
-.profile-chart{height:300px}
-@media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{padding:15px}.profile-chart{height:230px}}
+.profile-modal{width:min(1250px,96vw);max-height:94vh;padding:24px}
+.profile-modal h4{margin:10px 0 4px!important}
+.profile-chart{height:520px;overflow:visible;background:#0b1220;border-color:#26364d}
+@keyframes currentBalancePulse{0%,100%{opacity:.72;stroke-width:1.2;r:5.5}50%{opacity:.12;stroke-width:2;r:8}}
+.profile-chart .current-balance-pulse{animation:currentBalancePulse 1.35s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.profile-chart .current-balance-pulse{animation:none;opacity:.75}}
+@media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{width:98vw;padding:15px}.profile-chart{height:390px}}
 
 </style>
 
@@ -783,8 +787,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
     <div class="sub" id="topReturn">Return: —</div>
     <div class="winner-prize" id="topPrize">Prize: Not set</div>
   </div>
-  
-</section>
+  </section>
 <div class="grid">
 <section class="card">
   <div class="cardhead"><div><h3>🏆 Live leaderboard</h3><p>Ranks update automatically whenever a trade screenshot is saved.</p></div><span class="eyebrow">Rankings</span></div>
@@ -835,8 +838,8 @@ body:not(.admin-mode) .grid>aside{display:none!important}
     <li><span class="rule-number">02</span><div><strong>Maximum Overall Loss</strong><small>10% — Static Drawdown</small></div></li>
     <li class="demo-warning"><span class="rule-number">03</span><div><strong>Inactivity Rule</strong><small>5 inactive days. Because this is a demo account, if you do not trade for 1 week, the account may be automatically deleted. If the account is deleted, you will be disqualified, and we will be unable to recover the account.</small></div></li>
     <li><span class="rule-number">04</span><div><strong>Layering Rule</strong><small>Only 3 positions are allowed at a time.</small></div></li>
-    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 5% profit/return to qualify for 1st or 2nd place. Traders below 5% remain on the live leaderboard but are not eligible for a prize.</small></div></li>
-    <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>When the competition ends, eligible winners are selected by highest ending account balance: the highest balance takes 1st place and the next-highest eligible balance takes 2nd place. A trader must meet the 5% minimum return to qualify.</small></div></li>
+    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 3% profit/return to qualify for the 1st prize. Traders below 3% remain on the live leaderboard but are not eligible for the prize.</small></div></li>
+    <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>At the end of the competition, the 1st-prize winner is selected from eligible traders based on the highest ending account balance. Only traders meeting the minimum 3% profit/return requirement qualify.</small></div></li>
   </ul>
 </section>
 
@@ -845,7 +848,6 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 <div class="modalback" id="modalBack"><div class="modal"><h3 id="modalTitle">Add trader</h3><div class="field"><label>Trader display name</label><input id="newName" maxlength="40" placeholder="Trader name"></div><div class="field"><label>Exness MT5 account number</label><input id="newAccountLogin" inputmode="numeric" maxlength="32" placeholder="MT5 login number"></div><div class="formrow"><div class="field"><label>Starting balance ($)</label><input id="newStart" type="number" min="0" step="0.01" placeholder="10000"></div><div class="field"><label>Current balance ($)</label><input id="newCurrent" type="number" min="0" step="0.01" placeholder="10000"></div></div><div class="hint">Account number is stored for account mapping. Automatic MT5 balance and trade sync requires the separate secure sync service; adding an account here does not connect it by itself.</div><div class="modalactions"><button class="btn" id="cancelModal">Cancel</button><button class="btn primary" id="confirmAdd">Add trader</button></div></div></div>
 <div class="modalback" id="prizeModalBack"><div class="modal"><h3>Edit prizes</h3>
 <div class="field"><label>🥇 First place prize (e.g. $100 or ₹5,000)</label><input id="prizeOneInput" maxlength="60" placeholder="Enter first prize"></div>
-<div class="field"><label>🥈 Second place prize (e.g. $50 or ₹2,500)</label><input id="prizeTwoInput" maxlength="60" placeholder="Enter second prize"></div>
 <div class="hint">Only rank 1 and rank 2 will show prizes. Other ranks will show a dash.</div>
 <div class="modalactions"><button class="btn" id="cancelPrize">Cancel</button><button class="btn primary" id="savePrizes">Save prizes</button></div>
 </div></div>
@@ -856,7 +858,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 760 230" role="img" aria-label="Trader balance line chart"></svg><div class="hint" id="profileChartNote">Real chart points appear as balance snapshots are collected by the sync service.</div><h4 style="margin:18px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Symbol</th><th>Position</th><th>Lot</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradePagination" class="trade-pagination" style="display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;margin:12px 0"></div><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 style="margin:4px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -948,6 +950,7 @@ $('logoFile').addEventListener('change',e=>{
  reader.readAsDataURL(file);
 });
 
+function localDateString(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;}
 function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
@@ -963,15 +966,14 @@ function render(){
  if(endInput && document.activeElement!==endInput) endInput.value=data.endDateTime||'';
  if(endDisplay){if(data.endDateTime){const d=new Date(data.endDateTime);endDisplay.textContent=isNaN(d.getTime())?data.endDateTime:d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';}else endDisplay.textContent='Not announced';}
  updateCompetitionClock();
- const date=$('updateDate').value||new Date().toISOString().slice(0,10);
+ const date=$('updateDate').value||localDateString();
  const sorted=[...data.traders].sort((a,b)=>profit(b)-profit(a));
- // Prize eligibility: only traders with at least 5% return qualify. Among eligible traders,
- // prize places are awarded by highest ending balance; the public leaderboard remains unchanged.
- const eligible=[...data.traders].filter(t=>ret(t)>=5).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
+ // Prize eligibility: only traders with at least 3% return qualify for the 1st prize.
+ // The winner is the eligible trader with the highest ending balance; leaderboard keeps every trader.
+ const eligible=[...data.traders].filter(t=>ret(t)>=3).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
  const firstWinner=eligible[0]||null;
- const secondWinner=eligible[1]||null;
  $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
- $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: 5%';
+ $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: 3%';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
  $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`).join('');
  // Remove any legacy trailing placeholder/action cells so Last Update is always the final column.
@@ -988,8 +990,8 @@ function render(){
 let draftTradeRows=[];
 function numVal(v){if(v===null||v===undefined||String(v).trim()==='')return null;const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:null}
 function renderTradeDraft(){
- const body=$('reportTradeRows');if(!draftTradeRows.length){body.innerHTML='<tr><td colspan="9" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr>';return}
- body.innerHTML=draftTradeRows.map((t,i)=>`<tr><td><input aria-label="Symbol" data-trade-index="${i}" data-trade-field="symbol" value="${esc(t.symbol||'')}" placeholder="BTCUSDm"></td><td><select aria-label="Position" data-trade-index="${i}" data-trade-field="side"><option value="Buy" ${t.side==='Buy'?'selected':''}>Buy</option><option value="Sell" ${t.side==='Sell'?'selected':''}>Sell</option><option value="Unknown" ${!['Buy','Sell'].includes(t.side)?'selected':''}>Unknown</option></select></td><td><input aria-label="Lot" type="number" min="0" step="0.01" data-trade-index="${i}" data-trade-field="lot" value="${esc(t.lot??'')}" placeholder="0.01"></td><td><input aria-label="Entry date and time" data-trade-index="${i}" data-trade-field="entryDateTime" value="${esc(t.entryDateTime||t.entryDate||'')}" placeholder="2026.10.11 11:05:34"></td><td><input aria-label="Entry price" type="text" data-trade-index="${i}" data-trade-field="entryPrice" value="${esc(t.entryPrice??'')}" placeholder="82937.00"></td><td><input aria-label="Exit date and time" data-trade-index="${i}" data-trade-field="exitDateTime" value="${esc(t.exitDateTime||t.exitDate||'')}" placeholder="2026.10.11 11:05:46"></td><td><input aria-label="Exit price" type="text" data-trade-index="${i}" data-trade-field="exitPrice" value="${esc(t.exitPrice??'')}" placeholder="82940.89"></td><td><input aria-label="Profit or loss" type="number" step="0.01" data-trade-index="${i}" data-trade-field="pnl" value="${t.pnl??''}" placeholder="-38.90"></td><td><button type="button" class="btn danger" data-remove-trade="${i}" aria-label="Remove trade row">×</button></td></tr>`).join('');
+ const body=$('reportTradeRows');if(!draftTradeRows.length){body.innerHTML='<tr><td colspan="8" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr>';return}
+ body.innerHTML=draftTradeRows.map((t,i)=>`<tr><td><select aria-label="Position" data-trade-index="${i}" data-trade-field="side"><option value="Buy" ${t.side==='Buy'?'selected':''}>Buy</option><option value="Sell" ${t.side==='Sell'?'selected':''}>Sell</option><option value="Unknown" ${!['Buy','Sell'].includes(t.side)?'selected':''}>Unknown</option></select></td><td><input aria-label="Symbol" data-trade-index="${i}" data-trade-field="symbol" value="${esc(t.symbol||'')}" placeholder="BTCUSDm"></td><td><input aria-label="Entry date and time" data-trade-index="${i}" data-trade-field="entryDateTime" value="${esc(t.entryDateTime||t.entryDate||'')}" placeholder="2026.10.11 11:05:34"></td><td><input aria-label="Entry price" type="text" data-trade-index="${i}" data-trade-field="entryPrice" value="${esc(t.entryPrice??'')}" placeholder="82937.00"></td><td><input aria-label="Exit date and time" data-trade-index="${i}" data-trade-field="exitDateTime" value="${esc(t.exitDateTime||t.exitDate||'')}" placeholder="2026.10.11 11:05:46"></td><td><input aria-label="Exit price" type="text" data-trade-index="${i}" data-trade-field="exitPrice" value="${esc(t.exitPrice??'')}" placeholder="82940.89"></td><td><input aria-label="Profit or loss" type="number" step="0.01" data-trade-index="${i}" data-trade-field="pnl" value="${t.pnl??''}" placeholder="-38.90"></td><td><button type="button" class="btn danger" data-remove-trade="${i}" aria-label="Remove trade row">×</button></td></tr>`).join('');
  body.querySelectorAll('[data-trade-field]').forEach(el=>el.addEventListener('change',()=>{const i=Number(el.dataset.tradeIndex),field=el.dataset.tradeField;if(draftTradeRows[i])draftTradeRows[i][field]=el.value;}));
  body.querySelectorAll('[data-remove-trade]').forEach(el=>el.addEventListener('click',()=>{draftTradeRows.splice(Number(el.dataset.removeTrade),1);renderTradeDraft()}));
 }
@@ -997,7 +999,7 @@ function renderSavedTradeReports(){
  const host=$('savedTradeReports');if(!host)return;const reports=Array.isArray(data.dailyTradeReports)?[...data.dailyTradeReports]:[];
  if(!reports.length){host.innerHTML='<div class="empty">No daily trade reports saved yet.</div>';return}
  reports.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
- host.innerHTML=reports.map(r=>{const pnl=Number(r.dailyPnl)||0;const trades=Array.isArray(r.trades)?r.trades:[];return `<article class="report-card"><div class="report-top"><strong>${esc(r.traderName||'Trader')} · ${esc(r.date||'')}</strong><span class="report-pnl ${pnl>=0?'positive':'negative'}">${pnl>=0?'+':''}${fmt(pnl)}</span></div><div class="report-meta">Balance: ${r.balance===null||r.balance===undefined?'—':fmt(r.balance)} · Equity: ${r.equity===null||r.equity===undefined?'—':fmt(r.equity)} · Trades: ${Number(r.tradeCount??trades.length)}</div><div class="report-trades">${trades.length?trades.map((t,i)=>`${esc(t.symbol||'—')} · ${esc(t.side||'Unknown')} · Lot ${esc(t.lot??'—')} · Entry ${esc(t.entryDateTime||t.entryDate||'—')} @ ${esc(t.entryPrice??'—')} · Exit ${esc(t.exitDateTime||t.exitDate||'—')} @ ${esc(t.exitPrice??'—')} · P&amp;L ${fmt(t.pnl)}`).join('<br>'):'No individual trade rows recorded.'}</div>${currentUser?`<div class="trade-tools"><button class="btn danger" type="button" data-delete-report="${esc(r.id)}">Delete report</button></div>`:''}</article>`}).join('');
+ host.innerHTML=reports.map(r=>{const pnl=Number(r.dailyPnl)||0;const trades=Array.isArray(r.trades)?r.trades:[];return `<article class="report-card"><div class="report-top"><strong>${esc(r.traderName||'Trader')} · ${esc(r.date||'')}</strong><span class="report-pnl ${pnl>=0?'positive':'negative'}">${pnl>=0?'+':''}${fmt(pnl)}</span></div><div class="report-meta">Balance: ${r.balance===null||r.balance===undefined?'—':fmt(r.balance)} · Equity: ${r.equity===null||r.equity===undefined?'—':fmt(r.equity)} · Trades: ${Number(r.tradeCount??trades.length)}</div><div class="report-trades">${trades.length?trades.map((t,i)=>`${esc(t.side||'Unknown')} · ${esc(t.symbol||'—')} · Entry ${esc(t.entryDateTime||t.entryDate||'—')} @ ${esc(t.entryPrice??'—')} · Exit ${esc(t.exitDateTime||t.exitDate||'—')} @ ${esc(t.exitPrice??'—')} · P&amp;L ${fmt(t.pnl)}`).join('<br>'):'No individual trade rows recorded.'}</div>${currentUser?`<div class="trade-tools"><button class="btn danger" type="button" data-delete-report="${esc(r.id)}">Delete report</button></div>`:''}</article>`}).join('');
  host.querySelectorAll('[data-delete-report]').forEach(btn=>btn.addEventListener('click',async()=>{if(!currentUser)return toast('Admin login required');const id=btn.dataset.deleteReport;const report=data.dailyTradeReports.find(r=>String(r.id)===String(id));if(!report)return;if(!confirm('Delete this report? Its P&L will also be removed from the trader balance and chart.'))return;const trader=data.traders.find(t=>String(t.id)===String(report.traderId));if(trader){const pnl=Number(report.dailyPnl)||0;trader.current=(Number(trader.current)||0)-pnl;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];trader.balanceHistory.forEach(h=>{if(String(h.date)>String(report.date)&&Number.isFinite(Number(h.balance)))h.balance=Number(h.balance)-pnl;});const sameDate=data.dailyTradeReports.filter(r=>String(r.traderId)===String(report.traderId)&&String(r.date)===String(report.date)&&String(r.id)!==String(id));if(sameDate.length){const sum=sameDate.reduce((a,r)=>a+(Number(r.dailyPnl)||0),0);const before=Number(report.balanceBefore);const remainingPoint=trader.balanceHistory.find(h=>String(h.date)===String(report.date));if(remainingPoint)remainingPoint.balance=Number.isFinite(before)?before+sum:(Number(trader.start)||0)+sum;}else{trader.balanceHistory=trader.balanceHistory.filter(h=>String(h.date)!==String(report.date));const prior=data.dailyTradeReports.filter(r=>String(r.traderId)===String(report.traderId)&&String(r.date)<String(report.date)&&String(r.id)!==String(id)).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];const snap=trader.balanceHistory.filter(h=>String(h.date)<String(report.date)).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];if(prior&&snap){const point=trader.balanceHistory.find(h=>String(h.date)===String(prior.date));if(point)point.balance=Number(snap.balance)||Number(point.balance)||0;}}}data.dailyTradeReports=data.dailyTradeReports.filter(r=>String(r.id)!==String(id));const ok=await persist();render();toast(ok?'Report and its balance change deleted':'Could not delete report')}));
 }
 function parseOcrTradeRows(text){
@@ -1011,7 +1013,7 @@ function parseOcrTradeRows(text){
  for(let i=0;i<lines.length;i++){
   const line=lines[i];
   const head=line.match(/\b([A-Z][A-Z0-9._]{2,15})\s*,?\s*(buy|sell)\b/i);
-  if(head){finish();cur={tradeNumber:'',side:head[2].toLowerCase()==='buy'?'Buy':'Sell',symbol:head[1],lot:'',entryDateTime:'',exitDateTime:'',entryPrice:'',exitPrice:'',pnl:null};const lotMatch=line.match(new RegExp('\\b'+head[2]+'\\s+(\\d+(?:\\.\\d+)?)\\b','i'));if(lotMatch)cur.lot=lotMatch[1];const dm=line.match(dateRe);if(dm)cur.exitDateTime=normDate(dm);continue}
+  if(head){finish();cur={tradeNumber:'',side:head[2].toLowerCase()==='buy'?'Buy':'Sell',symbol:head[1],entryDateTime:'',exitDateTime:'',entryPrice:'',exitPrice:'',pnl:null};const dm=line.match(dateRe);if(dm)cur.exitDateTime=normDate(dm);continue}
   if(!cur)continue;
   const ticket=line.match(/#\s*(\d{5,})/);if(ticket)cur.tradeNumber='#'+ticket[1];
   const open=line.match(/\bOpen\s*:?[ \t]*(.*)/i);if(open){let dm=open[1].match(dateRe);if(!dm)dm=(lines.slice(i+1,i+3).join(' ').match(dateRe)||[]);if(dm&&dm.length)cur.entryDateTime=normDate(dm);continue}
@@ -1075,11 +1077,13 @@ $('saveTradeReportBtn').addEventListener('click',async()=>{
  const traderId=$('reportTrader').value;const trader=data.traders.find(t=>String(t.id)===String(traderId));const date=$('reportDate').value;
  if(!trader)return toast('Select a trader');if(!$('reportScreenshot').files?.[0])return toast('Upload the screenshot first');
  let dailyPnl=numVal($('reportDailyPnl').value);if(dailyPnl===null)return toast('P&L was not detected. Upload a clearer MT5 history screenshot.');
- const trades=draftTradeRows.map(t=>({tradeNumber:String(t.tradeNumber||'').trim(),symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',lot:numVal(t.lot),entryDateTime:String(t.entryDateTime||t.entryDate||'').trim(),exitDateTime:String(t.exitDateTime||t.exitDate||'').trim(),entryDate:String(t.entryDateTime||t.entryDate||'').trim(),exitDate:String(t.exitDateTime||t.exitDate||'').trim(),entryPrice:String(t.entryPrice??'').trim(),exitPrice:String(t.exitPrice??'').trim(),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.pnl!==null);
- const reportDate=date||new Date().toISOString().slice(0,10);if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
- const priorIndex=data.dailyTradeReports.findIndex(r=>String(r.traderId)===String(trader.id)&&String(r.date)===String(reportDate));
- if(priorIndex>=0){if(!confirm(`A report for ${trader.name} on ${reportDate} already exists. Replace it and adjust the balance by the P&L difference?`))return;const old=Number(data.dailyTradeReports[priorIndex].dailyPnl)||0;const oldBefore=Number(data.dailyTradeReports[priorIndex].balanceBefore);trader.current=(Number(trader.current)||0)-old+dailyPnl;data.dailyTradeReports[priorIndex]={...data.dailyTradeReports[priorIndex],balanceBefore:Number.isFinite(oldBefore)?oldBefore:(Number(trader.current)||0)-dailyPnl,dailyPnl,trades,tradeCount:trades.length,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()};}
- else {const balanceBefore=Number(trader.current)||0;trader.current=balanceBefore+dailyPnl;data.dailyTradeReports.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),traderId:trader.id,traderName:trader.name,date:reportDate,balanceBefore,balance:null,equity:null,dailyPnl,tradeCount:trades.length,trades,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()});}
+ const trades=draftTradeRows.map(t=>({tradeNumber:String(t.tradeNumber||'').trim(),symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',entryDateTime:String(t.entryDateTime||t.entryDate||'').trim(),exitDateTime:String(t.exitDateTime||t.exitDate||'').trim(),entryDate:String(t.entryDateTime||t.entryDate||'').trim(),exitDate:String(t.exitDateTime||t.exitDate||'').trim(),entryPrice:String(t.entryPrice??'').trim(),exitPrice:String(t.exitPrice??'').trim(),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.pnl!==null);
+ const nowLocal=new Date();const reportDate=date||`${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
+ // Every upload is a separate report, even for the same trader on the same date.
+ // Never replace/delete an earlier screenshot report; each confirmed P&L adds to current balance.
+ const balanceBefore=Number(trader.current)||0;
+ trader.current=balanceBefore+dailyPnl;
+ data.dailyTradeReports.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),traderId:trader.id,traderName:trader.name,date:reportDate,balanceBefore,balance:null,equity:null,dailyPnl,tradeCount:trades.length,trades,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()});
  trader.updated=reportDate;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];const bh=trader.balanceHistory.findIndex(x=>x.date===reportDate);if(bh>=0)trader.balanceHistory[bh]={date:reportDate,balance:Number(trader.current)||0};else trader.balanceHistory.push({date:reportDate,balance:Number(trader.current)||0});
  const btn=$('saveTradeReportBtn');btn.disabled=true;const ok=await persist();btn.disabled=false;if(!ok)return;render();$('clearTradeReportBtn').click();toast(`Saved ${dailyPnl>=0?'+':''}$${dailyPnl.toFixed(2)} P&L. Current balance updated.`);
 });
@@ -1116,50 +1120,95 @@ function updateCompetitionClock(){
  else{duration.textContent='Set start and end times';countdown.textContent='Countdown will appear when both dates are set';}
 }
 setInterval(updateCompetitionClock,1000);
-$('updateDate').value=new Date().toISOString().slice(0,10);$('updateDate').onchange=()=>render();
+$('updateDate').value=localDateString();$('updateDate').onchange=()=>render();
 $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Current Balance','Profit/Loss','Return %','Last Update'],...([...data.traders].sort((a,b)=>profit(b)-profit(a)).map((t,i)=>[i+1,t.name,t.start,t.current,profit(t),ret(t),t.updated||'']))];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trader-arena-leaderboard.csv';a.click();URL.revokeObjectURL(a.href)};
-$('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeTwoInput').value=data.secondPrize||'';$('prizeModalBack').style.display='flex'};
+$('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
-$('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();data.secondPrize=$('prizeTwoInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
+$('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
+let profileTradesCache=[];let profileTradePage=1;const PROFILE_TRADES_PER_PAGE=5;
+function renderProfileTradePage(){
+ const body=$('profileTradeRows'),pager=$('profileTradePagination');
+ const total=profileTradesCache.length,totalPages=Math.max(1,Math.ceil(total/PROFILE_TRADES_PER_PAGE));
+ profileTradePage=Math.min(Math.max(1,profileTradePage),totalPages);
+ const start=(profileTradePage-1)*PROFILE_TRADES_PER_PAGE;
+ const pageTrades=profileTradesCache.slice(start,start+PROFILE_TRADES_PER_PAGE);
+ body.innerHTML=pageTrades.map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(x.lot??x.volume??x.lots??'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join('');
+ $('profileTradesEmpty').style.display=total?'none':'block';
+ if(!total){pager.innerHTML='';return;}
+ let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
+ for(let page=1;page<=totalPages;page++)html+='<button type="button" class="'+(page===profileTradePage?'active':'')+'" aria-current="'+(page===profileTradePage?'page':'false')+'" data-trade-page="'+page+'">'+page+'</button>';
+ html+='<button type="button" data-trade-page="'+(profileTradePage+1)+'" '+(profileTradePage===totalPages?'disabled':'')+'>›</button><div class="profile-page-info">Showing '+(start+1)+'–'+Math.min(start+PROFILE_TRADES_PER_PAGE,total)+' of '+total+' trades</div>';
+ pager.innerHTML=html;
+ pager.querySelectorAll('[data-trade-page]').forEach(btn=>btn.addEventListener('click',()=>{const next=Number(btn.dataset.tradePage);if(next>=1&&next<=totalPages){profileTradePage=next;renderProfileTradePage();}}));
+}
 function openTraderProfile(id){
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
- const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
- const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),balance:Number(p.balance)}));
- const points=[{date:'Start',balance:Number(t.start)||0},...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date)))];
- if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',balance:Number(t.current)||0});
- const vals=points.map(p=>Number(p.balance)||0),dataMin=Math.min(...vals),dataMax=Math.max(...vals),startVal=Number(t.start)||0;
- // Give the chart breathing room and use $250 ticks for normal ranges; switch to ~1% ticks for larger moves.
- const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.005,1);
- const tickStep=rawSpan<=2500?250:Math.max(250,Math.round((Math.abs(startVal)*0.01)/250)*250);
- const axisMin=Math.floor((dataMin-rawSpan*0.12)/tickStep)*tickStep;
- const axisMax=Math.ceil((dataMax+rawSpan*0.12)/tickStep)*tickStep;
- const axisSpan=Math.max(axisMax-axisMin,tickStep);
- const yTop=34,yBottom=184,plotHeight=yBottom-yTop;
- const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
- const plotLeft=92,plotRight=706;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
- const poly=coords.map(p=>p.x+','+p.y).join(' ');
- let svg='';
- for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);svg+='<line x1="38" y1="'+y+'" x2="726" y2="'+y+'" stroke="#263550"/><text x="12" y="'+Math.max(12,y-5)+'" fill="#94a5c3" font-size="10">'+esc(fmt(tick))+'</text>';}
- svg+='<polyline points="'+poly+'" fill="none" stroke="#42d392" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,10);svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#42d392"/><text x="'+p.x+'" y="205" text-anchor="middle" fill="#94a5c3" font-size="10">'+esc(label)+'</text>';});
- $('profileBalanceChart').innerHTML=svg;
- $('profileChartNote').textContent='Chart starts at '+fmt(startVal)+'. Axis ticks use $250 steps for smaller balance changes and about 1% steps for larger changes. Each saved report adds a dated balance point.';
- const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
- const sortedTrades=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));
- const tradePageSize=5;let tradePage=1;const tradePageCount=Math.max(1,Math.ceil(sortedTrades.length/tradePageSize));
- function renderTradePage(){
-  const pageTrades=sortedTrades.slice((tradePage-1)*tradePageSize,tradePage*tradePageSize);
-  $('profileTradeRows').innerHTML=pageTrades.map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(x.lot??x.volume??'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join('');
-  const pager=$('profileTradePagination');
-  pager.innerHTML=tradePageCount>1?Array.from({length:tradePageCount},(_,i)=>'<button type="button" class="btn trade-page-btn" data-page="'+(i+1)+'" style="min-width:32px;padding:6px 10px;'+(tradePage===i+1?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+(i+1)+'</button>').join(''):'';
-  pager.querySelectorAll('button[data-page]').forEach(btn=>btn.onclick=()=>{tradePage=Number(btn.dataset.page)||1;renderTradePage()});
+ const reportTradesForChart=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})).length?r.trades.map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})):[]);
+ const allChartTrades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTradesForChart]
+   .filter(x=>Number.isFinite(Number(x.pnl??x.profit)))
+   .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
+ const startVal=Number(t.start)||0;
+ let runningBalance=startVal;
+ const points=[{date:'Start',balance:startVal}];
+ allChartTrades.forEach((trade,i)=>{runningBalance+=Number(trade.pnl??trade.profit)||0;points.push({date:String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||('Trade '+(i+1))),balance:runningBalance});});
+ // If no individual closed trades are available, retain the saved daily balance history as a fallback.
+ if(!allChartTrades.length){
+   const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
+   const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),balance:Number(p.balance)}));
+   points.push(...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date))));
+   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',balance:Number(t.current)||0});
  }
- renderTradePage();
- $('profileTradesEmpty').style.display=trades.length?'none':'block';$('traderProfileBack').style.display='flex';
+ const vals=points.map(p=>Number(p.balance)||0);
+ const maxLossLevel=startVal-5000; // Fixed overall loss limit: $5,000 below a $50,000 starting balance.
+ const profitTargetLevel=startVal*1.03; // +3% from starting balance.
+ const dailyLossLevels=[];
+ if(allChartTrades.length){
+   let balanceBeforeDay=startVal, currentDay='', dayStartIndex=1, dayStartBalance=startVal, dayLastIndex=1;
+   allChartTrades.forEach((trade,i)=>{
+     const dateText=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+     const day=dateText.slice(0,10)||'Unknown date';
+     const pointIndex=i+1;
+     if(day!==currentDay){
+       if(currentDay)dailyLossLevels.push({day:currentDay,startIndex:dayStartIndex,endIndex:dayLastIndex,level:dayStartBalance-Math.abs(dayStartBalance)*0.05});
+       currentDay=day;dayStartIndex=pointIndex;dayLastIndex=pointIndex;dayStartBalance=balanceBeforeDay;
+     }else dayLastIndex=pointIndex;
+     balanceBeforeDay+=Number(trade.pnl??trade.profit)||0;
+   });
+   if(currentDay)dailyLossLevels.push({day:currentDay,startIndex:dayStartIndex,endIndex:dayLastIndex,level:dayStartBalance-Math.abs(dayStartBalance)*0.05});
+ }
+ const thresholds=[maxLossLevel,profitTargetLevel,...dailyLossLevels.map(x=>x.level)];
+ const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
+ const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.01,1);
+ const tickStep=1000;
+ const axisMin=Math.floor((dataMin-rawSpan*0.08)/tickStep)*tickStep;
+ const axisMax=Math.ceil((dataMax+rawSpan*0.08)/tickStep)*tickStep;
+ const axisSpan=Math.max(axisMax-axisMin,tickStep);
+ const yTop=8,yBottom=318,plotHeight=yBottom-yTop;
+ const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
+ const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
+ const poly=coords.map(p=>p.x+','+p.y).join(' ');
+ let svg='<rect x="0" y="0" width="1100" height="375" fill="#0b1220"/> ';
+ for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#26364d" stroke-width="0.8"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#f1f5f9" font-size="12" font-weight="700" font-family="Inter,Arial,sans-serif">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
+ // Threshold lines span the entire chart so the fixed account limits remain visible.
+ svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#f23645" stroke-width="1.35"/>';
+ svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
+ // Daily loss allowance resets at the beginning of each trading day and is shown as a dotted segment.
+ dailyLossLevels.forEach(d=>{const x1=coords[Math.max(0,Math.min(coords.length-1,d.startIndex))]?.x??plotLeft;const x2=coords[Math.max(0,Math.min(coords.length-1,d.endIndex))]?.x??plotRight;const left=plotLeft;const right=Math.max(left+18,Math.min(1060,Math.max(x1,x2)));svg+='<line x1="'+left+'" y1="'+yFor(d.level)+'" x2="'+right+'" y2="'+yFor(d.level)+'" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"><title>'+esc(d.day)+' daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
+ svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+ // Small dots mark each closed trade balance point.
+ coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
+ // Chart legend explains all three risk/target levels.
+ svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#f23645" stroke-width="1.35"/><text x="108" y="364" fill="#d9364f" font-size="10.5" font-weight="600">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
+ svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#9a6700" font-size="10.5" font-weight="600">Daily loss: 5% below each day start</text>';
+ svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#087f5b" font-size="10.5" font-weight="600">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
+ $('profileBalanceChart').innerHTML=svg;
+
+ const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
+ profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
 }
 window.openTraderProfile=openTraderProfile;
 $('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
@@ -1179,6 +1228,24 @@ setAdminMode(null);
    const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
    if(!error&&row?.dashboard_data){const remoteJson=JSON.stringify(row.dashboard_data);if(remoteJson!==lastRemoteJson){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}}
  },5000);
+ // Safari/iPhone can suspend timers while the tab is in the background; refresh immediately on return.
+ const refreshSharedDataOnReturn=async()=>{
+   if(document.visibilityState==='visible'){
+     const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+     if(!error&&row?.dashboard_data&&Object.keys(row.dashboard_data).length){
+       const remoteJson=JSON.stringify(row.dashboard_data);
+       if(remoteJson!==lastRemoteJson){
+         data={...data,...row.dashboard_data};
+         lastRemoteJson=JSON.stringify(data);
+         try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}
+         render();
+       }
+       setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
+     }
+   }
+ };
+ document.addEventListener('visibilitychange',refreshSharedDataOnReturn);
+ window.addEventListener('focus',refreshSharedDataOnReturn);
 })();
 </script>
 
@@ -1194,3 +1261,9 @@ setAdminMode(null);
 
 </body>
 </html>
+<style id="first-prize-full-width-and-report-append-fix">
+.winner-stats{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+.winner-stats>.winner-card{grid-column:1/-1!important;width:100%!important;max-width:none!important;box-sizing:border-box!important}
+.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 120px)!important}
+@media(max-width:800px){.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 88px)!important}}
+</style>
