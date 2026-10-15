@@ -1318,7 +1318,7 @@ async function analyzeProfileHistoricalMae(){
    if(error)throw error;
    if(!result||!Array.isArray(result.results))throw new Error(result?.error||'The historical MAE service returned no results.');
    const existing=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).filter(r=>String(r.traderId)!==String(t.id));
-   const newResults=result.results.map(r=>{const trade=trades[Number(r.index)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.maeUsd,maePrice:r.maePrice,status:r.status,message:r.message||'',source:r.source||'Twelve Data 1-minute OHLC',analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
+   const newResults=result.results.map(r=>{const trade=trades[Number(r.tradeId)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status,message:r.message||r.note||'',source:r.source||result.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
    data.historicalMaeResults=[...existing,...newResults];
    profileTradePage=1;renderProfileTradePage();
    const ok=currentUser?await persist():false;
