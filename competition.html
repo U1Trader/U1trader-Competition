@@ -990,6 +990,7 @@ function getTraderRuleBreaches(t){
  const historicalMaeBreach=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).some(r=>String(r.traderId)===String(t.id)&&r.status==='ok'&&Number(r.maeUsd)<=-RULE_DAILY_LOSS_LIMIT);
  const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || historicalMaeBreach;
  if(dailyBreach)breaches.push('Daily Loss');
+ if(hasLayeringBreachForTrader(t.id))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
  const balance=Number(t.current),equity=(t.equity!==null&&t.equity!==undefined&&t.equity!==''?Number(t.equity):NaN);
  if((Number.isFinite(balance)&&balance<=RULE_OVERALL_FLOOR)||(Number.isFinite(equity)&&equity<=RULE_OVERALL_FLOOR))breaches.push('Overall Loss');
@@ -1213,13 +1214,49 @@ function maeTradeKey(x){return [x.tradeNumber||x.ticket||'',x.symbol||'',x.side|
 function getHistoricalMaeResult(traderId,trade){return (Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).find(r=>String(r.traderId)===String(traderId)&&r.tradeKey===maeTradeKey(trade))||null}
 
 function getTradeLot(x){const keys=['lot','Lot','lots','Lots','volume','Volume','volumeLots','volume_lots','lotSize','lot_size','contractSize','qty','quantity','size'];for(const k of keys){const v=x?.[k];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}for(const k of ['position','deal','trade','details']){const nested=x?.[k];if(nested&&typeof nested==='object'){const v=getTradeLot(nested);if(v!==null&&v!==undefined&&String(v).trim()!=='')return v;}}return '—';}
+
+function tradeTimeMs(trade,which){
+ const value=which==='entry'?(trade.entryDateTime||trade.entryDate):(trade.exitDateTime||trade.exitDate||trade.closedAt);
+ return ruleDateValue(value);
+}
+function getLayeringBreachTradeKeys(traderId){
+ const trader=data.traders.find(t=>String(t.id)===String(traderId));
+ if(!trader)return new Set();
+ const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(traderId));
+ const trades=[...(Array.isArray(trader.trades)?trader.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ const unique=new Map();
+ for(const tr of trades){
+  const key=maeTradeKey(tr);
+  const start=tradeTimeMs(tr,'entry'),end=tradeTimeMs(tr,'exit');
+  if(key&&Number.isFinite(start)&&Number.isFinite(end)&&end>=start)unique.set(key,{key,start,end});
+ }
+ const events=[];
+ for(const tr of unique.values()){
+  events.push({time:tr.start,type:'open',trade:tr});
+  events.push({time:tr.end,type:'close',trade:tr});
+ }
+ // Close positions before opening new ones at an identical timestamp.
+ events.sort((a,b)=>a.time-b.time||(a.type==='close'?-1:1));
+ const open=new Map(),breached=new Set();
+ for(const ev of events){
+  if(ev.type==='close'){open.delete(ev.trade.key);continue;}
+  open.set(ev.trade.key,ev.trade);
+  if(open.size>3)breached.add(ev.trade.key);
+ }
+ return breached;
+}
+function hasLayeringBreachForTrader(traderId){
+ return getLayeringBreachTradeKeys(traderId).size>0;
+}
+
 function renderProfileTradePage(){
  const body=$('profileTradeRows'),pager=$('profileTradePagination');
  const total=profileTradesCache.length,totalPages=Math.max(1,Math.ceil(total/PROFILE_TRADES_PER_PAGE));
  profileTradePage=Math.min(Math.max(1,profileTradePage),totalPages);
  const start=(profileTradePage-1)*PROFILE_TRADES_PER_PAGE;
  const pageTrades=profileTradesCache.slice(start,start+PROFILE_TRADES_PER_PAGE);
- body.innerHTML=pageTrades.map(x=>{const mae=getHistoricalMaeResult(profileTraderId,x);const maeBreach=mae&&mae.status==='ok'&&Number(mae.maeUsd)<=-RULE_DAILY_LOSS_LIMIT;return '<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td class="'+(maeBreach?'position-breach-text':'')+'">'+esc(x.side||x.type||'—')+'</td><td>'+esc(getTradeLot(x))+'</td><td class="'+(maeBreach?'position-breach-text':'')+'">'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+' '+(maeBreach?'position-breach-text':'')+'">'+esc(fmt(x.pnl??x.profit))+'</td><td class="admin-mae-only '+(maeBreach?'position-breach-text':'')+'">'+(mae&&mae.status==='ok'?(mae.maeUsd!==null&&mae.maeUsd!==undefined?esc(fmt(mae.maeUsd))+' <small>(est. USD)</small>':'<span>'+esc('Price MAE: '+mae.maePrice)+' <small>(USD conversion unavailable)</small></span>'):mae?esc(mae.message||mae.status||'Unavailable'):'—')+'</td></tr>'}).join('');
+ const layeringKeys=getLayeringBreachTradeKeys(profileTraderId);
+ body.innerHTML=pageTrades.map(x=>{const mae=getHistoricalMaeResult(profileTraderId,x);const maeBreach=mae&&mae.status==='ok'&&Number(mae.maeUsd)<=-RULE_DAILY_LOSS_LIMIT;const layeringBreach=layeringKeys.has(maeTradeKey(x));const breachText=(maeBreach||layeringBreach)?'position-breach-text':'';return '<tr><td class="'+breachText+'">'+esc(x.tradeNumber||x.ticket||'—')+'</td><td class="'+breachText+'">'+esc(x.side||x.type||'—')+'</td><td class="'+breachText+'">'+esc(getTradeLot(x))+'</td><td class="'+breachText+'">'+esc(x.symbol||'—')+'</td><td class="'+breachText+'">'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td class="'+breachText+'">'+esc(x.entryPrice??'—')+'</td><td class="'+breachText+'">'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td class="'+breachText+'">'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+' '+breachText+'">'+esc(fmt(x.pnl??x.profit))+'</td><td class="admin-mae-only '+(maeBreach?'position-breach-text':'')+'">'+(mae&&mae.status==='ok'?(mae.maeUsd!==null&&mae.maeUsd!==undefined?esc(fmt(mae.maeUsd))+' <small>(est. USD)</small>':'<span>'+esc('Price MAE: '+mae.maePrice)+' <small>(USD conversion unavailable)</small></span>'):mae?esc(mae.message||mae.status||'Unavailable'):'—')+'</td></tr>'}).join('');
  $('profileTradesEmpty').style.display=total?'none':'block';
  if(!total){pager.innerHTML='';return;}
  let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
