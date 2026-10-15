@@ -874,10 +874,15 @@ function mergeDashboardData(incoming){
 function setSyncStatus(message){const el=$('syncStatus');if(el)el.textContent=message}
 async function persist(){
  const snapshot=JSON.stringify(data);
- try{localStorage.setItem('traderArenaSeparateFixedData',snapshot)}catch(e){}
+ // Keep a local recovery copy before attempting the cloud save.
+ try{
+   localStorage.setItem('traderArenaSeparateFixedData',snapshot);
+   if(Array.isArray(data.traders)&&data.traders.length) localStorage.setItem('traderArenaLastNonEmptyTraders',JSON.stringify(data.traders));
+ }catch(e){}
  if(!currentUser){toast('Please log in as admin before editing');return false}
- const {error}=await sb.from('competition_dashboard').update({dashboard_data:data,updated_at:new Date().toISOString()}).eq('id',1);
- if(error){console.error(error);setSyncStatus('Sync error');toast('Cloud save failed: '+error.message);return false}
+ // upsert also creates the shared row if it was accidentally removed; UPDATE alone silently succeeds on zero rows.
+ const {error}=await sb.from('competition_dashboard').upsert({id:1,dashboard_data:data,updated_at:new Date().toISOString()},{onConflict:'id'});
+ if(error){console.error('Dashboard cloud save failed:',error);setSyncStatus('Sync error');toast('Cloud save failed: '+error.message);return false}
  lastRemoteJson=snapshot;setSyncStatus('Synced');return true;
 }
 function setAdminMode(user){currentUser=user||null;document.body.classList.toggle('admin-mode',!!currentUser);$('authBtn').textContent=currentUser?'Admin logout':'Admin login';setSyncStatus(currentUser?'Admin connected':'View-only mode')}
@@ -885,8 +890,21 @@ async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data=mergeDashboardData(row.dashboard_data);lastRemoteJson=JSON.stringify(row.dashboard_data);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}}
- else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
+ if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){
+   data=mergeDashboardData(row.dashboard_data);
+   lastRemoteJson=JSON.stringify(row.dashboard_data);
+   try{
+     localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data));
+     if(Array.isArray(data.traders)&&data.traders.length)localStorage.setItem('traderArenaLastNonEmptyTraders',JSON.stringify(data.traders));
+   }catch(e){}
+ } else {
+   lastRemoteJson=JSON.stringify(row?.dashboard_data||{});
+   // If cloud is empty, attempt recovery from this browser's last non-empty trader backup.
+   try{
+     const backup=JSON.parse(localStorage.getItem('traderArenaLastNonEmptyTraders')||'null');
+     if((!Array.isArray(data.traders)||!data.traders.length)&&Array.isArray(backup)&&backup.length)data.traders=backup;
+   }catch(e){}
+ }
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
 async function loginAdmin(){
@@ -898,9 +916,17 @@ async function loginAdmin(){
  if(error){toast('Login failed: '+error.message);return}
  setAdminMode(result.user);$('loginModalBack').style.display='none';$('adminPassword').value='';
  await loadSharedData();
- // If the cloud row is still empty, initialize it with the dashboard data currently loaded.
- const {data:row}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
- if(row&&(!row.dashboard_data||!Object.keys(row.dashboard_data).length)){await persist();render()}
+ // Restore cloud from local data only when the cloud dashboard has no trader records.
+ const {data:row,error:rowError}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+ if(!rowError){
+   const cloud=row?.dashboard_data;
+   const cloudTraders=Array.isArray(cloud?.traders)?cloud.traders:[];
+   if(cloudTraders.length===0 && Array.isArray(data.traders) && data.traders.length>0){
+     const ok=await persist();
+     if(ok)toast('Recovered saved traders to cloud');
+   }
+ }
+ render();
  toast('Admin login successful');
 }
 $('authBtn').addEventListener('click',async()=>{if(currentUser){await sb.auth.signOut();setAdminMode(null);render();toast('Logged out')}else{$('loginModalBack').style.display='flex';$('adminEmail').focus()}});
@@ -1089,10 +1115,10 @@ function selectTrader(id){if(!currentUser){toast('Admin login required');return}
 function removeTrader(id){if(!currentUser){toast('Admin login required');return}const t=data.traders.find(x=>x.id===id);if(t&&confirm('Remove '+t.name+' from this dashboard?')){data.traders=data.traders.filter(x=>x.id!==id);persist();render();toast('Trader removed')}}
 window.selectTrader=selectTrader;window.removeTrader=removeTrader;
 $('traderSelect').addEventListener('change',()=>{const t=data.traders.find(x=>x.id===$('traderSelect').value);if(t){$('editTraderName').value=t.name;$('startBalance').value=t.start;$('currentBalance').value=t.current;$('formTitle').textContent='Update '+t.name}else{$('editTraderName').value='';$('startBalance').value='';$('currentBalance').value='';$('formTitle').textContent='Update trader'}});
-$('saveBalance').onclick=()=>{if(!currentUser)return toast('Admin login required');const id=$('traderSelect').value,t=data.traders.find(x=>x.id===id);if(!t)return toast('Select a trader first');const st=Number($('startBalance').value),cur=Number($('currentBalance').value),editedName=$('editTraderName').value.trim();if(!editedName)return toast('Enter a trader name');if($('startBalance').value===''||$('currentBalance').value===''||st<0||cur<0)return toast('Enter valid balances');const old=Number(t.current)||0;t.name=editedName;t.start=st;t.current=cur;t.updated=$('updateDate').value||localDateString();data.history.unshift({name:t.name,date:t.updated,balance:cur,delta:cur-old,note:$('note').value});persist();render();$('traderSelect').value=id;$('editTraderName').value=t.name;$('formTitle').textContent='Update '+t.name;$('startBalance').value=st;$('currentBalance').value=cur;$('note').value='';toast('Trader name and balance saved')};
+$('saveBalance').onclick=async()=>{if(!currentUser)return toast('Admin login required');const id=$('traderSelect').value,t=data.traders.find(x=>x.id===id);if(!t)return toast('Select a trader first');const st=Number($('startBalance').value),cur=Number($('currentBalance').value),editedName=$('editTraderName').value.trim();if(!editedName)return toast('Enter a trader name');if($('startBalance').value===''||$('currentBalance').value===''||st<0||cur<0)return toast('Enter valid balances');const old=Number(t.current)||0;t.name=editedName;t.start=st;t.current=cur;t.updated=$('updateDate').value||localDateString();data.history.unshift({name:t.name,date:t.updated,balance:cur,delta:cur-old,note:$('note').value});const saved=await persist();render();$('traderSelect').value=id;$('editTraderName').value=t.name;$('formTitle').textContent='Update '+t.name;$('startBalance').value=st;$('currentBalance').value=cur;$('note').value='';toast(saved?'Trader name and balance saved':'Local copy kept; cloud save failed')};
 $('addBtn').onclick=()=>{if(!currentUser)return toast('Admin login required');$('newName').value='';$('newAccountLogin').value='';$('newStart').value='10000';$('newCurrent').value='10000';$('modalBack').style.display='flex';$('newName').focus()};
 $('cancelModal').onclick=()=> $('modalBack').style.display='none';
-$('confirmAdd').onclick=()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||localDateString(),balanceHistory:[{date:$('updateDate').value||localDateString(),balance:Number(current)}],trades:[]});persist();render();$('modalBack').style.display='none';toast('Trader added. MT5 sync still needs setup.')};
+$('confirmAdd').onclick=async()=>{if(!currentUser)return toast('Admin login required');const name=$('newName').value.trim(),accountLogin=$('newAccountLogin').value.trim(),start=$('newStart').value,current=$('newCurrent').value;if(!name)return toast('Enter a trader name');if(!accountLogin)return toast('Enter the MT5 account number');if(data.traders.some(t=>String(t.accountLogin||'')===accountLogin))return toast('This MT5 account is already added');if(start===''||current===''||Number(start)<0||Number(current)<0)return toast('Enter valid balances');const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);data.traders.push({id,name,accountLogin,start:Number(start),current:Number(current),equity:Number(current),updated:$('updateDate').value||localDateString(),balanceHistory:[{date:$('updateDate').value||localDateString(),balance:Number(current)}],trades:[]});const saved=await persist();render();$('modalBack').style.display='none';toast(saved?'Trader added and synced. MT5 sync still needs setup.':'Trader added locally; cloud save failed. Check admin permissions.')};
 $('editLeague').onclick=()=>{if(!currentUser)return toast('Admin login required');const n=prompt('Competition name:',data.league);if(n&&n.trim()){data.league=n.trim();persist();render();toast('Competition name updated')}};
 $('competitionStartInput').addEventListener('change',async()=>{
  if(!currentUser){toast('Admin login required');return}
@@ -1121,7 +1147,7 @@ $('updateDate').value=localDateString();$('updateDate').onchange=()=>render();
 $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Current Balance','Profit/Loss','Return %','Last Update'],...([...data.traders].sort((a,b)=>profit(b)-profit(a)).map((t,i)=>[i+1,t.name,t.start,t.current,profit(t),ret(t),t.updated||'']))];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trader-arena-leaderboard.csv';a.click();URL.revokeObjectURL(a.href)};
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeTwoInput').value=data.secondPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
-$('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();data.secondPrize=$('prizeTwoInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
+$('savePrizes').onclick=async()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();data.secondPrize=$('prizeTwoInput').value.trim();const saved=await persist();render();$('prizeModalBack').style.display='none';toast(saved?'Prize settings saved':'Local copy kept; cloud save failed')};
 function openTraderProfile(id){
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
