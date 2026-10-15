@@ -501,7 +501,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .objective-track{height:7px;border-radius:10px;background:#374253;overflow:hidden}
 .objective-track i{display:block;width:0;height:100%;background:#15ad60;border-radius:10px}
 .daily-loss-range{display:flex;justify-content:space-between;gap:8px;margin-top:4px;color:#c4cedb;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap}.daily-loss-range span:last-child{text-align:right}
-.profile-objective .objective-head b.breach{background:#4b222a;color:#ff5a62}.profile-objective .objective-head b.passed{background:#294338;color:#55df9b}
+.profile-objective .objective-head b.breach{background:#4b222a;color:#ff5a62}.profile-objective .objective-head b.passed{background:#294338;color:#55df9b}.profile-objective .objective-head b.ongoing{background:#3b4656;color:#e9eff9}
 .profile-chart{width:100%;height:clamp(520px,63vh,650px);min-height:480px;flex:0 0 auto;display:block;background:#0b0e11;border:1px solid #263238;border-radius:10px;box-shadow:none}
 .profile-modal #historicalMaeStatus{display:none!important}
 .profile-modal #analyzeHistoricalMaeBtn{display:none!important}
@@ -1240,7 +1240,7 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Breach Status','Starti
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
-let profileTradesCache=[];let profileTradePage=1;let profileTraderId=null;const PROFILE_TRADES_PER_PAGE=5;
+let profileTradesCache=[];let profileTradePage=1;let profileTraderId=null;const PROFILE_TRADES_PER_PAGE=8;
 function maeTradeKey(x){return [x.tradeNumber||x.ticket||'',x.symbol||'',x.side||x.type||'',x.entryDateTime||x.entryDate||'',x.exitDateTime||x.exitDate||x.closedAt||'',x.entryPrice??'',x.exitPrice??'',getTradeLot(x)].join('|')}
 function getHistoricalMaeResult(traderId,trade){return (Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).find(r=>String(r.traderId)===String(traderId)&&r.tradeKey===maeTradeKey(trade))||null}
 
@@ -1330,6 +1330,8 @@ function openTraderProfileCore(id){
  setObj('objectiveProfitTarget','+'+fmt(profitTarget-startBalance).replace('$','')+' USD');
  setObj('objectiveProfitMeta',Math.round(profitPct)+'% of target');
  setObj('objectiveProfitStatus',currentBalance>=profitTarget?'Passed':'Ongoing');
+ $('objectiveProfitStatus').classList.toggle('passed',currentBalance>=profitTarget);
+ $('objectiveProfitStatus').classList.toggle('ongoing',currentBalance<profitTarget);
  setBar('objectiveProfitBar',profitPct,currentBalance>=profitTarget?'#15ad60':'#3b82f6');
  setObj('objectiveDailyValue','-'+fmt(dailyLimit).replace('$','')+' USD');
  setObj('objectiveDailyFloor',fmt(todayOpeningBalance-dailyLimit).replace('$',''));setObj('objectiveDailyCurrent',fmt(todayOpeningBalance).replace('$',''));
@@ -1339,6 +1341,9 @@ function openTraderProfileCore(id){
  setObj('objectiveBalanceMeta',fmt(currentBalance));
  setBar('objectiveBalanceBar',balancePct,currentBalance<=overallFloor?'#ef4444':'#15ad60');
  setObj('objectivePlStatus',pl>=0?'Profit':'Loss');
+ $('objectivePlStatus').classList.toggle('passed',pl>=0);
+ $('objectivePlStatus').classList.toggle('breach',pl<0);
+ const plValueEl=$('profileProfit');if(plValueEl)plValueEl.style.color=pl>=0?'#34d399':'#fb7185';
  setObj('objectivePlMeta',fmt(pl)+' total P/L');
  setBar('objectivePlBar',profitPct,pl>=0?'#15ad60':'#ef4444');
  setObj('objectiveMaxValue','-'+fmt(5000).replace('$','')+' USD');
