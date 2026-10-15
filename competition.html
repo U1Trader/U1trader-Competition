@@ -1191,7 +1191,7 @@ function openTraderProfile(id){
  const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
  const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
- let svg='';
+ let svg='<rect x="0" y="0" width="1100" height="375" fill="#ffffff"/> ';
  for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#dce3ec" stroke-width="0.8"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#263449" font-size="12" font-weight="700" font-family="Inter,Arial,sans-serif">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
  // Threshold lines span the entire chart so the fixed account limits remain visible.
  svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#f23645" stroke-width="1.35"/>';
