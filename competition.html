@@ -1192,7 +1192,7 @@ function openTraderProfile(id){
  const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
  let svg='';
- for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#202b38" stroke-width="0.7"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#b2b5be" font-size="16" font-weight="500">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
+ for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#202b38" stroke-width="0.7"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#a7b6cc" font-size="13" font-weight="500">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
  // Threshold lines span the entire chart so the fixed account limits remain visible.
  svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#f23645" stroke-width="1.35"/>';
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
