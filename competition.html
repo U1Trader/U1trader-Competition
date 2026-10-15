@@ -533,6 +533,13 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 @media(prefers-reduced-motion:reduce){.profile-chart .current-balance-pulse{animation:none;opacity:.75}}
 @media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{width:98vw;padding:15px}.profile-chart{height:390px}}
 
+.profile-balance-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:5px 10px;margin:0 0 3px;background:#0b1324;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--muted);flex:0 0 auto}
+.profile-balance-footer strong{color:var(--text);font-size:14px;margin-left:8px}
+.profile-modal .profile-trades{overflow:auto!important;flex:1 1 auto;min-height:100px;margin-top:4px}
+.profile-modal #profileBalanceChart{height:clamp(150px,24vh,230px)!important;flex:0 0 auto}
+.profile-modal #profileBalanceHeading,.profile-modal #profileTradeHeading{margin:4px 0!important;flex:0 0 auto}
+.profile-modal #historicalMaeStatus{display:none!important}
+@media(max-height:800px){.profile-modal #profileBalanceChart{height:20vh!important}.profile-objective{padding:7px 9px}.profile-objective>strong{margin:4px 0 5px}}
 </style>
 
 <style id="competition-schedule-right-panel-fix">
@@ -875,13 +882,13 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div><div id="profileBreachStatus" class="profile-breach-status">Rule status: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-objectives" id="profileObjectives">
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div><div id="profileBreachStatus" class="profile-breach-status">Rule status: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-objectives" id="profileObjectives" style="grid-template-columns:repeat(4,minmax(0,1fr))">
  <div class="profile-objective"><div class="objective-head"><span>Profit target</span><b id="objectiveProfitStatus">Ongoing</b></div><strong id="objectiveProfitTarget">—</strong><div class="objective-track"><i id="objectiveProfitBar"></i></div><small id="objectiveProfitMeta">—</small></div>
  <div class="profile-objective"><div class="objective-head"><span>Daily loss</span><b id="objectiveDailyStatus">Ongoing</b></div><strong id="objectiveDailyValue">−$2,500</strong><div class="objective-track"><i id="objectiveDailyBar"></i></div><small id="objectiveDailyMeta">5% daily loss limit</small></div>
- <div class="profile-objective"><div class="objective-head"><span>Current balance</span><b>Account</b></div><strong id="profileCurrent">—</strong><div class="objective-track"><i id="objectiveBalanceBar"></i></div><small id="objectiveBalanceMeta">Current account balance</small></div>
+
  <div class="profile-objective"><div class="objective-head"><span>Profit / Loss</span><b id="objectivePlStatus">Ongoing</b></div><strong id="profileProfit">—</strong><div class="objective-track"><i id="objectivePlBar"></i></div><small id="objectivePlMeta">—</small></div>
  <div class="profile-objective"><div class="objective-head"><span>Max. loss</span><b id="objectiveMaxStatus">Passed</b></div><strong id="objectiveMaxValue">−$6,000</strong><div class="objective-track"><i id="objectiveMaxBar"></i></div><small id="objectiveMaxMeta">12% overall loss limit</small></div>
-</div><h4 id="profileBalanceHeading" style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 id="profileTradeHeading" style="margin:4px 0 8px">Trade history</h4><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><span id="historicalMaeStatus" class="hint" style="margin:0">Historical MAE analysis runs automatically after a screenshot is confirmed. Estimates only; not live account equity.</span></div><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th><th class="admin-mae-only">Max adverse loss (est.)</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
+</div><div class="profile-balance-footer"><span>Today's P/L <strong id="profileTodayPnl">—</strong></span><span>Current balance <strong id="profileCurrent">—</strong></span></div><h4 id="profileBalanceHeading" style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 id="profileTradeHeading" style="margin:4px 0 8px">Trade history</h4><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><span id="historicalMaeStatus" class="hint" style="margin:0">Historical MAE analysis runs automatically after a screenshot is confirmed. Estimates only; not live account equity.</span></div><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th><th class="admin-mae-only">Max adverse loss (est.)</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1296,10 +1303,16 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
+ const todayKey=new Date().toLocaleDateString('en-CA');
+ const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
+ const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
+ const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
+ const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
+ const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
- const profitTarget=startBalance*1.05,overallFloor=startBalance*0.88,dailyLimit=startBalance*0.05;
+ const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90,dailyLimit=50000*0.05;
  const ruleBreachesForObjectives=getTraderRuleBreaches(t);
  const dailyBreached=ruleBreachesForObjectives.includes('Maximum Daily Loss');
  const overallBreached=ruleBreachesForObjectives.includes('Overall Loss');
@@ -1321,12 +1334,13 @@ function openTraderProfileCore(id){
  setObj('objectivePlStatus',pl>=0?'Profit':'Loss');
  setObj('objectivePlMeta',fmt(pl)+' total P/L');
  setBar('objectivePlBar',profitPct,pl>=0?'#15ad60':'#ef4444');
- setObj('objectiveMaxValue','-'+fmt(startBalance-overallFloor).replace('$','')+' USD');
+ setObj('objectiveMaxValue','-'+fmt(5000).replace('$','')+' USD');
  setObj('objectiveMaxStatus',overallBreached?'Breached':'Passed');
- setObj('objectiveMaxMeta',Math.round((1-balancePct/100)*100)+'% drawdown room left');
+ setObj('objectiveMaxMeta','10% overall loss limit');
  setBar('objectiveMaxBar',100-balancePct,overallBreached?'#ef4444':'#15ad60');
  $('objectiveDailyStatus').classList.toggle('breach',dailyBreached);$('objectiveDailyStatus').classList.toggle('passed',!dailyBreached);
  $('objectiveMaxStatus').classList.toggle('breach',overallBreached);$('objectiveMaxStatus').classList.toggle('passed',!overallBreached);
+ try{
  const reportTradesForChart=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})).length?r.trades.map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})):[]);
  const allChartTrades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTradesForChart]
    .filter(x=>Number.isFinite(Number(x.pnl??x.profit)))
@@ -1387,6 +1401,8 @@ function openTraderProfileCore(id){
  svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#087f5b" font-size="10.5" font-weight="600">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
  $('profileBalanceChart').innerHTML=svg;
 
+
+ }catch(chartError){console.error('Profile chart render failed:',chartError);const chartEl=$('profileBalanceChart');if(chartEl)chartEl.innerHTML='<text x="30" y="40" fill="#cbd5e1" font-size="14">Balance chart unavailable</text>';}
  // Backfill missing lot values for previously saved traders from each report's retained OCR text, without replacing existing trade data.
  let legacyLotsBackfilled=false;
  (Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&Array.isArray(r.trades)&&r.ocrText).forEach(r=>{
@@ -1413,7 +1429,7 @@ function openTraderProfile(id){
    console.error('Trader profile could not fully render:',error);
    const name=$('profileName');
    if(name&&(!name.textContent||name.textContent==='Trader'))name.textContent='Trader Profile';
-   toast('Profile opened, but some details failed to load. Refresh and try again.');
+   toast('Profile error: '+String(error&&error.message||error));
  }
 }
 window.openTraderProfile=openTraderProfile;
