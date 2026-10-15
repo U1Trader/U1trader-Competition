@@ -508,9 +508,9 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .simple-upload-fields{grid-template-columns:minmax(180px,.7fr) minmax(260px,1.3fr)}
 #savedTradeReportsSection{display:none!important}body.admin-mode #savedTradeReportsSection{display:block!important}
 .trader-link{border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:2px 0}
-.profile-modal{width:min(1050px,100%);max-height:92vh;padding:24px}
-.profile-chart{height:300px}
-@media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{padding:15px}.profile-chart{height:230px}}
+.profile-modal{width:min(1250px,96vw);max-height:94vh;padding:24px}
+.profile-chart{height:420px}
+@media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{width:98vw;padding:15px}.profile-chart{height:300px}}
 
 </style>
 
@@ -854,7 +854,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 760 230" role="img" aria-label="Trader balance line chart"></svg><h4 style="margin:18px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 380" role="img" aria-label="Trader balance line chart"></svg><h4 style="margin:18px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1121,7 +1121,7 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Cur
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
-let profileTradesCache=[];let profileTradePage=1;const PROFILE_TRADES_PER_PAGE=10;
+let profileTradesCache=[];let profileTradePage=1;const PROFILE_TRADES_PER_PAGE=5;
 function renderProfileTradePage(){
  const body=$('profileTradeRows'),pager=$('profileTradePagination');
  const total=profileTradesCache.length,totalPages=Math.max(1,Math.ceil(total/PROFILE_TRADES_PER_PAGE));
@@ -1154,14 +1154,14 @@ function openTraderProfile(id){
  const axisMin=Math.floor((dataMin-rawSpan*0.12)/tickStep)*tickStep;
  const axisMax=Math.ceil((dataMax+rawSpan*0.12)/tickStep)*tickStep;
  const axisSpan=Math.max(axisMax-axisMin,tickStep);
- const yTop=34,yBottom=184,plotHeight=yBottom-yTop;
+ const yTop=42,yBottom=310,plotHeight=yBottom-yTop;
  const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
- const plotLeft=92,plotRight=706;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
+ const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
  let svg='';
- for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);svg+='<line x1="38" y1="'+y+'" x2="726" y2="'+y+'" stroke="#263550"/><text x="12" y="'+Math.max(12,y-5)+'" fill="#94a5c3" font-size="10">'+esc(fmt(tick))+'</text>';}
+ for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#263550"/><text x="12" y="'+Math.max(18,y-7)+'" fill="#94a5c3" font-size="13">'+esc(fmt(tick))+'</text>';}
  svg+='<polyline points="'+poly+'" fill="none" stroke="#42d392" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,10);svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#42d392"/><text x="'+p.x+'" y="205" text-anchor="middle" fill="#94a5c3" font-size="10">'+esc(label)+'</text>';});
+ coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,10);svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="6" fill="#42d392"/><text x="'+p.x+'" y="350" text-anchor="middle" fill="#94a5c3" font-size="13">'+esc(label)+'</text>';});
  $('profileBalanceChart').innerHTML=svg;
 
  const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
