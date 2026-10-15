@@ -990,8 +990,8 @@ function render(){
 let draftTradeRows=[];
 function numVal(v){if(v===null||v===undefined||String(v).trim()==='')return null;const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:null}
 function renderTradeDraft(){
- const body=$('reportTradeRows');if(!draftTradeRows.length){body.innerHTML='<tr><td colspan="8" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr>';return}
- body.innerHTML=draftTradeRows.map((t,i)=>`<tr><td><select aria-label="Position" data-trade-index="${i}" data-trade-field="side"><option value="Buy" ${t.side==='Buy'?'selected':''}>Buy</option><option value="Sell" ${t.side==='Sell'?'selected':''}>Sell</option><option value="Unknown" ${!['Buy','Sell'].includes(t.side)?'selected':''}>Unknown</option></select></td><td><input aria-label="Symbol" data-trade-index="${i}" data-trade-field="symbol" value="${esc(t.symbol||'')}" placeholder="BTCUSDm"></td><td><input aria-label="Entry date and time" data-trade-index="${i}" data-trade-field="entryDateTime" value="${esc(t.entryDateTime||t.entryDate||'')}" placeholder="2026.10.11 11:05:34"></td><td><input aria-label="Entry price" type="text" data-trade-index="${i}" data-trade-field="entryPrice" value="${esc(t.entryPrice??'')}" placeholder="82937.00"></td><td><input aria-label="Exit date and time" data-trade-index="${i}" data-trade-field="exitDateTime" value="${esc(t.exitDateTime||t.exitDate||'')}" placeholder="2026.10.11 11:05:46"></td><td><input aria-label="Exit price" type="text" data-trade-index="${i}" data-trade-field="exitPrice" value="${esc(t.exitPrice??'')}" placeholder="82940.89"></td><td><input aria-label="Profit or loss" type="number" step="0.01" data-trade-index="${i}" data-trade-field="pnl" value="${t.pnl??''}" placeholder="-38.90"></td><td><button type="button" class="btn danger" data-remove-trade="${i}" aria-label="Remove trade row">×</button></td></tr>`).join('');
+ const body=$('reportTradeRows');if(!draftTradeRows.length){body.innerHTML='<tr><td colspan="9" class="empty">No trade rows yet. Run OCR or add a row manually.</td></tr>';return}
+ body.innerHTML=draftTradeRows.map((t,i)=>`<tr><td><select aria-label="Position" data-trade-index="${i}" data-trade-field="side"><option value="Buy" ${t.side==='Buy'?'selected':''}>Buy</option><option value="Sell" ${t.side==='Sell'?'selected':''}>Sell</option><option value="Unknown" ${!['Buy','Sell'].includes(t.side)?'selected':''}>Unknown</option></select></td><td><input aria-label="Lot" type="number" min="0" step="0.01" data-trade-index="${i}" data-trade-field="lot" value="${esc(t.lot??t.volume??t.lots??'')}" placeholder="0.10"></td><td><input aria-label="Symbol" data-trade-index="${i}" data-trade-field="symbol" value="${esc(t.symbol||'')}" placeholder="BTCUSDm"></td><td><input aria-label="Entry date and time" data-trade-index="${i}" data-trade-field="entryDateTime" value="${esc(t.entryDateTime||t.entryDate||'')}" placeholder="2026.10.11 11:05:34"></td><td><input aria-label="Entry price" type="text" data-trade-index="${i}" data-trade-field="entryPrice" value="${esc(t.entryPrice??'')}" placeholder="82937.00"></td><td><input aria-label="Exit date and time" data-trade-index="${i}" data-trade-field="exitDateTime" value="${esc(t.exitDateTime||t.exitDate||'')}" placeholder="2026.10.11 11:05:46"></td><td><input aria-label="Exit price" type="text" data-trade-index="${i}" data-trade-field="exitPrice" value="${esc(t.exitPrice??'')}" placeholder="82940.89"></td><td><input aria-label="Profit or loss" type="number" step="0.01" data-trade-index="${i}" data-trade-field="pnl" value="${t.pnl??''}" placeholder="-38.90"></td><td><button type="button" class="btn danger" data-remove-trade="${i}" aria-label="Remove trade row">×</button></td></tr>`).join('');
  body.querySelectorAll('[data-trade-field]').forEach(el=>el.addEventListener('change',()=>{const i=Number(el.dataset.tradeIndex),field=el.dataset.tradeField;if(draftTradeRows[i])draftTradeRows[i][field]=el.value;}));
  body.querySelectorAll('[data-remove-trade]').forEach(el=>el.addEventListener('click',()=>{draftTradeRows.splice(Number(el.dataset.removeTrade),1);renderTradeDraft()}));
 }
@@ -1013,7 +1013,7 @@ function parseOcrTradeRows(text){
  for(let i=0;i<lines.length;i++){
   const line=lines[i];
   const head=line.match(/\b([A-Z][A-Z0-9._]{2,15})\s*,?\s*(buy|sell)\b/i);
-  if(head){finish();cur={tradeNumber:'',side:head[2].toLowerCase()==='buy'?'Buy':'Sell',symbol:head[1],entryDateTime:'',exitDateTime:'',entryPrice:'',exitPrice:'',pnl:null};const dm=line.match(dateRe);if(dm)cur.exitDateTime=normDate(dm);continue}
+  if(head){finish();const tail=line.slice((head.index||0)+head[0].length);const lotMatch=tail.match(/^\s*[,;:]?\s*(\d+(?:[.,]\d+)?)\b/);cur={tradeNumber:'',side:head[2].toLowerCase()==='buy'?'Buy':'Sell',symbol:head[1],lot:lotMatch?Number(lotMatch[1].replace(',','.')):null,entryDateTime:'',exitDateTime:'',entryPrice:'',exitPrice:'',pnl:null};const dm=line.match(dateRe);if(dm)cur.exitDateTime=normDate(dm);continue}
   if(!cur)continue;
   const ticket=line.match(/#\s*(\d{5,})/);if(ticket)cur.tradeNumber='#'+ticket[1];
   const open=line.match(/\bOpen\s*:?[ \t]*(.*)/i);if(open){let dm=open[1].match(dateRe);if(!dm)dm=(lines.slice(i+1,i+3).join(' ').match(dateRe)||[]);if(dm&&dm.length)cur.entryDateTime=normDate(dm);continue}
@@ -1077,7 +1077,7 @@ $('saveTradeReportBtn').addEventListener('click',async()=>{
  const traderId=$('reportTrader').value;const trader=data.traders.find(t=>String(t.id)===String(traderId));const date=$('reportDate').value;
  if(!trader)return toast('Select a trader');if(!$('reportScreenshot').files?.[0])return toast('Upload the screenshot first');
  let dailyPnl=numVal($('reportDailyPnl').value);if(dailyPnl===null)return toast('P&L was not detected. Upload a clearer MT5 history screenshot.');
- const trades=draftTradeRows.map(t=>({tradeNumber:String(t.tradeNumber||'').trim(),symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',entryDateTime:String(t.entryDateTime||t.entryDate||'').trim(),exitDateTime:String(t.exitDateTime||t.exitDate||'').trim(),entryDate:String(t.entryDateTime||t.entryDate||'').trim(),exitDate:String(t.exitDateTime||t.exitDate||'').trim(),entryPrice:String(t.entryPrice??'').trim(),exitPrice:String(t.exitPrice??'').trim(),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.pnl!==null);
+ const trades=draftTradeRows.map(t=>({tradeNumber:String(t.tradeNumber||'').trim(),symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',lot:numVal(t.lot??t.volume??t.lots),entryDateTime:String(t.entryDateTime||t.entryDate||'').trim(),exitDateTime:String(t.exitDateTime||t.exitDate||'').trim(),entryDate:String(t.entryDateTime||t.entryDate||'').trim(),exitDate:String(t.exitDateTime||t.exitDate||'').trim(),entryPrice:String(t.entryPrice??'').trim(),exitPrice:String(t.exitPrice??'').trim(),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.pnl!==null);
  const nowLocal=new Date();const reportDate=date||`${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
  // Every upload is a separate report, even for the same trader on the same date.
  // Never replace/delete an earlier screenshot report; each confirmed P&L adds to current balance.
@@ -1126,13 +1126,14 @@ $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required'
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
 let profileTradesCache=[];let profileTradePage=1;const PROFILE_TRADES_PER_PAGE=5;
+function getTradeLot(x){const keys=['lot','Lot','lots','Lots','volume','Volume','volumeLots','volume_lots','lotSize','lot_size','contractSize','qty','quantity','size'];for(const k of keys){const v=x?.[k];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}for(const k of ['position','deal','trade','details']){const nested=x?.[k];if(nested&&typeof nested==='object'){const v=getTradeLot(nested);if(v!==null&&v!==undefined&&String(v).trim()!=='')return v;}}return '—';}
 function renderProfileTradePage(){
  const body=$('profileTradeRows'),pager=$('profileTradePagination');
  const total=profileTradesCache.length,totalPages=Math.max(1,Math.ceil(total/PROFILE_TRADES_PER_PAGE));
  profileTradePage=Math.min(Math.max(1,profileTradePage),totalPages);
  const start=(profileTradePage-1)*PROFILE_TRADES_PER_PAGE;
  const pageTrades=profileTradesCache.slice(start,start+PROFILE_TRADES_PER_PAGE);
- body.innerHTML=pageTrades.map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(x.lot??x.volume??x.lots??'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join('');
+ body.innerHTML=pageTrades.map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(getTradeLot(x))+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join('');
  $('profileTradesEmpty').style.display=total?'none':'block';
  if(!total){pager.innerHTML='';return;}
  let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
@@ -1207,6 +1208,17 @@ function openTraderProfile(id){
  svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#087f5b" font-size="10.5" font-weight="600">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
  $('profileBalanceChart').innerHTML=svg;
 
+ // Backfill missing lot values for previously saved traders from each report's retained OCR text, without replacing existing trade data.
+ let legacyLotsBackfilled=false;
+ (Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&Array.isArray(r.trades)&&r.ocrText).forEach(r=>{
+   const parsed=parseOcrTradeRows(r.ocrText);if(!parsed.length)return;
+   r.trades.forEach((trade,i)=>{
+     if(getTradeLot(trade)!=='—')return;
+     const match=parsed.find(p=>p.lot!==null&&String(p.symbol||'').toUpperCase()===String(trade.symbol||'').toUpperCase()&&String(p.side||'').toLowerCase()===String(trade.side||'').toLowerCase()) || parsed[i];
+     if(match&&match.lot!==null&&match.lot!==undefined){trade.lot=match.lot;legacyLotsBackfilled=true;}
+   });
+ });
+ if(legacyLotsBackfilled)persist();
  const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
  profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
 }
