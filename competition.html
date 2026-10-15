@@ -791,7 +791,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 <div class="grid">
 <section class="card">
   <div class="cardhead"><div><h3>🏆 Live leaderboard</h3><p>Ranks update automatically whenever a trade screenshot is saved.</p></div><span class="eyebrow">Rankings</span></div>
-  <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Breach status</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th></tr></thead><tbody id="leaderRows"></tbody></table></div>
+  <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Breach status</th><th>Start balance</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th></tr></thead><tbody id="leaderRows"></tbody></table></div>
   <div class="empty" id="emptyState">Add your first trader to begin the competition.</div>
 </section>
 <aside class="competition-sidebar" style="display:flex;flex-direction:column;gap:16px">
@@ -838,8 +838,8 @@ body:not(.admin-mode) .grid>aside{display:none!important}
     <li><span class="rule-number">02</span><div><strong>Maximum Overall Loss</strong><small>Fixed at 10% of $50,000. Equity/balance must not reach $45,000 or below.</small></div></li>
     <li class="demo-warning"><span class="rule-number">03</span><div><strong>Inactivity Rule</strong><small>5 consecutive inactive calendar days. A demo account may be automatically deleted after 1 week of inactivity.</small></div></li>
     <li><span class="rule-number">04</span><div><strong>Layering Rule</strong><small>Maximum 3 simultaneous open positions across the account. Opening a 4th overlapping position is a breach.</small></div></li>
-    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 3% profit/return to qualify for the 1st prize. Traders below 3% remain on the live leaderboard but are not eligible for the prize.</small></div></li>
-    <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>At the end of the competition, the 1st-prize winner is selected from eligible traders based on the highest ending account balance. Only traders meeting the minimum 3% profit/return requirement qualify.</small></div></li>
+    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 3% profit/return and have zero rule breaches to qualify for the 1st prize. Any trader who breaches a rule is moved to the bottom of the leaderboard and is not eligible for the prize, regardless of balance.</small></div></li>
+    <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>At the end of the competition, the 1st-prize winner is the eligible trader with the highest ending account balance. A trader must meet the 3% minimum return and follow every competition rule; any rule breach disqualifies them from the prize.</small></div></li>
   </ul>
 </section>
 
@@ -858,7 +858,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 style="margin:4px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div><div id="profileBreachStatus" class="profile-breach-status">Rule status: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 style="margin:4px 0 8px">Trade history</h4><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><button class="btn primary" type="button" id="analyzeHistoricalMaeBtn">Analyze historical MAE</button><span id="historicalMaeStatus" class="hint" style="margin:0">Uses historical 1-minute candles; estimates only, not live account equity.</span></div><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th><th>Max adverse loss (est.)</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -873,6 +873,7 @@ let currentUser=null, lastRemoteJson='', loadingRemote=true;
 let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[],dailyTradeReports:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
 if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
+if(!Array.isArray(data.historicalMaeResults))data.historicalMaeResults=[];
 function setSyncStatus(message){const el=$('syncStatus');if(el)el.textContent=message}
 async function persist(){
  const snapshot=JSON.stringify(data);
@@ -986,7 +987,8 @@ function getTraderRuleBreaches(t){
    }
  });
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
- const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach;
+ const historicalMaeBreach=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).some(r=>String(r.traderId)===String(t.id)&&r.status==='ok'&&Number(r.maeUsd)<=-RULE_DAILY_LOSS_LIMIT);
+ const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || historicalMaeBreach;
  if(dailyBreach)breaches.push('Daily Loss');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
  const balance=Number(t.current),equity=(t.equity!==null&&t.equity!==undefined&&t.equity!==''?Number(t.equity):NaN);
@@ -1017,6 +1019,16 @@ function getTraderRuleBreaches(t){
  if(layeringBreach)breaches.push('Layering');
  return breaches;
 }
+// Rule violators always rank below every trader with no recorded breach, regardless of balance or return.
+// Within each group, preserve the existing profit-based ranking.
+function sortLeaderboardTraders(traders){
+ return [...traders].sort((a,b)=>{
+   const aBreached=getTraderRuleBreaches(a).length>0;
+   const bBreached=getTraderRuleBreaches(b).length>0;
+   if(aBreached!==bBreached)return aBreached?1:-1;
+   return profit(b)-profit(a);
+ });
+}
 function render(){
  $('leagueName').textContent=data.league||'Friends Trading Challenge';$('brandTitle').textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
  const startInput=$('competitionStartInput');
@@ -1030,15 +1042,15 @@ function render(){
  if(endDisplay){if(data.endDateTime){const d=new Date(data.endDateTime);endDisplay.textContent=isNaN(d.getTime())?data.endDateTime:d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';}else endDisplay.textContent='Not announced';}
  updateCompetitionClock();
  const date=$('updateDate').value||localDateString();
- const sorted=[...data.traders].sort((a,b)=>profit(b)-profit(a));
+ const sorted=sortLeaderboardTraders(data.traders);
  // Prize eligibility: only traders with at least 3% return qualify for the 1st prize.
  // The winner is the eligible trader with the highest ending balance; leaderboard keeps every trader.
- const eligible=[...data.traders].filter(t=>ret(t)>=3).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
+ const eligible=[...data.traders].filter(t=>ret(t)>=3&&getTraderRuleBreaches(t).length===0).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
  const firstWinner=eligible[0]||null;
  $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
- $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: 3%';
+ $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Requires 3%+ return and zero rule breaches';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>{const breaches=getTraderRuleBreaches(t);const breachCell=breaches.length?`<span class="rule-breach">${esc(breaches.join(', '))}</span>`:'<span class="no-rule-breach">-</span>';return `<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${fmt(t.start)}</td><td>${breachCell}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`}).join('');
+ $('leaderRows').innerHTML=sorted.map((t,i)=>{const breaches=getTraderRuleBreaches(t);const breachCell=breaches.length?`<span class="rule-breach">${esc(breaches.join(', '))}</span>`:'<span class="no-rule-breach">-</span>';return `<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${breachCell}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`}).join('');
  // Keep Last Update as the final column.
  $('leaderRows').querySelectorAll('tr').forEach(row=>{while(row.cells.length>8)row.deleteCell(row.cells.length-1);});
  $('emptyState').style.display=sorted.length?'none':'block';
@@ -1142,6 +1154,7 @@ $('saveTradeReportBtn').addEventListener('click',async()=>{
  let dailyPnl=numVal($('reportDailyPnl').value);if(dailyPnl===null)return toast('P&L was not detected. Upload a clearer MT5 history screenshot.');
  const trades=draftTradeRows.map(t=>({tradeNumber:String(t.tradeNumber||'').trim(),symbol:String(t.symbol||'').trim().toUpperCase(),side:['Buy','Sell'].includes(t.side)?t.side:'Unknown',lot:numVal(t.lot??t.volume??t.lots),entryDateTime:String(t.entryDateTime||t.entryDate||'').trim(),exitDateTime:String(t.exitDateTime||t.exitDate||'').trim(),entryDate:String(t.entryDateTime||t.entryDate||'').trim(),exitDate:String(t.exitDateTime||t.exitDate||'').trim(),entryPrice:String(t.entryPrice??'').trim(),exitPrice:String(t.exitPrice??'').trim(),pnl:numVal(t.pnl)})).filter(t=>t.symbol||t.pnl!==null);
  const nowLocal=new Date();const reportDate=date||`${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
+if(!Array.isArray(data.historicalMaeResults))data.historicalMaeResults=[];
  // Every upload is a separate report, even for the same trader on the same date.
  // Never replace/delete an earlier screenshot report; each confirmed P&L adds to current balance.
  const balanceBefore=Number(trader.current)||0;
@@ -1184,11 +1197,14 @@ function updateCompetitionClock(){
 }
 setInterval(updateCompetitionClock,1000);
 $('updateDate').value=localDateString();$('updateDate').onchange=()=>render();
-$('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Current Balance','Profit/Loss','Return %','Last Update'],...([...data.traders].sort((a,b)=>profit(b)-profit(a)).map((t,i)=>[i+1,t.name,t.start,t.current,profit(t),ret(t),t.updated||'']))];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trader-arena-leaderboard.csv';a.click();URL.revokeObjectURL(a.href)};
+$('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Breach Status','Starting Balance','Current Balance','Profit/Loss','Return %','Last Update'],...sortLeaderboardTraders(data.traders).map((t,i)=>[i+1,t.name,getTraderRuleBreaches(t).join(', ')||'-',t.start,t.current,profit(t),ret(t),t.updated||''])];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trader-arena-leaderboard.csv';a.click();URL.revokeObjectURL(a.href)};
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
-let profileTradesCache=[];let profileTradePage=1;const PROFILE_TRADES_PER_PAGE=5;
+let profileTradesCache=[];let profileTradePage=1;let profileTraderId=null;const PROFILE_TRADES_PER_PAGE=5;
+function maeTradeKey(x){return [x.tradeNumber||x.ticket||'',x.symbol||'',x.side||x.type||'',x.entryDateTime||x.entryDate||'',x.exitDateTime||x.exitDate||x.closedAt||'',x.entryPrice??'',x.exitPrice??'',getTradeLot(x)].join('|')}
+function getHistoricalMaeResult(traderId,trade){return (Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).find(r=>String(r.traderId)===String(traderId)&&r.tradeKey===maeTradeKey(trade))||null}
+
 function getTradeLot(x){const keys=['lot','Lot','lots','Lots','volume','Volume','volumeLots','volume_lots','lotSize','lot_size','contractSize','qty','quantity','size'];for(const k of keys){const v=x?.[k];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}for(const k of ['position','deal','trade','details']){const nested=x?.[k];if(nested&&typeof nested==='object'){const v=getTradeLot(nested);if(v!==null&&v!==undefined&&String(v).trim()!=='')return v;}}return '—';}
 function renderProfileTradePage(){
  const body=$('profileTradeRows'),pager=$('profileTradePagination');
@@ -1196,7 +1212,7 @@ function renderProfileTradePage(){
  profileTradePage=Math.min(Math.max(1,profileTradePage),totalPages);
  const start=(profileTradePage-1)*PROFILE_TRADES_PER_PAGE;
  const pageTrades=profileTradesCache.slice(start,start+PROFILE_TRADES_PER_PAGE);
- body.innerHTML=pageTrades.map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(getTradeLot(x))+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join('');
+ body.innerHTML=pageTrades.map(x=>{const mae=getHistoricalMaeResult(profileTraderId,x);const maeBreach=mae&&mae.status==='ok'&&Number(mae.maeUsd)<=-RULE_DAILY_LOSS_LIMIT;const rowBreach=!!window.profileTraderHasBreach||!!maeBreach;return '<tr class="'+(rowBreach?'trade-breach-row':'')+'"><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(getTradeLot(x))+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td><td class="'+(maeBreach?'negative':'')+'">'+(mae&&mae.status==='ok'?(mae.maeUsd!==null&&mae.maeUsd!==undefined?esc(fmt(mae.maeUsd))+' <small>(est. USD)</small>':'<span>'+esc('Price MAE: '+mae.maePrice)+' <small>(USD conversion unavailable)</small></span>'):mae?esc(mae.message||mae.status||'Unavailable'):'—')+'</td></tr>'}).join('');
  $('profileTradesEmpty').style.display=total?'none':'block';
  if(!total){pager.innerHTML='';return;}
  let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
@@ -1206,8 +1222,11 @@ function renderProfileTradePage(){
  pager.querySelectorAll('[data-trade-page]').forEach(btn=>btn.addEventListener('click',()=>{const next=Number(btn.dataset.tradePage);if(next>=1&&next<=totalPages){profileTradePage=next;renderProfileTradePage();}}));
 }
 function openTraderProfile(id){
+ profileTraderId=id;
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
+ const traderBreaches=getTraderRuleBreaches(t);window.profileTraderHasBreach=traderBreaches.length>0;
+ const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+traderBreaches.join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
@@ -1286,6 +1305,31 @@ function openTraderProfile(id){
  profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
 }
 window.openTraderProfile=openTraderProfile;
+async function analyzeProfileHistoricalMae(){
+ const status=$('historicalMaeStatus'),button=$('analyzeHistoricalMaeBtn');
+ if(!currentUser){status.textContent='Admin login is required before using the market-data API.';toast('Please log in as admin first');return;}
+ const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
+ const trades=profileTradesCache;
+ if(!trades.length){status.textContent='No individual closed trades available to analyze.';return;}
+ const payload=trades.map((x,index)=>({index,tradeNumber:x.tradeNumber||x.ticket||'',symbol:x.symbol||'',side:x.side||x.type||'',lot:getTradeLot(x),entryDateTime:x.entryDateTime||x.entryDate||'',exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||'',entryPrice:x.entryPrice,exitPrice:x.exitPrice,pnl:x.pnl??x.profit}));
+ button.disabled=true;status.textContent='Requesting historical 1-minute candles…';
+ try{
+   const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
+   if(error)throw error;
+   if(!result||!Array.isArray(result.results))throw new Error(result?.error||'The historical MAE service returned no results.');
+   const existing=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).filter(r=>String(r.traderId)!==String(t.id));
+   const newResults=result.results.map(r=>{const trade=trades[Number(r.index)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.maeUsd,maePrice:r.maePrice,status:r.status,message:r.message||'',source:r.source||'Twelve Data 1-minute OHLC',analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
+   data.historicalMaeResults=[...existing,...newResults];
+   profileTradePage=1;renderProfileTradePage();
+   const ok=currentUser?await persist():false;
+   render();
+   const passed=newResults.filter(r=>r.status==='ok').length,failed=newResults.length-passed;
+   status.textContent=`Historical analysis complete: ${passed} trade(s) analyzed, ${failed} unavailable. ${ok?'Results saved to Supabase.':currentUser?'Cloud save failed; check sync status.':'Results are local only until an admin logs in and saves.'}`;
+   if(failed)toast('Some trades could not be analyzed. Check status in the MAE column.');
+ }catch(e){console.error(e);status.textContent='Analysis failed: '+(e.message||String(e))+' — check Edge Function deployment and API key.';toast('Historical MAE analysis failed');}
+ finally{button.disabled=false;}
+}
+$('analyzeHistoricalMaeBtn').addEventListener('click',analyzeProfileHistoricalMae);
 $('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
 $('traderProfileBack').addEventListener('click',e=>{if(e.target===$('traderProfileBack'))$('traderProfileBack').style.display='none'});
 render();
@@ -1347,3 +1391,9 @@ setAdminMode(null);
 .rule-breach{display:inline-block;color:#fff;background:#c62828;border:1px solid #ef5350;border-radius:5px;padding:5px 7px;font-size:11px;font-weight:800;line-height:1.4;max-width:190px;white-space:normal}
 .no-rule-breach{color:var(--muted,#8993a4);font-weight:600}
 </style>
+
+<style id="profile-breach-highlight-styles">
+.profile-breach-status{margin-top:8px;font-size:12px;font-weight:800;color:var(--muted,#94a5c3)}.profile-breach-status.breached{display:inline-block;background:#b91c1c;color:#fff;padding:6px 9px;border-radius:6px;border:1px solid #ef4444}.trade-breach-row td{background:rgba(185,28,28,.18)!important;color:#ffb4b4!important;border-top:1px solid #ef4444!important;border-bottom:1px solid #ef4444!important}.trade-breach-row td.positive,.trade-breach-row td.negative{color:#ffb4b4!important}
+</style>
+
+<style id="historical-mae-styles">#historicalMaeStatus{max-width:760px;line-height:1.45}.profile-trades td small{display:block;font-size:10px;color:#f0b90b}.profile-trades td{vertical-align:top}</style>
