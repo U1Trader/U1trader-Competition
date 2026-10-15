@@ -987,8 +987,8 @@ function getTraderRuleBreaches(t){
    }
  });
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
- const historicalMaeBreach=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).some(r=>String(r.traderId)===String(t.id)&&r.status==='ok'&&Number(r.maeUsd)<=-RULE_DAILY_LOSS_LIMIT);
- const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || historicalMaeBreach;
+ const combinedHistoricalDailyBreach=(Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[]).some(r=>String(r.traderId)===String(t.id)&&Number(r.estimatedCombinedFloatingPnl)<=-RULE_DAILY_LOSS_LIMIT);
+ const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || combinedHistoricalDailyBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
@@ -1256,7 +1256,7 @@ function renderProfileTradePage(){
  const start=(profileTradePage-1)*PROFILE_TRADES_PER_PAGE;
  const pageTrades=profileTradesCache.slice(start,start+PROFILE_TRADES_PER_PAGE);
  const layeringKeys=getLayeringBreachTradeKeys(profileTraderId);
- body.innerHTML=pageTrades.map(x=>{const mae=getHistoricalMaeResult(profileTraderId,x);const maeBreach=mae&&mae.status==='ok'&&Number(mae.maeUsd)<=-RULE_DAILY_LOSS_LIMIT;const layeringBreach=layeringKeys.has(maeTradeKey(x));const breachText=(maeBreach||layeringBreach)?'position-breach-text':'';return '<tr><td class="'+breachText+'">'+esc(x.tradeNumber||x.ticket||'—')+'</td><td class="'+breachText+'">'+esc(x.side||x.type||'—')+'</td><td class="'+breachText+'">'+esc(getTradeLot(x))+'</td><td class="'+breachText+'">'+esc(x.symbol||'—')+'</td><td class="'+breachText+'">'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td class="'+breachText+'">'+esc(x.entryPrice??'—')+'</td><td class="'+breachText+'">'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td class="'+breachText+'">'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+' '+breachText+'">'+esc(fmt(x.pnl??x.profit))+'</td><td class="admin-mae-only '+(maeBreach?'position-breach-text':'')+'">'+(mae&&mae.status==='ok'?(mae.maeUsd!==null&&mae.maeUsd!==undefined?esc(fmt(mae.maeUsd))+' <small>(est. USD)</small>':'<span>'+esc('Price MAE: '+mae.maePrice)+' <small>(USD conversion unavailable)</small></span>'):mae?esc(mae.message||mae.status||'Unavailable'):'—')+'</td></tr>'}).join('');
+ body.innerHTML=pageTrades.map(x=>{const mae=getHistoricalMaeResult(profileTraderId,x);const maeBreach=mae&&mae.status==='ok'&&Number(mae.maeUsd)<=-RULE_DAILY_LOSS_LIMIT;const layeringBreach=layeringKeys.has(maeTradeKey(x));const dailyLossPositionBreach=!!(mae&&mae.estimatedDailyLossBreach);const breachText=(maeBreach||layeringBreach||dailyLossPositionBreach)?'position-breach-text':'';return '<tr><td class="'+breachText+'">'+esc(x.tradeNumber||x.ticket||'—')+'</td><td class="'+breachText+'">'+esc(x.side||x.type||'—')+'</td><td class="'+breachText+'">'+esc(getTradeLot(x))+'</td><td class="'+breachText+'">'+esc(x.symbol||'—')+'</td><td class="'+breachText+'">'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td class="'+breachText+'">'+esc(x.entryPrice??'—')+'</td><td class="'+breachText+'">'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td class="'+breachText+'">'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+' '+breachText+'">'+esc(fmt(x.pnl??x.profit))+'</td><td class="admin-mae-only '+(maeBreach?'position-breach-text':'')+'">'+(mae&&mae.status==='ok'?(mae.maeUsd!==null&&mae.maeUsd!==undefined?esc(fmt(mae.maeUsd))+' <small>(est. USD)</small>':'<span>'+esc('Price MAE: '+mae.maePrice)+' <small>(USD conversion unavailable)</small></span>'):mae?esc(mae.message||mae.status||'Unavailable'):'—')+'</td></tr>'}).join('');
  $('profileTradesEmpty').style.display=total?'none':'block';
  if(!total){pager.innerHTML='';return;}
  let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
@@ -1270,7 +1270,7 @@ function openTraderProfile(id){
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
  const traderBreaches=getTraderRuleBreaches(t);window.profileTraderHasBreach=traderBreaches.length>0;
- const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+traderBreaches.join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
+ const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
@@ -1371,16 +1371,10 @@ async function analyzeProfileHistoricalMae(options={}){
   const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
   const allTrades=profileTradesCache;
   if(!allTrades.length){status.textContent='No individual closed trades available for historical analysis.';return;}
-  const savedResults=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
-  const getSaved=trade=>savedResults.find(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade))||null;
-  // Successful results are permanent. Rate-limit failures are retried only after a cooldown.
-  const trades=allTrades.filter(x=>{
-   if(!x.symbol||!['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())||getTradeLot(x)==='—'||!(x.entryDateTime||x.entryDate)||!(x.exitDateTime||x.exitDate||x.closedAt)||x.entryPrice===''||x.entryPrice===undefined||x.exitPrice===''||x.exitPrice===undefined)return false;
-   const previous=getSaved(x);
-   if(!previous)return true;
-   return maeResultCanRetry(previous);
-  });
-  if(!trades.length){status.textContent='Historical MAE is up to date. Saved results are kept; no repeated API calls needed.';return;}
+  const existing=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
+  const getSaved=trade=>existing.find(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade))||null;
+  const validTrades=allTrades.filter(x=>x.symbol&&['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())&&getTradeLot(x)!=='—'&&(x.entryDateTime||x.entryDate)&&(x.exitDateTime||x.exitDate||x.closedAt)&&x.entryPrice!==''&&x.entryPrice!==undefined&&x.exitPrice!==''&&x.exitPrice!==undefined);
+  if(!validTrades.length){status.textContent='No complete trade timestamps/prices/lots available for combined analysis.';return;}
   const normalizeMaeSymbol=value=>{
    let symbol=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
    if(/^XAUUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='GOLD')return 'XAUUSD';
@@ -1388,52 +1382,53 @@ async function analyzeProfileHistoricalMae(options={}){
    const fx=symbol.match(/^([A-Z]{6})(?:M|\d+|PRO)$/);if(fx)return fx[1];
    return symbol;
   };
-  const upsertAndSave=async(trade,r)=>{
-   const incoming={traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status||'unavailable',message:r.message||r.note||'',source:r.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()};
-   const key=String(incoming.traderId)+'|'+String(incoming.tradeKey);
-   const latest=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
-   const idx=latest.findIndex(r=>String(r.traderId)+'|'+String(r.tradeKey||'')===key);
-   if(idx<0)latest.push(incoming);
-   else if(latest[idx].status!=='ok'||incoming.status==='ok')latest[idx]=incoming;
-   data.historicalMaeResults=latest;
-   const saved=await persist();
-   renderProfileTradePage();
-   return saved;
-  };
+  // Combined running-loss analysis requires all overlapping trades in one request.
+  // Keep the batch within the Edge Function's 20-trade limit.
+  const batches=[];
+  for(let i=0;i<validTrades.length;i+=20)batches.push(validTrades.slice(i,i+20));
   let passed=0,failed=0,cloudSaveFailed=false;
-  status.textContent=`Queued ${trades.length} trade(s). To stay within the market-data API limit, each trade is checked separately with a short delay.`;
-  for(let i=0;i<trades.length;i++){
-   const trade=trades[i];
-   // A 9-second gap keeps this at about 6–7 API calls/minute (under the 8-credit limit).
-   if(i>0)await waitForMaeSlot(MAE_API_REQUEST_GAP_MS);
-   status.textContent=`Checking historical MAE ${i+1}/${trades.length}. Successful results are saved as each trade finishes.`;
-   const payload={index:0,tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:normalizeMaeSymbol(trade.symbol),side:trade.side||trade.type||'',lot:getTradeLot(trade),entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',entryPrice:trade.entryPrice,exitPrice:trade.exitPrice,pnl:trade.pnl??trade.profit};
+  const incomingMae=[];
+  const dailyBreaches=[];
+  for(let bi=0;bi<batches.length;bi++){
+   const batch=batches[bi];
+   const payload=batch.map((trade,index)=>({index,tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:normalizeMaeSymbol(trade.symbol),side:trade.side||trade.type||'',lot:getTradeLot(trade),entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',entryPrice:trade.entryPrice,exitPrice:trade.exitPrice,pnl:trade.pnl??trade.profit}));
+   status.textContent=`Analyzing ${batch.length} trade(s) together for overlapping positions and daily loss (${bi+1}/${batches.length})…`;
    try{
-    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:[payload]}});
+    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
     if(error)throw error;
-    if(!result||!Array.isArray(result.results)||!result.results[0])throw new Error(result?.error||'Historical MAE service returned no trade result.');
-    const r=result.results[0];
-    const saved=await upsertAndSave(trade,r);
-    if(!saved)cloudSaveFailed=true;
-    if(r.status==='ok')passed++;else failed++;
-    // If the API says the quota is exhausted, stop making calls and leave remaining trades for a later automatic retry.
-    if(/credit|rate.?limit|too many requests|429|per minute|quota/i.test(String(r.message||''))){
-     status.textContent=`API credit limit reached. ${passed} successful result(s) are saved. Remaining trades will resume automatically after the cooldown.`;
-     setTimeout(()=>{if(currentUser&&String(profileTraderId)===String(t.id))analyzeProfileHistoricalMae({automatic:true});},MAE_RETRY_WAIT_MS);
-     break;
+    if(!result||!Array.isArray(result.results))throw new Error(result?.error||'Historical MAE service returned no results.');
+    (Array.isArray(result.dailyLossBreaches)?result.dailyLossBreaches:[]).forEach(b=>dailyBreaches.push({...b,traderId:t.id}));
+    for(const r of result.results){
+     const trade=batch[Number(r.tradeId)];
+     if(!trade)continue;
+     incomingMae.push({traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status||'unavailable',message:r.message||r.note||'',source:r.source||result.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,dailyLossBreachAt:r.dailyLossBreachAt||null,combinedDailyLossAtBreach:r.combinedDailyLossAtBreach??null,dailyLossBreachDate:r.dailyLossBreachDate||null,analyzedAt:new Date().toISOString()});
+     if(r.status==='ok')passed++;else failed++;
     }
    }catch(e){
-    failed++;
-    const r={status:'request_error',message:String(e?.message||e),source:'historical-mae',analyzedAt:new Date().toISOString()};
-    // Save an error record so this failure is visible; retry only if it explicitly indicates API credits/rate limit.
-    const saved=await upsertAndSave(trade,r);
-    if(!saved)cloudSaveFailed=true;
-    status.textContent=`Trade ${i+1}/${trades.length} failed: ${String(e?.message||e)}. Continuing safely.`;
+    failed+=batch.length;
+    status.textContent='Historical analysis request failed: '+String(e?.message||e);
+    // Do not replace previously successful records with request failures.
    }
   }
+  // Merge by trade identity; successful previous results are not discarded by later errors.
+  const merged=new Map((Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).map(r=>[String(r.traderId)+'|'+String(r.tradeKey||''),r]));
+  for(const incoming of incomingMae){
+   const key=String(incoming.traderId)+'|'+String(incoming.tradeKey||''),old=merged.get(key);
+   if(old&&old.status==='ok'&&incoming.status!=='ok')continue;
+   merged.set(key,incoming);
+  }
+  data.historicalMaeResults=Array.from(merged.values());
+  // Persist combined daily-loss breach summaries without touching trader/report data.
+  const oldDaily=Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[];
+  const keepDaily=oldDaily.filter(b=>String(b.traderId)!==String(t.id));
+  data.historicalDailyLossBreaches=[...keepDaily,...dailyBreaches];
+  const ok=await persist();
   renderProfileTradePage();render();
-  if(cloudSaveFailed)status.textContent+=` Cloud save failed for at least one result; check admin connection.`;
-  else if(!/API credit limit reached/.test(status.textContent))status.textContent=`Automatic MAE check complete: ${passed} successful, ${failed} unavailable. Results are saved individually; successful trades won't be requested again.`;
+  const currentBreaches=getTraderRuleBreaches(t);window.profileTraderHasBreach=currentBreaches.length>0;
+  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=currentBreaches.length?'BREACHED: '+[...new Set(currentBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',currentBreaches.length>0);}
+  const breachCount=dailyBreaches.length;
+  if(!ok)status.textContent=`Analysis finished (${passed} successful, ${failed} unavailable), but cloud save failed.`;
+  else status.textContent=`Combined analysis saved: ${passed} successful, ${failed} unavailable. ${breachCount?breachCount+' Maximum Daily Loss breach date(s) detected.':'No combined daily-loss breach detected in the returned candle data.'}`;
  })().catch(e=>{console.error(e);const status=$('historicalMaeStatus');if(status)status.textContent='Automatic MAE analysis error: '+(e.message||String(e));}).finally(()=>{maeAnalysisPromise=null;});
  return maeAnalysisPromise;
 }
