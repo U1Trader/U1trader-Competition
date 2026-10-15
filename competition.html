@@ -791,7 +791,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 <div class="grid">
 <section class="card">
   <div class="cardhead"><div><h3>🏆 Live leaderboard</h3><p>Ranks update automatically whenever a trade screenshot is saved.</p></div><span class="eyebrow">Rankings</span></div>
-  <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th></tr></thead><tbody id="leaderRows"></tbody></table></div>
+  <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Trader</th><th>Start balance</th><th>Breach status</th><th>Current balance</th><th>Profit / Loss</th><th>Return</th><th>Last update</th></tr></thead><tbody id="leaderRows"></tbody></table></div>
   <div class="empty" id="emptyState">Add your first trader to begin the competition.</div>
 </section>
 <aside class="competition-sidebar" style="display:flex;flex-direction:column;gap:16px">
@@ -834,10 +834,10 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 <section class="panel rules-panel">
   <div class="panelhead"><h3>Competition Rules</h3><span class="tag">Important</span></div>
   <ul class="rules-list">
-    <li><span class="rule-number">01</span><div><strong>Maximum Daily Loss</strong><small>5% — Static Drawdown</small></div></li>
-    <li><span class="rule-number">02</span><div><strong>Maximum Overall Loss</strong><small>10% — Static Drawdown</small></div></li>
-    <li class="demo-warning"><span class="rule-number">03</span><div><strong>Inactivity Rule</strong><small>5 inactive days. Because this is a demo account, if you do not trade for 1 week, the account may be automatically deleted. If the account is deleted, you will be disqualified, and we will be unable to recover the account.</small></div></li>
-    <li><span class="rule-number">04</span><div><strong>Layering Rule</strong><small>Only 3 positions are allowed at a time.</small></div></li>
+    <li><span class="rule-number">01</span><div><strong>Maximum Daily Loss</strong><small>5% of the fixed $50,000 account ($2,500). Checked across the trading day, including combined trade losses recorded in reports.</small></div></li>
+    <li><span class="rule-number">02</span><div><strong>Maximum Overall Loss</strong><small>Fixed at 10% of $50,000. Equity/balance must not reach $45,000 or below.</small></div></li>
+    <li class="demo-warning"><span class="rule-number">03</span><div><strong>Inactivity Rule</strong><small>5 consecutive inactive calendar days. A demo account may be automatically deleted after 1 week of inactivity.</small></div></li>
+    <li><span class="rule-number">04</span><div><strong>Layering Rule</strong><small>Maximum 3 simultaneous open positions across the account. Opening a 4th overlapping position is a breach.</small></div></li>
     <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 3% profit/return to qualify for the 1st prize. Traders below 3% remain on the live leaderboard but are not eligible for the prize.</small></div></li>
     <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>At the end of the competition, the 1st-prize winner is selected from eligible traders based on the highest ending account balance. Only traders meeting the minimum 3% profit/return requirement qualify.</small></div></li>
   </ul>
@@ -954,6 +954,69 @@ function localDateString(){const now=new Date();return `${now.getFullYear()}-${S
 function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
+const RULE_ACCOUNT_BASE=50000;
+const RULE_DAILY_LOSS_LIMIT=RULE_ACCOUNT_BASE*0.05;
+const RULE_OVERALL_FLOOR=RULE_ACCOUNT_BASE*0.90;
+function ruleDateValue(value){
+ if(value===null||value===undefined||value==='')return NaN;
+ if(value instanceof Date)return value.getTime();
+ const raw=String(value).trim();
+ const mt5=raw.match(/^(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+ if(mt5)return new Date(Number(mt5[1]),Number(mt5[2])-1,Number(mt5[3]),Number(mt5[4]||0),Number(mt5[5]||0),Number(mt5[6]||0)).getTime();
+ const parsed=Date.parse(raw);return Number.isFinite(parsed)?parsed:NaN;
+}
+function ruleDayKey(value){
+ const ms=ruleDateValue(value);if(!Number.isFinite(ms))return '';
+ const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function getTraderRuleBreaches(t){
+ const breaches=[];
+ const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
+ // Daily loss is checked against the fixed $50,000 account: 5% = $2,500.
+ // Sum all recorded report P&L for each trading date, so separate reports/trades combine.
+ const pnlByDay=new Map();
+ reports.forEach(r=>{const day=ruleDayKey(r.date||r.createdAt);const pnl=Number(r.dailyPnl);if(day&&Number.isFinite(pnl))pnlByDay.set(day,(pnlByDay.get(day)||0)+pnl);});
+ const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ const equityByDay=new Map();
+ reports.forEach(r=>{
+   const day=ruleDayKey(r.date||r.createdAt),eq=Number(r.equity);
+   if(day&&r.equity!==null&&r.equity!==undefined&&r.equity!==''&&Number.isFinite(eq)){
+     if(!equityByDay.has(day))equityByDay.set(day,[]);
+     equityByDay.get(day).push({time:ruleDateValue(r.createdAt)||ruleDateValue(r.date),equity:eq});
+   }
+ });
+ const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
+ const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach;
+ if(dailyBreach)breaches.push('Daily Loss');
+ // Static overall limit is always based on $50,000, not the trader's current/start field.
+ const balance=Number(t.current),equity=(t.equity!==null&&t.equity!==undefined&&t.equity!==''?Number(t.equity):NaN);
+ if((Number.isFinite(balance)&&balance<=RULE_OVERALL_FLOOR)||(Number.isFinite(equity)&&equity<=RULE_OVERALL_FLOOR))breaches.push('Overall Loss');
+ // Use recorded reports/trades to find last activity. A fifth full inactive calendar day is a breach.
+ const activityValues=[];
+ reports.forEach(r=>activityValues.push(r.date,r.createdAt));
+ trades.forEach(tr=>activityValues.push(tr.entryDateTime||tr.entryDate,tr.exitDateTime||tr.exitDate||tr.closedAt));
+ (Array.isArray(t.balanceHistory)?t.balanceHistory:[]).forEach(h=>activityValues.push(h.date));
+ activityValues.push(t.updated);
+ const activityMs=activityValues.map(ruleDateValue).filter(Number.isFinite);
+ if(activityMs.length){
+   const last=Math.max(...activityMs);const today=new Date();const lastDate=new Date(last);const todayMid=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();const lastMid=new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate()).getTime();
+   if(Math.floor((todayMid-lastMid)/86400000)>=5)breaches.push('Inactivity');
+ }
+ // Count overlapping entry-to-exit intervals. Missing timestamps cannot prove a layering breach.
+ const seen=new Set(),events=[];
+ trades.forEach((tr,index)=>{
+   const entry=ruleDateValue(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt);
+   const exit=ruleDateValue(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime);
+   const identity=String(tr.tradeNumber||tr.ticket||`${tr.symbol||''}|${tr.side||tr.type||''}|${tr.entryDateTime||tr.entryDate||''}|${tr.exitDateTime||tr.exitDate||''}|${tr.entryPrice||''}|${tr.exitPrice||''}`);
+   if(seen.has(identity))return;seen.add(identity);
+   if(Number.isFinite(entry)&&Number.isFinite(exit)&&exit>=entry){events.push({time:entry,delta:1,index});events.push({time:exit,delta:-1,index});}
+ });
+ events.sort((a,b)=>a.time-b.time||a.delta-b.delta);
+ let open=0,layeringBreach=false;
+ for(const event of events){open+=event.delta;if(open>3){layeringBreach=true;break;}}
+ if(layeringBreach)breaches.push('Layering');
+ return breaches;
+}
 function render(){
  $('leagueName').textContent=data.league||'Friends Trading Challenge';$('brandTitle').textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
  const startInput=$('competitionStartInput');
@@ -975,9 +1038,9 @@ function render(){
  $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
  $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: 3%';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`).join('');
- // Remove any legacy trailing placeholder/action cells so Last Update is always the final column.
- $('leaderRows').querySelectorAll('tr').forEach(row=>{while(row.cells.length>7)row.deleteCell(row.cells.length-1);});
+ $('leaderRows').innerHTML=sorted.map((t,i)=>{const breaches=getTraderRuleBreaches(t);const breachCell=breaches.length?`<span class="rule-breach">${esc(breaches.join(', '))}</span>`:'<span class="no-rule-breach">-</span>';return `<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${fmt(t.start)}</td><td>${breachCell}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`}).join('');
+ // Keep Last Update as the final column.
+ $('leaderRows').querySelectorAll('tr').forEach(row=>{while(row.cells.length>8)row.deleteCell(row.cells.length-1);});
  $('emptyState').style.display=sorted.length?'none':'block';
  // Preserve the selected trader whenever render() refreshes the dropdown.
  const selectedTraderId=$('traderSelect').value;
@@ -1278,4 +1341,9 @@ setAdminMode(null);
 .winner-stats>.winner-card{grid-column:1/-1!important;width:100%!important;max-width:none!important;box-sizing:border-box!important}
 .winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 120px)!important}
 @media(max-width:800px){.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 88px)!important}}
+</style>
+
+<style id="rule-breach-status-styles">
+.rule-breach{display:inline-block;color:#fff;background:#c62828;border:1px solid #ef5350;border-radius:5px;padding:5px 7px;font-size:11px;font-weight:800;line-height:1.4;max-width:190px;white-space:normal}
+.no-rule-breach{color:var(--muted,#8993a4);font-weight:600}
 </style>
