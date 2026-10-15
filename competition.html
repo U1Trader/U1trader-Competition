@@ -882,9 +882,34 @@ function setAdminMode(user){currentUser=user||null;document.body.classList.toggl
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
- if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}}
- else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
+ if(error){console.error('Shared dashboard load failed:',error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
+ let cloud=row?.dashboard_data||{};
+ if(typeof cloud==='string'){try{cloud=JSON.parse(cloud)}catch(e){cloud={}}}
+ if(cloud&&typeof cloud==='object'&&Object.keys(cloud).length){
+   // Keep local fields only when the cloud row is missing/empty, so an older/incomplete
+   // cloud snapshot cannot hide traders already present on the admin device.
+   const localSnapshot=data;
+   const merged={...localSnapshot,...cloud};
+   let needsCloudRepair=false;
+   ['traders','history','dailyTradeReports'].forEach(key=>{
+     const remoteHasItems=Array.isArray(cloud[key])&&cloud[key].length>0;
+     const localHasItems=Array.isArray(localSnapshot[key])&&localSnapshot[key].length>0;
+     if(!remoteHasItems&&localHasItems){merged[key]=localSnapshot[key];needsCloudRepair=true;}
+   });
+   ['league','brandTitle','startDate','endDate','startDateTime','endDateTime','firstPrize','brandLogo'].forEach(key=>{
+     if((merged[key]===undefined||merged[key]===null||merged[key]==='')&&localSnapshot[key]){merged[key]=localSnapshot[key];needsCloudRepair=true;}
+   });
+   data=merged;
+   lastRemoteJson=JSON.stringify(cloud);
+   try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
+   render();
+   // Only an authenticated admin can safely repair missing cloud fields. Never write from public view.
+   if(needsCloudRepair&&currentUser){await persist();}
+ }else{
+   lastRemoteJson=JSON.stringify(cloud);
+   // An empty cloud row must not wipe existing local data; admin login can initialize it safely.
+   if(currentUser&&(data.traders?.length||data.history?.length||data.dailyTradeReports?.length)){await persist();}
+ }
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
 async function loginAdmin(){
