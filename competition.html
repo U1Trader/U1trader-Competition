@@ -989,8 +989,8 @@ function getTraderRuleBreaches(t){
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
  const historicalMaeBreach=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).some(r=>String(r.traderId)===String(t.id)&&r.status==='ok'&&Number(r.maeUsd)<=-RULE_DAILY_LOSS_LIMIT);
  const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || historicalMaeBreach;
- if(dailyBreach)breaches.push('Daily Loss');
- if(hasLayeringBreachForTrader(t.id))breaches.push('Layering');
+ if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
+ if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
  const balance=Number(t.current),equity=(t.equity!==null&&t.equity!==undefined&&t.equity!==''?Number(t.equity):NaN);
  if((Number.isFinite(balance)&&balance<=RULE_OVERALL_FLOOR)||(Number.isFinite(equity)&&equity<=RULE_OVERALL_FLOOR))breaches.push('Overall Loss');
@@ -1051,7 +1051,7 @@ function render(){
  $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
  $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Requires 3%+ return and zero rule breaches';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
- $('leaderRows').innerHTML=sorted.map((t,i)=>{const breaches=getTraderRuleBreaches(t);const breachCell=breaches.length?`<span class="rule-breach">${esc(breaches.join(', '))}</span>`:'<span class="no-rule-breach">-</span>';return `<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${breachCell}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`}).join('');
+ $('leaderRows').innerHTML=sorted.map((t,i)=>{const breaches=getTraderRuleBreaches(t);const breachCell=breaches.length?`<span class="rule-breach">${esc([...new Set(breaches)].join(', '))}</span>`:'<span class="no-rule-breach">-</span>';return `<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${breachCell}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`}).join('');
  // Keep Last Update as the final column.
  $('leaderRows').querySelectorAll('tr').forEach(row=>{while(row.cells.length>8)row.deleteCell(row.cells.length-1);});
  $('emptyState').style.display=sorted.length?'none':'block';
