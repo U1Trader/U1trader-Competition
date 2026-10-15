@@ -1288,7 +1288,7 @@ function renderProfileTradePage(){
  const layeringKeys=getLayeringBreachTradeKeys(profileTraderId);
  body.innerHTML=pageTrades.map(x=>{const mae=getHistoricalMaeResult(profileTraderId,x);const maeBreach=mae&&mae.status==='ok'&&Number(mae.maeUsd)<=-RULE_DAILY_LOSS_LIMIT;const layeringBreach=layeringKeys.has(maeTradeKey(x));const dailyLossPositionBreach=!!(mae&&mae.estimatedDailyLossBreach);const breachText=(maeBreach||layeringBreach||dailyLossPositionBreach)?'position-breach-text':'';return '<tr><td class="'+breachText+'">'+esc(x.tradeNumber||x.ticket||'—')+'</td><td class="'+breachText+'">'+esc(x.side||x.type||'—')+'</td><td class="'+breachText+'">'+esc(getTradeLot(x))+'</td><td class="'+breachText+'">'+esc(x.symbol||'—')+'</td><td class="'+breachText+'">'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td class="'+breachText+'">'+esc(x.entryPrice??'—')+'</td><td class="'+breachText+'">'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td class="'+breachText+'">'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+' '+breachText+'">'+esc(fmt(x.pnl??x.profit))+'</td><td class="admin-mae-only '+(maeBreach?'position-breach-text':'')+'">'+(mae&&mae.status==='ok'?(mae.maeUsd!==null&&mae.maeUsd!==undefined?esc(fmt(mae.maeUsd))+' <small>(est. USD)</small>':'<span>'+esc('Price MAE: '+mae.maePrice)+' <small>(USD conversion unavailable)</small></span>'):mae?esc(mae.message||mae.status||'Unavailable'):'—')+'</td></tr>'}).join('');
  $('profileTradesEmpty').style.display=total?'none':'block';
- if(!total){pager.innerHTML='';const empty=$('profileTradesEmpty');if(empty)empty.textContent='No synced closed trades are available in this trader profile data. Existing MT5/screenshot trades were not recreated or deleted by this display fix.';return;}
+ if(!total){pager.innerHTML='';return;}
  let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
  for(let page=1;page<=totalPages;page++)html+='<button type="button" class="'+(page===profileTradePage?'active':'')+'" aria-current="'+(page===profileTradePage?'page':'false')+'" data-trade-page="'+page+'">'+page+'</button>';
  html+='<button type="button" data-trade-page="'+(profileTradePage+1)+'" '+(profileTradePage===totalPages?'disabled':'')+'>›</button><div class="profile-page-info">Showing '+(start+1)+'–'+Math.min(start+PROFILE_TRADES_PER_PAGE,total)+' of '+total+' trades</div>';
@@ -1302,16 +1302,16 @@ function openTraderProfileCore(id){
  const traderBreaches=getTraderRuleBreaches(t);window.profileTraderHasBreach=traderBreaches.length>0;
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
- $('profileStart').textContent=fmt(t.start??t.startingBalance??t.initialBalance??t.initial_balance);$('profileCurrent').textContent=fmt(t.current??t.balance??t.currentBalance??t.equity??t.accountBalance??t.account_balance);
+ const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
  const todayKey=new Date().toLocaleDateString('en-CA');
  const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
  const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
  const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
  const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
- const balanceForPL=Number(t.current??t.balance??t.currentBalance??t.equity??t.accountBalance??t.account_balance);const startForPL=Number(t.start??t.startingBalance??t.initialBalance??t.initial_balance);const pl=Number.isFinite(balanceForPL)&&Number.isFinite(startForPL)?balanceForPL-startForPL:profit(t);$('profileProfit').textContent=Number.isFinite(pl)?((pl>=0?'+':'')+fmt(pl)):'—';$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
+ const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
- const startBalance=Number(t.start??t.startingBalance??t.initialBalance??t.initial_balance)||50000,currentBalance=Number(t.current??t.balance??t.currentBalance??t.equity??t.accountBalance??t.account_balance);
+ const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
  const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90,dailyLimit=50000*0.05;
  const ruleBreachesForObjectives=getTraderRuleBreaches(t);
  const dailyBreached=ruleBreachesForObjectives.includes('Maximum Daily Loss');
@@ -1345,7 +1345,7 @@ function openTraderProfileCore(id){
  const allChartTrades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTradesForChart]
    .filter(x=>Number.isFinite(Number(x.pnl??x.profit)))
    .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
- const startVal=Number(t.start??t.startingBalance??t.initialBalance??t.initial_balance)||0;
+ const startVal=Number(t.start)||0;
  let runningBalance=startVal;
  const points=[{date:'Start',balance:startVal}];
  allChartTrades.forEach((trade,i)=>{runningBalance+=Number(trade.pnl??trade.profit)||0;points.push({date:String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||('Trade '+(i+1))),balance:runningBalance});});
@@ -1354,7 +1354,7 @@ function openTraderProfileCore(id){
    const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
    const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),balance:Number(p.balance)}));
    points.push(...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date))));
-   const fallbackCurrent=Number(t.current??t.balance??t.currentBalance??t.equity??t.accountBalance??t.account_balance)||0;const fallbackStart=Number(t.start??t.startingBalance??t.initialBalance??t.initial_balance)||0;if(points.length===1&&fallbackCurrent!==fallbackStart)points.push({date:t.updated||'Current',balance:fallbackCurrent});
+   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',balance:Number(t.current)||0});
  }
  const vals=points.map(p=>Number(p.balance)||0);
  const maxLossLevel=startVal-5000; // Fixed overall loss limit: $5,000 below a $50,000 starting balance.
@@ -1399,7 +1399,7 @@ function openTraderProfileCore(id){
  svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#f23645" stroke-width="1.35"/><text x="108" y="364" fill="#d9364f" font-size="10.5" font-weight="600">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
  svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#9a6700" font-size="10.5" font-weight="600">Daily loss: 5% below each day start</text>';
  svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#087f5b" font-size="10.5" font-weight="600">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
- $('profileBalanceChart').innerHTML='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 375" width="100%" height="100%" preserveAspectRatio="none">'+svg+'</svg>';
+ $('profileBalanceChart').innerHTML=svg;
 
 
  }catch(chartError){console.error('Profile chart render failed:',chartError);const chartEl=$('profileBalanceChart');if(chartEl)chartEl.innerHTML='<text x="30" y="40" fill="#cbd5e1" font-size="14">Balance chart unavailable</text>';}
