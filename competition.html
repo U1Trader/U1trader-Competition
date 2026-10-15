@@ -854,7 +854,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 380" role="img" aria-label="Trader balance line chart"></svg><h4 style="margin:18px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 440" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 style="margin:18px 0 8px">Trade history</h4><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -882,34 +882,9 @@ function setAdminMode(user){currentUser=user||null;document.body.classList.toggl
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
- if(error){console.error('Shared dashboard load failed:',error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- let cloud=row?.dashboard_data||{};
- if(typeof cloud==='string'){try{cloud=JSON.parse(cloud)}catch(e){cloud={}}}
- if(cloud&&typeof cloud==='object'&&Object.keys(cloud).length){
-   // Keep local fields only when the cloud row is missing/empty, so an older/incomplete
-   // cloud snapshot cannot hide traders already present on the admin device.
-   const localSnapshot=data;
-   const merged={...localSnapshot,...cloud};
-   let needsCloudRepair=false;
-   ['traders','history','dailyTradeReports'].forEach(key=>{
-     const remoteHasItems=Array.isArray(cloud[key])&&cloud[key].length>0;
-     const localHasItems=Array.isArray(localSnapshot[key])&&localSnapshot[key].length>0;
-     if(!remoteHasItems&&localHasItems){merged[key]=localSnapshot[key];needsCloudRepair=true;}
-   });
-   ['league','brandTitle','startDate','endDate','startDateTime','endDateTime','firstPrize','brandLogo'].forEach(key=>{
-     if((merged[key]===undefined||merged[key]===null||merged[key]==='')&&localSnapshot[key]){merged[key]=localSnapshot[key];needsCloudRepair=true;}
-   });
-   data=merged;
-   lastRemoteJson=JSON.stringify(cloud);
-   try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
-   render();
-   // Only an authenticated admin can safely repair missing cloud fields. Never write from public view.
-   if(needsCloudRepair&&currentUser){await persist();}
- }else{
-   lastRemoteJson=JSON.stringify(cloud);
-   // An empty cloud row must not wipe existing local data; admin login can initialize it safely.
-   if(currentUser&&(data.traders?.length||data.history?.length||data.dailyTradeReports?.length)){await persist();}
- }
+ if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
+ if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}}
+ else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
 async function loginAdmin(){
@@ -1168,25 +1143,64 @@ function openTraderProfile(id){
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  $('profileStart').textContent=fmt(t.start);$('profileCurrent').textContent=fmt(t.current);
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
- const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
- const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),balance:Number(p.balance)}));
- const points=[{date:'Start',balance:Number(t.start)||0},...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date)))];
- if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',balance:Number(t.current)||0});
- const vals=points.map(p=>Number(p.balance)||0),dataMin=Math.min(...vals),dataMax=Math.max(...vals),startVal=Number(t.start)||0;
- // Give the chart breathing room and use $250 ticks for normal ranges; switch to ~1% ticks for larger moves.
- const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.005,1);
+ const reportTradesForChart=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})).length?r.trades.map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})):[]);
+ const allChartTrades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTradesForChart]
+   .filter(x=>Number.isFinite(Number(x.pnl??x.profit)))
+   .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
+ const startVal=Number(t.start)||0;
+ let runningBalance=startVal;
+ const points=[{date:'Start',balance:startVal}];
+ allChartTrades.forEach((trade,i)=>{runningBalance+=Number(trade.pnl??trade.profit)||0;points.push({date:String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||('Trade '+(i+1))),balance:runningBalance});});
+ // If no individual closed trades are available, retain the saved daily balance history as a fallback.
+ if(!allChartTrades.length){
+   const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
+   const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),balance:Number(p.balance)}));
+   points.push(...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date))));
+   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',balance:Number(t.current)||0});
+ }
+ const vals=points.map(p=>Number(p.balance)||0);
+ const maxLossLevel=startVal-5000; // Fixed overall loss limit: $5,000 below a $50,000 starting balance.
+ const profitTargetLevel=startVal*1.03; // +3% from starting balance.
+ const dailyLossLevels=[];
+ if(allChartTrades.length){
+   let balanceBeforeDay=startVal, currentDay='', dayStartIndex=1, dayStartBalance=startVal, dayLastIndex=1;
+   allChartTrades.forEach((trade,i)=>{
+     const dateText=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+     const day=dateText.slice(0,10)||'Unknown date';
+     const pointIndex=i+1;
+     if(day!==currentDay){
+       if(currentDay)dailyLossLevels.push({day:currentDay,startIndex:dayStartIndex,endIndex:dayLastIndex,level:dayStartBalance-Math.abs(dayStartBalance)*0.05});
+       currentDay=day;dayStartIndex=pointIndex;dayLastIndex=pointIndex;dayStartBalance=balanceBeforeDay;
+     }else dayLastIndex=pointIndex;
+     balanceBeforeDay+=Number(trade.pnl??trade.profit)||0;
+   });
+   if(currentDay)dailyLossLevels.push({day:currentDay,startIndex:dayStartIndex,endIndex:dayLastIndex,level:dayStartBalance-Math.abs(dayStartBalance)*0.05});
+ }
+ const thresholds=[maxLossLevel,profitTargetLevel,...dailyLossLevels.map(x=>x.level)];
+ const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
+ const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.01,1);
  const tickStep=rawSpan<=2500?250:Math.max(250,Math.round((Math.abs(startVal)*0.01)/250)*250);
- const axisMin=Math.floor((dataMin-rawSpan*0.12)/tickStep)*tickStep;
- const axisMax=Math.ceil((dataMax+rawSpan*0.12)/tickStep)*tickStep;
+ const axisMin=Math.floor((dataMin-rawSpan*0.08)/tickStep)*tickStep;
+ const axisMax=Math.ceil((dataMax+rawSpan*0.08)/tickStep)*tickStep;
  const axisSpan=Math.max(axisMax-axisMin,tickStep);
- const yTop=42,yBottom=310,plotHeight=yBottom-yTop;
+ const yTop=34,yBottom=300,plotHeight=yBottom-yTop;
  const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
  const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
  let svg='';
  for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#263550"/><text x="12" y="'+Math.max(18,y-7)+'" fill="#94a5c3" font-size="13">'+esc(fmt(tick))+'</text>';}
- svg+='<polyline points="'+poly+'" fill="none" stroke="#42d392" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,10);svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="6" fill="#42d392"/><text x="'+p.x+'" y="350" text-anchor="middle" fill="#94a5c3" font-size="13">'+esc(label)+'</text>';});
+ // Threshold lines span the entire chart so the fixed account limits remain visible.
+ svg+='<line x1="70" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#ff5d6c" stroke-width="2.5"/>';
+ svg+='<line x1="70" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#42d392" stroke-width="2.5"/>';
+ // Daily loss allowance resets at the beginning of each trading day and is shown as a dotted segment.
+ dailyLossLevels.forEach(d=>{const x1=coords[Math.max(0,Math.min(coords.length-1,d.startIndex))]?.x??plotLeft;const x2=coords[Math.max(0,Math.min(coords.length-1,d.endIndex))]?.x??plotRight;const left=Math.max(70,Math.min(x1,x2-10));const right=Math.max(left+18,Math.min(1060,Math.max(x1,x2)));svg+='<line x1="'+left+'" y1="'+yFor(d.level)+'" x2="'+right+'" y2="'+yFor(d.level)+'" stroke="#ffb84d" stroke-width="2.5" stroke-dasharray="3 6"><title>'+esc(d.day)+' daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
+ svg+='<polyline points="'+poly+'" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+ // Small dots mark each closed trade balance point.
+ coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(i===0?'3':'2.2')+'" fill="#60a5fa" stroke="#0b1324" stroke-width="0.7"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||i===points.length-1||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#94a5c3" font-size="11">'+esc(label.slice(0,10))+'</text>';}});
+ // Chart legend explains all three risk/target levels.
+ svg+='<line x1="82" y1="360" x2="124" y2="360" stroke="#ff5d6c" stroke-width="3"/><text x="134" y="365" fill="#ff8b95" font-size="14">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
+ svg+='<line x1="445" y1="360" x2="487" y2="360" stroke="#ffb84d" stroke-width="3" stroke-dasharray="3 6"/><text x="497" y="365" fill="#ffcc80" font-size="14">Daily loss: 5% below each day start</text>';
+ svg+='<line x1="82" y1="397" x2="124" y2="397" stroke="#42d392" stroke-width="3"/><text x="134" y="402" fill="#42d392" font-size="14">Profit target: +3% from starting balance ('+esc(fmt(profitTargetLevel))+')</text>';
  $('profileBalanceChart').innerHTML=svg;
 
  const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
