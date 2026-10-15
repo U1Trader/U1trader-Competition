@@ -1240,7 +1240,7 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Breach Status','Starti
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
-let profileTradesCache=[];let profileTradePage=1;let profileTraderId=null;const PROFILE_TRADES_PER_PAGE=8;
+let profileTradesCache=[];let profileTradePage=1;let profileTraderId=null;const PROFILE_TRADES_PER_PAGE=7;
 function maeTradeKey(x){return [x.tradeNumber||x.ticket||'',x.symbol||'',x.side||x.type||'',x.entryDateTime||x.entryDate||'',x.exitDateTime||x.exitDate||x.closedAt||'',x.entryPrice??'',x.exitPrice??'',getTradeLot(x)].join('|')}
 function getHistoricalMaeResult(traderId,trade){return (Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).find(r=>String(r.traderId)===String(traderId)&&r.tradeKey===maeTradeKey(trade))||null}
 
