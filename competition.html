@@ -1326,9 +1326,22 @@ async function analyzeProfileHistoricalMae(){
    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
    if(error)throw error;
    if(!result||!Array.isArray(result.results))throw new Error(result?.error||'The historical MAE service returned no results.');
-   const existing=(Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).filter(r=>String(r.traderId)!==String(t.id));
+   // Keep every saved result. A temporary API failure on a later analysis must not erase
+   // a previously successful MAE result for the same trade.
+   const savedResults=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
    const newResults=result.results.map(r=>{const trade=trades[Number(r.tradeId)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status,message:r.message||r.note||'',source:r.source||result.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
-   data.historicalMaeResults=[...existing,...newResults];
+   const resultKey=r=>String(r.traderId)+'|'+String(r.tradeKey||'');
+   const merged=new Map(savedResults.map(r=>[resultKey(r),r]));
+   for(const incoming of newResults){
+     const key=resultKey(incoming), previous=merged.get(key);
+     // Preserve a successful result if a later request temporarily cannot fetch candles.
+     if(previous&&previous.status==='ok'&&incoming.status!=='ok'){
+       merged.set(key,{...previous,lastAttemptStatus:incoming.status,lastAttemptMessage:incoming.message||incoming.status,lastAttemptAt:incoming.analyzedAt});
+     }else{
+       merged.set(key,incoming);
+     }
+   }
+   data.historicalMaeResults=Array.from(merged.values());
    profileTradePage=1;renderProfileTradePage();
    const ok=currentUser?await persist():false;
    render();
