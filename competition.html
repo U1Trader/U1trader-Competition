@@ -497,7 +497,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .profile-metric small{display:block;color:var(--muted);font-size:11px}.profile-metric strong{display:block;font-size:20px;margin-top:5px;overflow-wrap:anywhere}
 .profile-chart{width:100%;height:230px;display:block;background:#0b1324;border:1px solid var(--line);border-radius:12px}
 .trader-row-actions{margin-top:5px;display:flex;gap:5px}.trader-row-actions .btn{padding:3px 7px;font-size:10px;min-height:22px}
-.profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}
+.profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}.profile-pagination{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:14px 0 2px}.profile-pagination button{min-width:34px;padding:7px 10px;border:1px solid var(--line,#263550);border-radius:8px;background:var(--panel,#152238);color:var(--text,#eef4ff);cursor:pointer}.profile-pagination button.active{background:var(--blue,#78aaff);color:#081326;border-color:transparent;font-weight:800}.profile-pagination button:disabled{opacity:.4;cursor:not-allowed}.profile-page-info{width:100%;text-align:center;color:var(--muted,#94a5c3);font-size:12px;padding-top:4px}
 @media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:190px}}
 
 
@@ -1121,6 +1121,22 @@ $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Starting Balance','Cur
 $('editPrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');$('prizeOneInput').value=data.firstPrize||'';$('prizeModalBack').style.display='flex'};
 $('cancelPrize').onclick=()=>{$('prizeModalBack').style.display='none'};
 $('savePrizes').onclick=()=>{if(!currentUser)return toast('Admin login required');data.firstPrize=$('prizeOneInput').value.trim();persist();render();$('prizeModalBack').style.display='none';toast('Prize settings saved')};
+let profileTradesCache=[];let profileTradePage=1;const PROFILE_TRADES_PER_PAGE=10;
+function renderProfileTradePage(){
+ const body=$('profileTradeRows'),pager=$('profileTradePagination');
+ const total=profileTradesCache.length,totalPages=Math.max(1,Math.ceil(total/PROFILE_TRADES_PER_PAGE));
+ profileTradePage=Math.min(Math.max(1,profileTradePage),totalPages);
+ const start=(profileTradePage-1)*PROFILE_TRADES_PER_PAGE;
+ const pageTrades=profileTradesCache.slice(start,start+PROFILE_TRADES_PER_PAGE);
+ body.innerHTML=pageTrades.map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join('');
+ $('profileTradesEmpty').style.display=total?'none':'block';
+ if(!total){pager.innerHTML='';return;}
+ let html='<button type="button" data-trade-page="'+(profileTradePage-1)+'" '+(profileTradePage===1?'disabled':'')+'>‹</button>';
+ for(let page=1;page<=totalPages;page++)html+='<button type="button" class="'+(page===profileTradePage?'active':'')+'" aria-current="'+(page===profileTradePage?'page':'false')+'" data-trade-page="'+page+'">'+page+'</button>';
+ html+='<button type="button" data-trade-page="'+(profileTradePage+1)+'" '+(profileTradePage===totalPages?'disabled':'')+'>›</button><div class="profile-page-info">Showing '+(start+1)+'–'+Math.min(start+PROFILE_TRADES_PER_PAGE,total)+' of '+total+' trades</div>';
+ pager.innerHTML=html;
+ pager.querySelectorAll('[data-trade-page]').forEach(btn=>btn.addEventListener('click',()=>{const next=Number(btn.dataset.tradePage);if(next>=1&&next<=totalPages){profileTradePage=next;renderProfileTradePage();}}));
+}
 function openTraderProfile(id){
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
@@ -1149,8 +1165,7 @@ function openTraderProfile(id){
  $('profileBalanceChart').innerHTML=svg;
 
  const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
- $('profileTradeRows').innerHTML=trades.length?trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||''))).map(x=>'<tr><td>'+esc(x.tradeNumber||x.ticket||'—')+'</td><td>'+esc(x.side||x.type||'—')+'</td><td>'+esc(x.symbol||'—')+'</td><td>'+esc(x.entryDateTime||x.entryDate||'—')+'</td><td>'+esc(x.entryPrice??'—')+'</td><td>'+esc(x.exitDateTime||x.exitDate||x.closedAt||'—')+'</td><td>'+esc(x.exitPrice??'—')+'</td><td class="'+(Number(x.pnl??x.profit)>=0?'positive':'negative')+'">'+esc(fmt(x.pnl??x.profit))+'</td></tr>').join(''):'';
- $('profileTradesEmpty').style.display=trades.length?'none':'block';$('traderProfileBack').style.display='flex';
+ profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
 }
 window.openTraderProfile=openTraderProfile;
 $('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
