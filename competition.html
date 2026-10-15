@@ -946,6 +946,7 @@ $('logoFile').addEventListener('change',e=>{
  reader.readAsDataURL(file);
 });
 
+function localDateString(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;}
 function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
@@ -961,7 +962,6 @@ function render(){
  if(endInput && document.activeElement!==endInput) endInput.value=data.endDateTime||'';
  if(endDisplay){if(data.endDateTime){const d=new Date(data.endDateTime);endDisplay.textContent=isNaN(d.getTime())?data.endDateTime:d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';}else endDisplay.textContent='Not announced';}
  updateCompetitionClock();
- const localDateString=()=>{const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;};
  const date=$('updateDate').value||localDateString();
  const sorted=[...data.traders].sort((a,b)=>profit(b)-profit(a));
  // Prize eligibility: only traders with at least 3% return qualify for the 1st prize.
