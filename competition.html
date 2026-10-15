@@ -1162,6 +1162,13 @@ if(!Array.isArray(data.historicalMaeResults))data.historicalMaeResults=[];
  data.dailyTradeReports.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),traderId:trader.id,traderName:trader.name,date:reportDate,balanceBefore,balance:null,equity:null,dailyPnl,tradeCount:trades.length,trades,ocrText:$('reportOcrText').value.slice(0,12000),screenshotName:$('reportScreenshot').files?.[0]?.name||'',createdAt:new Date().toISOString()});
  trader.updated=reportDate;trader.balanceHistory=Array.isArray(trader.balanceHistory)?trader.balanceHistory:[];const bh=trader.balanceHistory.findIndex(x=>x.date===reportDate);if(bh>=0)trader.balanceHistory[bh]={date:reportDate,balance:Number(trader.current)||0};else trader.balanceHistory.push({date:reportDate,balance:Number(trader.current)||0});
  const btn=$('saveTradeReportBtn');btn.disabled=true;const ok=await persist();btn.disabled=false;if(!ok)return;render();$('clearTradeReportBtn').click();toast(`Saved ${dailyPnl>=0?'+':''}$${dailyPnl.toFixed(2)} P&L. Current balance updated.`);
+ // After the screenshot is confirmed and saved, automatically analyze only trades that have never been processed.
+ // This also picks up older screenshot-confirmed reports for this trader that have no MAE record yet.
+ profileTraderId=trader.id;
+ const existingReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(trader.id));
+ const allReportTrades=existingReports.flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})):[]);
+ profileTradesCache=[...(Array.isArray(trader.trades)?trader.trades:[]),...allReportTrades].sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));
+ analyzeProfileHistoricalMae({automatic:true});
 });
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -1303,52 +1310,52 @@ function openTraderProfile(id){
  if(legacyLotsBackfilled)persist();
  const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
  profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
+ // Backfill MAE once for already-confirmed screenshot reports that predate automatic analysis.
+ if(currentUser&&profileTradesCache.length)setTimeout(()=>analyzeProfileHistoricalMae({automatic:true}),0);
 }
 window.openTraderProfile=openTraderProfile;
-async function analyzeProfileHistoricalMae(){
+async function analyzeProfileHistoricalMae(options={}){
+ const automatic=!!options.automatic;
  const status=$('historicalMaeStatus'),button=$('analyzeHistoricalMaeBtn');
- if(!currentUser){status.textContent='Admin login is required before using the market-data API.';toast('Please log in as admin first');return;}
+ if(!currentUser){if(!automatic){status.textContent='Admin login is required before using the market-data API.';toast('Please log in as admin first');}return;}
  const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
- const trades=profileTradesCache;
- if(!trades.length){status.textContent='No individual closed trades available to analyze.';return;}
- // Normalize common broker suffixes (for example XAUUSDM) to the market-data provider's canonical symbol.
+ const allTrades=profileTradesCache;
+ if(!allTrades.length){if(!automatic)status.textContent='No individual closed trades available to analyze.';return;}
+ const savedResults=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
+ const hasSavedResult=trade=>savedResults.some(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade));
+ // Analyze each trade once. Any existing record (success or unavailable) is not automatically requested again.
+ const trades=allTrades.filter(x=>!hasSavedResult(x)&&x.symbol&&['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())&&getTradeLot(x)!=='—'&&(x.entryDateTime||x.entryDate)&& (x.exitDateTime||x.exitDate||x.closedAt)&&x.entryPrice!==''&&x.entryPrice!==undefined&&x.exitPrice!==''&&x.exitPrice!==undefined);
+ if(!trades.length){if(!automatic)status.textContent='All eligible trades already have an MAE result. No repeat API requests were made.';return;}
  const normalizeMaeSymbol=value=>{
    let symbol=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
    if(/^XAUUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='GOLD')return 'XAUUSD';
    if(/^XAGUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='SILVER')return 'XAGUSD';
-   // Strip common MT5 broker suffixes only when the remaining instrument is a standard 6-letter FX pair.
    const fx=symbol.match(/^([A-Z]{6})(?:M|\d+|PRO)$/);if(fx)return fx[1];
    return symbol;
  };
  const payload=trades.map((x,index)=>({index,tradeNumber:x.tradeNumber||x.ticket||'',symbol:normalizeMaeSymbol(x.symbol),side:x.side||x.type||'',lot:getTradeLot(x),entryDateTime:x.entryDateTime||x.entryDate||'',exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||'',entryPrice:x.entryPrice,exitPrice:x.exitPrice,pnl:x.pnl??x.profit}));
- button.disabled=true;status.textContent='Requesting historical 1-minute candles…';
+ button.disabled=true;status.textContent=`Analyzing ${trades.length} previously unanalyzed trade(s)…`;
  try{
-   const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
-   if(error)throw error;
-   if(!result||!Array.isArray(result.results))throw new Error(result?.error||'The historical MAE service returned no results.');
-   // Keep every saved result. A temporary API failure on a later analysis must not erase
-   // a previously successful MAE result for the same trade.
-   const savedResults=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
-   const newResults=result.results.map(r=>{const trade=trades[Number(r.tradeId)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status,message:r.message||r.note||'',source:r.source||result.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
-   const resultKey=r=>String(r.traderId)+'|'+String(r.tradeKey||'');
-   const merged=new Map(savedResults.map(r=>[resultKey(r),r]));
-   for(const incoming of newResults){
-     const key=resultKey(incoming), previous=merged.get(key);
-     // Preserve a successful result if a later request temporarily cannot fetch candles.
-     if(previous&&previous.status==='ok'&&incoming.status!=='ok'){
-       merged.set(key,{...previous,lastAttemptStatus:incoming.status,lastAttemptMessage:incoming.message||incoming.status,lastAttemptAt:incoming.analyzedAt});
-     }else{
-       merged.set(key,incoming);
-     }
+   // Chunk requests to respect the Edge Function's 20-trade limit.
+   const returned=[];
+   for(let offset=0;offset<payload.length;offset+=20){
+     const chunk=payload.slice(offset,offset+20);
+     const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:chunk}});
+     if(error)throw error;
+     if(!result||!Array.isArray(result.results))throw new Error(result?.error||'The historical MAE service returned no results.');
+     result.results.forEach(r=>returned.push({...r,tradeId:chunk[Number(r.tradeId)]?Number(r.tradeId)+offset:r.tradeId}));
    }
+   const newResults=returned.map(r=>{const trade=trades[Number(r.tradeId)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status,message:r.message||r.note||'',source:r.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
+   // Merge with latest in-memory records; never replace an existing result for a trade.
+   const merged=new Map((Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).map(r=>[String(r.traderId)+'|'+String(r.tradeKey||''),r]));
+   for(const incoming of newResults){const key=String(incoming.traderId)+'|'+String(incoming.tradeKey||'');if(!merged.has(key))merged.set(key,incoming);}
    data.historicalMaeResults=Array.from(merged.values());
-   profileTradePage=1;renderProfileTradePage();
-   const ok=currentUser?await persist():false;
-   render();
+   const ok=await persist();
+   renderProfileTradePage();render();
    const passed=newResults.filter(r=>r.status==='ok').length,failed=newResults.length-passed;
-   status.textContent=`Historical analysis complete: ${passed} trade(s) analyzed, ${failed} unavailable. ${ok?'Results saved to Supabase.':currentUser?'Cloud save failed; check sync status.':'Results are local only until an admin logs in and saves.'}`;
-   if(failed)toast('Some trades could not be analyzed. Check status in the MAE column.');
- }catch(e){console.error(e);status.textContent='Analysis failed: '+(e.message||String(e))+' — check Edge Function deployment and API key.';toast('Historical MAE analysis failed');}
+   status.textContent=`One-time MAE check complete: ${passed} successful, ${failed} unavailable. ${ok?'Results saved to Supabase.':'Cloud save failed; sign in as admin and check sync.'}`;
+   if(failed&&!automatic)toast('Some trades were unavailable; their status is saved so they are not repeatedly requested.');
+ }catch(e){console.error(e);status.textContent='Analysis request failed before results could be saved: '+(e.message||String(e));toast('Historical MAE analysis failed');}
  finally{button.disabled=false;}
 }
 $('analyzeHistoricalMaeBtn').addEventListener('click',analyzeProfileHistoricalMae);
