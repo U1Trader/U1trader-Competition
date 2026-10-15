@@ -826,7 +826,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
     <li><span class="rule-number">02</span><div><strong>Maximum Overall Loss</strong><small>10% — Static Drawdown</small></div></li>
     <li class="demo-warning"><span class="rule-number">03</span><div><strong>Inactivity Rule</strong><small>5 inactive days. Because this is a demo account, if you do not trade for 1 week, the account may be automatically deleted. If the account is deleted, you will be disqualified, and we will be unable to recover the account.</small></div></li>
     <li><span class="rule-number">04</span><div><strong>Layering Rule</strong><small>Only 3 positions are allowed at a time.</small></div></li>
-    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least #% profit/return to qualify for the 1st prize. Traders below #% remain on the live leaderboard but are not eligible for the prize.</small></div></li>
+    <li><span class="rule-number">05</span><div><strong>Minimum Profit for Prize Eligibility</strong><small>A trader must achieve at least 3% profit/return to qualify for the 1st prize. Traders below 3% remain on the live leaderboard but are not eligible for the prize.</small></div></li>
     <li><span class="rule-number">06</span><div><strong>Winner Selection at Competition End</strong><small>At the end of the competition, the 1st-prize winner is selected from eligible traders based on the highest ending account balance. Only traders meeting the minimum profit requirement qualify.</small></div></li>
   </ul>
 </section>
@@ -862,6 +862,15 @@ let currentUser=null, lastRemoteJson='', loadingRemote=true;
 let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[],dailyTradeReports:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
 if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
+// Guard against accidental empty dashboard payloads wiping traders saved on this device.
+function mergeDashboardData(incoming){
+ const merged={...data,...(incoming||{})};
+ if(Array.isArray(data.traders)&&data.traders.length>0&&(!Array.isArray(incoming?.traders)||incoming.traders.length===0)){
+  merged.traders=data.traders;
+  console.warn('Ignored empty remote trader list to protect existing trader records.');
+ }
+ return merged;
+}
 function setSyncStatus(message){const el=$('syncStatus');if(el)el.textContent=message}
 async function persist(){
  const snapshot=JSON.stringify(data);
@@ -876,7 +885,7 @@ async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}}
+ if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data=mergeDashboardData(row.dashboard_data);lastRemoteJson=JSON.stringify(row.dashboard_data);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}}
  else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
@@ -939,6 +948,7 @@ $('logoFile').addEventListener('change',e=>{
  reader.readAsDataURL(file);
 });
 
+const MIN_PRIZE_RETURN_PERCENT = 3;
 function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
@@ -956,12 +966,12 @@ function render(){
  updateCompetitionClock();
  const date=$('updateDate').value||localDateString();
  const sorted=[...data.traders].sort((a,b)=>profit(b)-profit(a));
- // Prize eligibility: only traders with at least 5% return qualify. Among eligible traders,
- // prize places are awarded by highest ending balance; the public leaderboard remains unchanged.
- const eligible=[...data.traders].filter(t=>ret(t)>=5).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
- const firstWinner=eligible[0]||null;
+ // Only traders with at least the configured minimum return can appear in the First Prize card.
+ // Eligible traders are ordered by highest ending balance; all traders remain on the live leaderboard.
+ const eligible=[...data.traders].filter(t=>ret(t)>=MIN_PRIZE_RETURN_PERCENT).sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0));
+ const firstWinner=eligible.length?eligible[0]:null;
  $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
- $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: 5%';
+ $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Minimum return required: '+MIN_PRIZE_RETURN_PERCENT+'%';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
  $('leaderRows').innerHTML=sorted.map((t,i)=>`<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`).join('');
  // Remove any legacy trailing placeholder/action cells so Last Update is always the final column.
@@ -1154,7 +1164,7 @@ setAdminMode(null);
  await loadSharedData();
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
-   if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
+   if(remote&&JSON.stringify(remote)!==lastRemoteJson){data=mergeDashboardData(remote);lastRemoteJson=JSON.stringify(remote);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
  }).subscribe();
  // Polling fallback plus refresh-on-resume for iOS Safari, which suspends background tabs.
  let refreshInProgress=false;
@@ -1166,7 +1176,7 @@ setAdminMode(null);
      if(error){console.warn('Dashboard refresh failed',error);setSyncStatus('Reconnect to refresh');return;}
      if(row?.dashboard_data){
        const remoteJson=JSON.stringify(row.dashboard_data);
-       if(remoteJson!==lastRemoteJson){data={...data,...row.dashboard_data};lastRemoteJson=remoteJson;try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');}
+       if(remoteJson!==lastRemoteJson){data=mergeDashboardData(row.dashboard_data);lastRemoteJson=remoteJson;try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');}
      }
    } finally {refreshInProgress=false;}
  }
