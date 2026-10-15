@@ -858,7 +858,7 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
-<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div><div id="profileBreachStatus" class="profile-breach-status">Rule status: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 style="margin:4px 0 8px">Trade history</h4><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><button class="btn primary" type="button" id="analyzeHistoricalMaeBtn">Analyze historical MAE</button><span id="historicalMaeStatus" class="hint" style="margin:0">Uses historical 1-minute candles; estimates only, not live account equity.</span></div><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th><th>Max adverse loss (est.)</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
+<div class="modalback" id="traderProfileBack"><div class="modal profile-modal"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="eyebrow">TRADER PROFILE</div><h3 id="profileName" style="margin:5px 0">Trader</h3><div class="hint" id="profileAccount" style="margin-top:0">MT5 account: —</div><div id="profileBreachStatus" class="profile-breach-status">Rule status: —</div></div><button class="btn" id="closeTraderProfile">Close</button></div><div class="profile-metrics"><div class="profile-metric"><small>Starting balance</small><strong id="profileStart">—</strong></div><div class="profile-metric"><small>Current balance</small><strong id="profileCurrent">—</strong></div><div class="profile-metric"><small>Profit / Loss</small><strong id="profileProfit">—</strong></div></div><h4 style="margin:18px 0 8px">Account balance chart</h4><svg id="profileBalanceChart" class="profile-chart" viewBox="0 0 1100 375" preserveAspectRatio="none" role="img" aria-label="Trader balance chart with profit target, daily loss and maximum loss levels"></svg><h4 style="margin:4px 0 8px">Trade history</h4><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><span id="historicalMaeStatus" class="hint" style="margin:0">Historical MAE analysis runs automatically after a screenshot is confirmed. Estimates only; not live account equity.</span></div><div class="profile-trades"><table><thead><tr><th>Trade number</th><th>Position</th><th>Lot</th><th>Symbol</th><th>Entry date &amp; time</th><th>Entry price</th><th>Exit date &amp; time</th><th>Exit price</th><th>P&amp;L</th><th>Max adverse loss (est.)</th></tr></thead><tbody id="profileTradeRows"></tbody></table><div id="profileTradesEmpty" class="empty">No synced closed trades yet.</div><div id="profileTradePagination" class="profile-pagination" aria-label="Trade history pages"></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1314,51 +1314,92 @@ function openTraderProfile(id){
  if(currentUser&&profileTradesCache.length)setTimeout(()=>analyzeProfileHistoricalMae({automatic:true}),0);
 }
 window.openTraderProfile=openTraderProfile;
+let maeAnalysisPromise=null;
+const MAE_API_REQUEST_GAP_MS=9000; // stay below Twelve Data's 8-credit/minute limit
+const MAE_RETRY_WAIT_MS=65000;
+const waitForMaeSlot=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function maeResultCanRetry(result){
+ if(!result||result.status==='ok')return false;
+ const message=String(result.message||'').toLowerCase();
+ const rateLimited=/credit|rate.?limit|too many requests|429|per minute|quota/.test(message);
+ if(!rateLimited)return false;
+ const age=Date.now()-Date.parse(result.analyzedAt||0);
+ return !Number.isFinite(age)||age>=MAE_RETRY_WAIT_MS;
+}
 async function analyzeProfileHistoricalMae(options={}){
- const automatic=!!options.automatic;
- const status=$('historicalMaeStatus'),button=$('analyzeHistoricalMaeBtn');
- if(!currentUser){if(!automatic){status.textContent='Admin login is required before using the market-data API.';toast('Please log in as admin first');}return;}
- const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
- const allTrades=profileTradesCache;
- if(!allTrades.length){if(!automatic)status.textContent='No individual closed trades available to analyze.';return;}
- const savedResults=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
- const hasSavedResult=trade=>savedResults.some(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade));
- // Analyze each trade once. Any existing record (success or unavailable) is not automatically requested again.
- const trades=allTrades.filter(x=>!hasSavedResult(x)&&x.symbol&&['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())&&getTradeLot(x)!=='—'&&(x.entryDateTime||x.entryDate)&& (x.exitDateTime||x.exitDate||x.closedAt)&&x.entryPrice!==''&&x.entryPrice!==undefined&&x.exitPrice!==''&&x.exitPrice!==undefined);
- if(!trades.length){if(!automatic)status.textContent='All eligible trades already have an MAE result. No repeat API requests were made.';return;}
- const normalizeMaeSymbol=value=>{
+ if(maeAnalysisPromise)return maeAnalysisPromise;
+ maeAnalysisPromise=(async()=>{
+  const status=$('historicalMaeStatus');
+  if(!currentUser){if(!options.automatic){status.textContent='Admin login is required before historical analysis can run.';toast('Please log in as admin first');}return;}
+  const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
+  const allTrades=profileTradesCache;
+  if(!allTrades.length){status.textContent='No individual closed trades available for historical analysis.';return;}
+  const savedResults=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
+  const getSaved=trade=>savedResults.find(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade))||null;
+  // Successful results are permanent. Rate-limit failures are retried only after a cooldown.
+  const trades=allTrades.filter(x=>{
+   if(!x.symbol||!['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())||getTradeLot(x)==='—'||!(x.entryDateTime||x.entryDate)||!(x.exitDateTime||x.exitDate||x.closedAt)||x.entryPrice===''||x.entryPrice===undefined||x.exitPrice===''||x.exitPrice===undefined)return false;
+   const previous=getSaved(x);
+   if(!previous)return true;
+   return maeResultCanRetry(previous);
+  });
+  if(!trades.length){status.textContent='Historical MAE is up to date. Saved results are kept; no repeated API calls needed.';return;}
+  const normalizeMaeSymbol=value=>{
    let symbol=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
    if(/^XAUUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='GOLD')return 'XAUUSD';
    if(/^XAGUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='SILVER')return 'XAGUSD';
    const fx=symbol.match(/^([A-Z]{6})(?:M|\d+|PRO)$/);if(fx)return fx[1];
    return symbol;
- };
- const payload=trades.map((x,index)=>({index,tradeNumber:x.tradeNumber||x.ticket||'',symbol:normalizeMaeSymbol(x.symbol),side:x.side||x.type||'',lot:getTradeLot(x),entryDateTime:x.entryDateTime||x.entryDate||'',exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||'',entryPrice:x.entryPrice,exitPrice:x.exitPrice,pnl:x.pnl??x.profit}));
- button.disabled=true;status.textContent=`Analyzing ${trades.length} previously unanalyzed trade(s)…`;
- try{
-   // Chunk requests to respect the Edge Function's 20-trade limit.
-   const returned=[];
-   for(let offset=0;offset<payload.length;offset+=20){
-     const chunk=payload.slice(offset,offset+20);
-     const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:chunk}});
-     if(error)throw error;
-     if(!result||!Array.isArray(result.results))throw new Error(result?.error||'The historical MAE service returned no results.');
-     result.results.forEach(r=>returned.push({...r,tradeId:chunk[Number(r.tradeId)]?Number(r.tradeId)+offset:r.tradeId}));
+  };
+  const upsertAndSave=async(trade,r)=>{
+   const incoming={traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status||'unavailable',message:r.message||r.note||'',source:r.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()};
+   const key=String(incoming.traderId)+'|'+String(incoming.tradeKey);
+   const latest=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
+   const idx=latest.findIndex(r=>String(r.traderId)+'|'+String(r.tradeKey||'')===key);
+   if(idx<0)latest.push(incoming);
+   else if(latest[idx].status!=='ok'||incoming.status==='ok')latest[idx]=incoming;
+   data.historicalMaeResults=latest;
+   const saved=await persist();
+   renderProfileTradePage();
+   return saved;
+  };
+  let passed=0,failed=0,cloudSaveFailed=false;
+  status.textContent=`Queued ${trades.length} trade(s). To stay within the market-data API limit, each trade is checked separately with a short delay.`;
+  for(let i=0;i<trades.length;i++){
+   const trade=trades[i];
+   // A 9-second gap keeps this at about 6–7 API calls/minute (under the 8-credit limit).
+   if(i>0)await waitForMaeSlot(MAE_API_REQUEST_GAP_MS);
+   status.textContent=`Checking historical MAE ${i+1}/${trades.length}. Successful results are saved as each trade finishes.`;
+   const payload={index:0,tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:normalizeMaeSymbol(trade.symbol),side:trade.side||trade.type||'',lot:getTradeLot(trade),entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',entryPrice:trade.entryPrice,exitPrice:trade.exitPrice,pnl:trade.pnl??trade.profit};
+   try{
+    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:[payload]}});
+    if(error)throw error;
+    if(!result||!Array.isArray(result.results)||!result.results[0])throw new Error(result?.error||'Historical MAE service returned no trade result.');
+    const r=result.results[0];
+    const saved=await upsertAndSave(trade,r);
+    if(!saved)cloudSaveFailed=true;
+    if(r.status==='ok')passed++;else failed++;
+    // If the API says the quota is exhausted, stop making calls and leave remaining trades for a later automatic retry.
+    if(/credit|rate.?limit|too many requests|429|per minute|quota/i.test(String(r.message||''))){
+     status.textContent=`API credit limit reached. ${passed} successful result(s) are saved. Remaining trades will resume automatically after the cooldown.`;
+     setTimeout(()=>{if(currentUser&&String(profileTraderId)===String(t.id))analyzeProfileHistoricalMae({automatic:true});},MAE_RETRY_WAIT_MS);
+     break;
+    }
+   }catch(e){
+    failed++;
+    const r={status:'request_error',message:String(e?.message||e),source:'historical-mae',analyzedAt:new Date().toISOString()};
+    // Save an error record so this failure is visible; retry only if it explicitly indicates API credits/rate limit.
+    const saved=await upsertAndSave(trade,r);
+    if(!saved)cloudSaveFailed=true;
+    status.textContent=`Trade ${i+1}/${trades.length} failed: ${String(e?.message||e)}. Continuing safely.`;
    }
-   const newResults=returned.map(r=>{const trade=trades[Number(r.tradeId)];return trade?{traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status,message:r.message||r.note||'',source:r.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,analyzedAt:new Date().toISOString()}:null;}).filter(Boolean);
-   // Merge with latest in-memory records; never replace an existing result for a trade.
-   const merged=new Map((Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).map(r=>[String(r.traderId)+'|'+String(r.tradeKey||''),r]));
-   for(const incoming of newResults){const key=String(incoming.traderId)+'|'+String(incoming.tradeKey||'');if(!merged.has(key))merged.set(key,incoming);}
-   data.historicalMaeResults=Array.from(merged.values());
-   const ok=await persist();
-   renderProfileTradePage();render();
-   const passed=newResults.filter(r=>r.status==='ok').length,failed=newResults.length-passed;
-   status.textContent=`One-time MAE check complete: ${passed} successful, ${failed} unavailable. ${ok?'Results saved to Supabase.':'Cloud save failed; sign in as admin and check sync.'}`;
-   if(failed&&!automatic)toast('Some trades were unavailable; their status is saved so they are not repeatedly requested.');
- }catch(e){console.error(e);status.textContent='Analysis request failed before results could be saved: '+(e.message||String(e));toast('Historical MAE analysis failed');}
- finally{button.disabled=false;}
+  }
+  renderProfileTradePage();render();
+  if(cloudSaveFailed)status.textContent+=` Cloud save failed for at least one result; check admin connection.`;
+  else if(!/API credit limit reached/.test(status.textContent))status.textContent=`Automatic MAE check complete: ${passed} successful, ${failed} unavailable. Results are saved individually; successful trades won't be requested again.`;
+ })().catch(e=>{console.error(e);const status=$('historicalMaeStatus');if(status)status.textContent='Automatic MAE analysis error: '+(e.message||String(e));}).finally(()=>{maeAnalysisPromise=null;});
+ return maeAnalysisPromise;
 }
-$('analyzeHistoricalMaeBtn').addEventListener('click',analyzeProfileHistoricalMae);
 $('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
 $('traderProfileBack').addEventListener('click',e=>{if(e.target===$('traderProfileBack'))$('traderProfileBack').style.display='none'});
 render();
