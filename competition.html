@@ -489,7 +489,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 
 
 /* Trader profile, account mapping and balance chart */
-.trader-link{background:none;border:0;padding:0;color:var(--text);font:inherit;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:#526786;text-underline-offset:3px}
+.trader-link{cursor:pointer;position:relative;z-index:2;pointer-events:auto;background:none;border:0;padding:0;color:var(--text);font:inherit;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:#526786;text-underline-offset:3px}
 .trader-link:hover{color:var(--blue)}
 .profile-modal{width:min(1600px,97vw);height:96vh;max-height:96vh;overflow:hidden;display:flex;flex-direction:column;padding:16px 20px 12px}
 .profile-objectives{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:10px 0 8px;flex:0 0 auto}
@@ -524,7 +524,7 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 #legacyBalanceUpdate{display:none!important}body.admin-mode #legacyBalanceUpdate{display:none!important}
 .simple-upload-fields{grid-template-columns:minmax(180px,.7fr) minmax(260px,1.3fr)}
 #savedTradeReportsSection{display:none!important}body.admin-mode #savedTradeReportsSection{display:block!important}
-.trader-link{border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:2px 0}
+.trader-link{cursor:pointer;position:relative;z-index:2;pointer-events:auto;border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:2px 0}
 .profile-modal{width:min(1250px,96vw);max-height:94vh;padding:24px}
 .profile-modal h4{margin:10px 0 4px!important}
 .profile-chart{height:520px;overflow:visible;background:#0b1220;border-color:#26364d}
@@ -1288,7 +1288,7 @@ function renderProfileTradePage(){
  pager.innerHTML=html;
  pager.querySelectorAll('[data-trade-page]').forEach(btn=>btn.addEventListener('click',()=>{const next=Number(btn.dataset.tradePage);if(next>=1&&next<=totalPages){profileTradePage=next;renderProfileTradePage();}}));
 }
-function openTraderProfile(id){
+function openTraderProfileCore(id){
  profileTraderId=id;
  const t=data.traders.find(x=>String(x.id)===String(id));if(!t)return;
  $('profileName').textContent=t.name;
@@ -1402,6 +1402,19 @@ function openTraderProfile(id){
  profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
  // Backfill MAE once for already-confirmed screenshot reports that predate automatic analysis.
  if(currentUser&&profileTradesCache.length)setTimeout(()=>analyzeProfileHistoricalMae({automatic:true}),0);
+}
+// Safe public click handler: open the modal immediately, then run profile rendering.
+function openTraderProfile(id){
+ const back=$('traderProfileBack');
+ if(back)back.style.display='flex';
+ try{
+   openTraderProfileCore(id);
+ }catch(error){
+   console.error('Trader profile could not fully render:',error);
+   const name=$('profileName');
+   if(name&&(!name.textContent||name.textContent==='Trader'))name.textContent='Trader Profile';
+   toast('Profile opened, but some details failed to load. Refresh and try again.');
+ }
 }
 window.openTraderProfile=openTraderProfile;
 let maeAnalysisPromise=null;
