@@ -1311,7 +1311,16 @@ async function analyzeProfileHistoricalMae(){
  const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
  const trades=profileTradesCache;
  if(!trades.length){status.textContent='No individual closed trades available to analyze.';return;}
- const payload=trades.map((x,index)=>({index,tradeNumber:x.tradeNumber||x.ticket||'',symbol:x.symbol||'',side:x.side||x.type||'',lot:getTradeLot(x),entryDateTime:x.entryDateTime||x.entryDate||'',exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||'',entryPrice:x.entryPrice,exitPrice:x.exitPrice,pnl:x.pnl??x.profit}));
+ // Normalize common broker suffixes (for example XAUUSDM) to the market-data provider's canonical symbol.
+ const normalizeMaeSymbol=value=>{
+   let symbol=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+   if(/^XAUUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='GOLD')return 'XAUUSD';
+   if(/^XAGUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='SILVER')return 'XAGUSD';
+   // Strip common MT5 broker suffixes only when the remaining instrument is a standard 6-letter FX pair.
+   const fx=symbol.match(/^([A-Z]{6})(?:M|\d+|PRO)$/);if(fx)return fx[1];
+   return symbol;
+ };
+ const payload=trades.map((x,index)=>({index,tradeNumber:x.tradeNumber||x.ticket||'',symbol:normalizeMaeSymbol(x.symbol),side:x.side||x.type||'',lot:getTradeLot(x),entryDateTime:x.entryDateTime||x.entryDate||'',exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||'',entryPrice:x.entryPrice,exitPrice:x.exitPrice,pnl:x.pnl??x.profit}));
  button.disabled=true;status.textContent='Requesting historical 1-minute candles…';
  try{
    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
