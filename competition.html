@@ -511,6 +511,9 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .profile-modal{width:min(1250px,96vw);max-height:94vh;padding:24px}
 .profile-modal h4{margin:10px 0 4px!important}
 .profile-chart{height:520px}
+@keyframes currentBalancePulse{0%,100%{opacity:.9;stroke-width:1.8}50%{opacity:.22;stroke-width:3.2}}
+.profile-chart .current-balance-pulse{animation:currentBalancePulse 1.35s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.profile-chart .current-balance-pulse{animation:none;opacity:.75}}
 @media(max-width:600px){.simple-upload-fields{grid-template-columns:1fr}.profile-modal{width:98vw;padding:15px}.profile-chart{height:390px}}
 
 </style>
@@ -1189,7 +1192,7 @@ function openTraderProfile(id){
  const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
  let svg='';
- for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#263550" stroke-width="1"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#94a5c3" font-size="13">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
+ for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#263550" stroke-width="1"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#b7c7e2" font-size="15" font-weight="600">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
  // Threshold lines span the entire chart so the fixed account limits remain visible.
  svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#ff5d6c" stroke-width="2.5"/>';
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#42d392" stroke-width="2.5"/>';
@@ -1197,7 +1200,7 @@ function openTraderProfile(id){
  dailyLossLevels.forEach(d=>{const x1=coords[Math.max(0,Math.min(coords.length-1,d.startIndex))]?.x??plotLeft;const x2=coords[Math.max(0,Math.min(coords.length-1,d.endIndex))]?.x??plotRight;const left=plotLeft;const right=Math.max(left+18,Math.min(1060,Math.max(x1,x2)));svg+='<line x1="'+left+'" y1="'+yFor(d.level)+'" x2="'+right+'" y2="'+yFor(d.level)+'" stroke="#ffb84d" stroke-width="2.5" stroke-dasharray="3 6"><title>'+esc(d.day)+' daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
  svg+='<polyline points="'+poly+'" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(i===0?'3':'2.2')+'" fill="#60a5fa" stroke="#0b1324" stroke-width="0.7"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||i===points.length-1||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#94a5c3" font-size="11">'+esc(label.slice(0,10))+'</text>';}});
+ coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="7" fill="none" stroke="#93c5fd" stroke-width="1.8"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'4':'3')+'" fill="#60a5fa" stroke="#0b1324" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#94a5c3" font-size="11">'+esc(label.slice(0,10))+'</text>';}});
  // Chart legend explains all three risk/target levels.
  svg+='<line x1="82" y1="360" x2="104" y2="360" stroke="#ff5d6c" stroke-width="3"/><text x="110" y="364" fill="#ff8b95" font-size="11">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
  svg+='<line x1="390" y1="360" x2="414" y2="360" stroke="#ffb84d" stroke-width="3" stroke-dasharray="3 6"/><text x="420" y="364" fill="#ffcc80" font-size="11">Daily loss: 5% below each day start</text>';
