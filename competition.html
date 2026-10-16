@@ -1371,22 +1371,12 @@ function openTraderProfileCore(id){
  const vals=points.map(p=>Number(p.balance)||0);
  const maxLossLevel=startVal-5000; // Fixed overall loss limit: $5,000 below a $50,000 starting balance.
  const profitTargetLevel=startVal*1.03; // +3% from starting balance.
- const dailyLossLevels=[];
- if(allChartTrades.length){
-   let balanceBeforeDay=startVal, currentDay='', dayStartIndex=1, dayStartBalance=startVal, dayLastIndex=1;
-   allChartTrades.forEach((trade,i)=>{
-     const dateText=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
-     const day=dateText.slice(0,10)||'Unknown date';
-     const pointIndex=i+1;
-     if(day!==currentDay){
-       if(currentDay)dailyLossLevels.push({day:currentDay,startIndex:dayStartIndex,endIndex:dayLastIndex,level:dayStartBalance-Math.abs(dayStartBalance)*0.05});
-       currentDay=day;dayStartIndex=pointIndex;dayLastIndex=pointIndex;dayStartBalance=balanceBeforeDay;
-     }else dayLastIndex=pointIndex;
-     balanceBeforeDay+=Number(trade.pnl??trade.profit)||0;
-   });
-   if(currentDay)dailyLossLevels.push({day:currentDay,startIndex:dayStartIndex,endIndex:dayLastIndex,level:dayStartBalance-Math.abs(dayStartBalance)*0.05});
- }
- const thresholds=[maxLossLevel,profitTargetLevel,...dailyLossLevels.map(x=>x.level)];
+ // Use the exact same current-day floor as the Daily Loss card.
+ // The card calculates todayOpeningBalance and dailyLimit above.
+ const dailyLossFloor=Number.isFinite(Number(todayOpeningBalance-dailyLimit))
+   ? todayOpeningBalance-dailyLimit
+   : startVal-Math.abs(startVal)*0.05;
+ const thresholds=[maxLossLevel,profitTargetLevel,dailyLossFloor];
  const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
  const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.01,1);
  const tickStep=1000;
@@ -1402,8 +1392,8 @@ function openTraderProfileCore(id){
  // Threshold lines span the entire chart so the fixed account limits remain visible.
  svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#f23645" stroke-width="1.35"/>';
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
- // Daily loss allowance resets at the beginning of each trading day and is shown as a dotted segment.
- dailyLossLevels.forEach(d=>{const x1=coords[Math.max(0,Math.min(coords.length-1,d.startIndex))]?.x??plotLeft;const x2=coords[Math.max(0,Math.min(coords.length-1,d.endIndex))]?.x??plotRight;const left=plotLeft;const right=Math.max(left+18,Math.min(1060,Math.max(x1,x2)));svg+='<line x1="'+left+'" y1="'+yFor(d.level)+'" x2="'+right+'" y2="'+yFor(d.level)+'" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"><title>'+esc(d.day)+' daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
+ // Draw only one current-day Daily Loss line, matching the card's floor value.
+ svg+='<line id="currentDailyLossLine" x1="130" y1="'+yFor(dailyLossFloor)+'" x2="1060" y2="'+yFor(dailyLossFloor)+'" stroke="#f0b90b" stroke-width="1.6" stroke-dasharray="2 5"><title>Current day daily loss floor: '+esc(fmt(dailyLossFloor))+'</title></line>';
  svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
  coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
