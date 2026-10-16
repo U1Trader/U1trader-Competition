@@ -1304,8 +1304,7 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
- const localNow=new Date();
- const todayKey=localNow.getFullYear()+'-'+String(localNow.getMonth()+1).padStart(2,'0')+'-'+String(localNow.getDate()).padStart(2,'0');
+ const todayKey=new Date().toLocaleDateString('en-CA');
  const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
  const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
  const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
@@ -1367,18 +1366,20 @@ function openTraderProfileCore(id){
  const vals=points.map(p=>Number(p.balance)||0);
  const maxLossLevel=startVal-5000; // Fixed overall loss limit: $5,000 below a $50,000 starting balance.
  const profitTargetLevel=startVal*1.03; // +3% from starting balance.
- // Show only the active trading day's daily-loss threshold. Previous days' yellow lines are intentionally removed.
+ // Draw ONLY today's daily-loss threshold. Previous days' yellow lines must never remain on the chart.
  const dailyLossLevels=[];
- const chartTradeDay=trade=>String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'').slice(0,10).replace(/[.]/g,'-');
+ const normalizeTradeDay=trade=>String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'').slice(0,10).replace(/[.]/g,'-');
+ // todayKey is generated from the browser's local date above, so the reset follows the user's local trading day.
  let balanceBeforeToday=startVal;
  let firstTodayTradeIndex=-1;
  allChartTrades.forEach((trade,i)=>{
-   const day=chartTradeDay(trade);
-   if(day<todayKey) balanceBeforeToday+=Number(trade.pnl??trade.profit)||0;
-   else if(day===todayKey&&firstTodayTradeIndex<0) firstTodayTradeIndex=i+1;
+   const day=normalizeTradeDay(trade);
+   if(day && day<todayKey) balanceBeforeToday+=Number(trade.pnl??trade.profit)||0;
+   if(day===todayKey && firstTodayTradeIndex<0) firstTodayTradeIndex=i+1;
  });
  const activeDayStartIndex=firstTodayTradeIndex>=0?firstTodayTradeIndex:Math.max(0,points.length-1);
- dailyLossLevels.push({day:todayKey,startIndex:activeDayStartIndex,endIndex:Math.max(activeDayStartIndex,points.length-1),level:balanceBeforeToday-Math.abs(balanceBeforeToday)*0.05});
+ const currentDailyLossLevel=balanceBeforeToday-Math.abs(balanceBeforeToday)*0.05;
+ dailyLossLevels.push({day:todayKey,startIndex:activeDayStartIndex,endIndex:Math.max(activeDayStartIndex,points.length-1),level:currentDailyLossLevel});
  const thresholds=[maxLossLevel,profitTargetLevel,...dailyLossLevels.map(x=>x.level)];
  const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
  const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.01,1);
@@ -1395,8 +1396,9 @@ function openTraderProfileCore(id){
  // Threshold lines span the entire chart so the fixed account limits remain visible.
  svg+='<line x1="130" y1="'+yFor(maxLossLevel)+'" x2="1060" y2="'+yFor(maxLossLevel)+'" stroke="#f23645" stroke-width="1.35"/>';
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
- // Daily loss allowance resets at the beginning of each trading day and is shown as a dotted segment.
- dailyLossLevels.forEach(d=>{svg+='<line x1="'+plotLeft+'" y1="'+yFor(d.level)+'" x2="'+plotRight+'" y2="'+yFor(d.level)+'" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"><title>'+esc(d.day)+' current daily loss limit: '+esc(fmt(d.level))+'</title></line>';});
+ // Exactly one yellow dotted line: today's opening balance minus 5%. No historical daily lines are drawn.
+ const activeDailyLoss=dailyLossLevels[0];
+ if(activeDailyLoss){svg+='<line id="currentDailyLossLine" x1="'+plotLeft+'" y1="'+yFor(activeDailyLoss.level)+'" x2="'+plotRight+'" y2="'+yFor(activeDailyLoss.level)+'" stroke="#f0b90b" stroke-width="1.6" stroke-dasharray="2 5"><title>'+esc(activeDailyLoss.day)+' current daily loss limit: '+esc(fmt(activeDailyLoss.level))+'</title></line>';}
  svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
  coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
