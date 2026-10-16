@@ -1304,7 +1304,7 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
- const todayKey=new Date().toLocaleDateString('en-CA');
+ const nowForTradingDay=new Date(); const todayKey=[nowForTradingDay.getFullYear(),String(nowForTradingDay.getMonth()+1).padStart(2,'0'),String(nowForTradingDay.getDate()).padStart(2,'0')].join('-');
  const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
  const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
  const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
@@ -1378,7 +1378,8 @@ function openTraderProfileCore(id){
    if(day===todayKey && firstTodayTradeIndex<0) firstTodayTradeIndex=i+1;
  });
  const activeDayStartIndex=firstTodayTradeIndex>=0?firstTodayTradeIndex:Math.max(0,points.length-1);
- const currentDailyLossLevel=balanceBeforeToday-Math.abs(balanceBeforeToday)*0.05;
+ // Keep the chart threshold identical to the Daily Loss card; both use the same computed new-day opening balance.
+ const currentDailyLossLevel=todayOpeningBalance-dailyLimit;
  dailyLossLevels.push({day:todayKey,startIndex:activeDayStartIndex,endIndex:Math.max(activeDayStartIndex,points.length-1),level:currentDailyLossLevel});
  const thresholds=[maxLossLevel,profitTargetLevel,...dailyLossLevels.map(x=>x.level)];
  const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
