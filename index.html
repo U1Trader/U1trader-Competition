@@ -1378,8 +1378,13 @@ function openTraderProfileCore(id){
    if(day===todayKey && firstTodayTradeIndex<0) firstTodayTradeIndex=i+1;
  });
  const activeDayStartIndex=firstTodayTradeIndex>=0?firstTodayTradeIndex:Math.max(0,points.length-1);
- // Keep the chart threshold identical to the Daily Loss card; both use the same computed new-day opening balance.
- const currentDailyLossLevel=todayOpeningBalance-dailyLimit;
+ // Use the exact floor displayed in the Daily Loss card as the single source of truth for the chart.
+ // This prevents chart calculations from drifting from the card's opening-balance calculation.
+ const dailyFloorText=String($('objectiveDailyFloor')?.textContent||'').replace(/[^0-9.-]/g,'');
+ const dailyFloorFromCard=Number(dailyFloorText);
+ const currentDailyLossLevel=Number.isFinite(dailyFloorFromCard)&&dailyFloorText!==''
+   ? dailyFloorFromCard
+   : (todayOpeningBalance-dailyLimit);
  dailyLossLevels.push({day:todayKey,startIndex:activeDayStartIndex,endIndex:Math.max(activeDayStartIndex,points.length-1),level:currentDailyLossLevel});
  const thresholds=[maxLossLevel,profitTargetLevel,...dailyLossLevels.map(x=>x.level)];
  const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
@@ -1399,13 +1404,13 @@ function openTraderProfileCore(id){
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
  // Exactly one yellow dotted line: today's opening balance minus 5%. No historical daily lines are drawn.
  const activeDailyLoss=dailyLossLevels[0];
- if(activeDailyLoss){svg+='<line id="currentDailyLossLine" x1="'+plotLeft+'" y1="'+yFor(activeDailyLoss.level)+'" x2="'+plotRight+'" y2="'+yFor(activeDailyLoss.level)+'" stroke="#f0b90b" stroke-width="1.6" stroke-dasharray="2 5"><title>'+esc(activeDailyLoss.day)+' current daily loss limit: '+esc(fmt(activeDailyLoss.level))+'</title></line>';}
+ if(activeDailyLoss){svg+='<line id="currentDailyLossLine" x1="'+plotLeft+'" y1="'+yFor(activeDailyLoss.level)+'" x2="'+plotRight+'" y2="'+yFor(activeDailyLoss.level)+'" stroke="#f0b90b" stroke-width="1.6" stroke-dasharray="2 5"><title>'+esc(activeDailyLoss.day)+' current daily loss floor (5% below opening balance): '+esc(fmt(activeDailyLoss.level))+'</title></line>';}
  svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
  coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
  // Chart legend explains all three risk/target levels.
  svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#f23645" stroke-width="1.35"/><text x="108" y="364" fill="#d9364f" font-size="10.5" font-weight="600">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
- svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#9a6700" font-size="10.5" font-weight="600">Daily loss: 5% below each day start</text>';
+ svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#9a6700" font-size="10.5" font-weight="600">Current daily loss floor: 5% below today&#39;s opening balance</text>';
  svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#087f5b" font-size="10.5" font-weight="600">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
  $('profileBalanceChart').innerHTML=svg;
 
