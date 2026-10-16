@@ -852,8 +852,8 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   </div>
 </section>
 <section class="card admin-only" id="savedTradeReportsSection">
-  <div class="cardhead"><div><h3>🗓️ Daily Trade Reports</h3><p>Saved screenshot-based trade summaries by trader and date.</p></div><span class="eyebrow">History</span></div>
-  <div class="report-list" id="savedTradeReports"><div class="empty">No daily trade reports saved yet.</div></div>
+  <div class="cardhead"><div><h3>🗓️ Daily Trade Reports</h3><p>Saved screenshot-based trade summaries by trader and date.</p></div><div class="report-head-actions"><span class="eyebrow">History</span><button class="btn admin-only" type="button" id="toggleDailyReports" aria-expanded="false">Show reports</button></div></div>
+  <div class="report-list" id="savedTradeReports" hidden><div class="empty">No daily trade reports saved yet.</div></div>
 </section>
 
 <section class="panel rules-panel">
@@ -1552,6 +1552,17 @@ setAdminMode(null);
  document.addEventListener('visibilitychange',refreshSharedDataOnReturn);
  window.addEventListener('focus',refreshSharedDataOnReturn);
 })();
+
+document.addEventListener('click',function(e){
+ const btn=e.target.closest('#toggleDailyReports');
+ if(!btn)return;
+ const host=document.getElementById('savedTradeReports');
+ if(!host)return;
+ const opening=host.hidden;
+ host.hidden=!opening;
+ btn.textContent=opening?'Hide reports':'Show reports';
+ btn.setAttribute('aria-expanded',opening?'true':'false');
+});
 </script>
 
 <style id="admin-login-true-top-right-fix">
@@ -1610,4 +1621,13 @@ body.admin-mode .grid .tablewrap table{width:100%;min-width:760px}
  body.admin-mode .top-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
  body.admin-mode .top-actions .btn{width:100%;white-space:normal}
 }
+
+/* Leaderboard row actions aligned to the right of the trader name */
+.trader-row-actions{display:inline-flex;align-items:center;gap:6px;margin-left:12px;vertical-align:middle;white-space:nowrap}
+.trader-row-actions .btn{display:inline-flex;align-items:center;justify-content:center;min-height:25px;padding:3px 8px;margin:0}
+.trader-link{display:inline-block;vertical-align:middle}
+.report-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+#savedTradeReports[hidden]{display:none!important}
+#savedTradeReports{padding:0 16px 16px}
+@media(max-width:650px){.trader-row-actions{margin-left:8px}.report-head-actions{gap:8px;flex-wrap:wrap}}
 </style>
