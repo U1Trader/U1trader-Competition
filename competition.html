@@ -1591,4 +1591,23 @@ body:not(.admin-mode) .admin-mae-only{display:none!important}
 .position-breach-text{color:#ef4444!important;font-weight:800!important}
 .rule-breach{display:inline!important;color:#ef4444!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;max-width:none!important;white-space:normal}
 .profile-breach-status.breached{display:block!important;background:transparent!important;color:#ef4444!important;padding:0!important;border:0!important;border-radius:0!important}
+
+/* Admin view polish: consistent toolbar alignment and full-width leaderboard */
+.top{align-items:flex-start}
+.top-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto;max-width:100%}
+.top-actions .btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;white-space:nowrap;line-height:1.2;padding:10px 13px;border-radius:10px}
+body.admin-mode .top{align-items:center}
+body.admin-mode .top-actions{flex:1 1 620px}
+body.admin-mode .grid{grid-template-columns:minmax(0,1fr)!important}
+body.admin-mode .grid>section.card{width:100%;min-width:0}
+body.admin-mode .grid .tablewrap{width:100%;overflow-x:auto}
+body.admin-mode .grid .tablewrap table{width:100%;min-width:760px}
+@media(max-width:900px){
+ body.admin-mode .top-actions{flex:1 1 100%;justify-content:flex-start}
+ body.admin-mode .top-actions .btn{flex:0 1 auto}
+}
+@media(max-width:520px){
+ body.admin-mode .top-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+ body.admin-mode .top-actions .btn{width:100%;white-space:normal}
+}
 </style>
