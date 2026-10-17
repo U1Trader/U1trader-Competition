@@ -1167,6 +1167,18 @@ function getCompetitionCatalog(){
   data._competitionCatalog=[{id:'main',name:data.league||'Friends Trading Challenge',startDateTime:data.startDateTime||'',endDateTime:data.endDateTime||'',dashboardData:cleanCompetitionSnapshot(data)}];
   data._activeCompetitionId='main';
  }
+ // Legacy-data recovery: older saves sometimes kept traders at the top level
+ // while the catalog entry had an empty/missing dashboardData.traders array.
+ // Only repair the active entry, and only when its own trader list is empty.
+ const activeId=String(data._activeCompetitionId||'main');
+ const active=data._competitionCatalog.find(x=>String(x.id)===activeId);
+ if(active){
+  const snap=active.dashboardData&&typeof active.dashboardData==='object'?active.dashboardData:{};
+  if((!Array.isArray(snap.traders)||snap.traders.length===0)&&Array.isArray(data.traders)&&data.traders.length>0){
+   active.dashboardData={...cleanCompetitionSnapshot(data),...snap,traders:data.traders};
+   if(!active.name)active.name=data.league||'Friends Trading Challenge';
+  }
+ }
  return data._competitionCatalog;
 }
 function syncActiveCompetitionSnapshot(){
@@ -1228,8 +1240,12 @@ async function persist(){
 }
 function isAdminUser(user){
  const meta=user?.app_metadata||{};
- const isDesignatedAdmin=String(user?.email||'').trim().toLowerCase()==='tharmesh2001@gmail.com';
- return isDesignatedAdmin&&(meta.role==='admin'||(Array.isArray(meta.roles)&&meta.roles.includes('admin')));
+ const email=String(user?.email||'').trim().toLowerCase();
+ const isDesignatedAdmin=email==='tharmesh2001@gmail.com';
+ const hasAdminRole=meta.role==='admin'||(Array.isArray(meta.roles)&&meta.roles.includes('admin'));
+ // The designated owner account must still see admin controls even if the
+ // Supabase session has no role metadata. Other users still need an admin role.
+ return isDesignatedAdmin||hasAdminRole;
 }
 function setAdminMode(user){
  currentUser=isAdminUser(user)?user:null;
@@ -1552,10 +1568,34 @@ requestParentSession();
 window.addEventListener('load',requestParentSession);
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
+ // Keep a copy of the local cache before reading cloud data. A previous stale
+ // cloud save may have an empty trader array even though this browser has the list.
+ let localBackup=null;
+ try{const raw=localStorage.getItem('traderArenaSeparateFixedData');if(raw)localBackup=JSON.parse(raw)}catch(e){}
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=stableJson(row.dashboard_data);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}}
- else {lastRemoteJson=stableJson(row?.dashboard_data||{});}
+ if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){
+  data={...data,...row.dashboard_data};
+  // Restore trader lists from the local backup only when the corresponding cloud
+  // list is empty; never replace a non-empty cloud list with older local data.
+  const backupCat=Array.isArray(localBackup?._competitionCatalog)?localBackup._competitionCatalog:[];
+  const remoteCat=Array.isArray(data._competitionCatalog)?data._competitionCatalog:[];
+  for(const remoteItem of remoteCat){
+   const localItem=backupCat.find(x=>String(x.id)===String(remoteItem.id));
+   const remoteTraders=remoteItem?.dashboardData?.traders;
+   const localTraders=localItem?.dashboardData?.traders;
+   if((!Array.isArray(remoteTraders)||remoteTraders.length===0)&&Array.isArray(localTraders)&&localTraders.length){
+    remoteItem.dashboardData={...(remoteItem.dashboardData||{}),...(localItem.dashboardData||{}),traders:localTraders};
+   }
+  }
+  const activeId=String(data._activeCompetitionId||'main');
+  const localActiveId=String(localBackup?._activeCompetitionId||'main');
+  if((!Array.isArray(data.traders)||data.traders.length===0)&&Array.isArray(localBackup?.traders)&&localBackup.traders.length&&activeId===localActiveId){
+   data.traders=localBackup.traders;
+  }
+  lastRemoteJson=stableJson(row.dashboard_data);
+  try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
+ }else {lastRemoteJson=stableJson(row?.dashboard_data||{});}
  // Ensure a legacy single-competition record gets a catalog entry, but do not
  // overwrite any saved competition dashboardData while the hub/list is loading.
  getCompetitionCatalog();
