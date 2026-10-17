@@ -2466,6 +2466,6 @@ html body #toggleDailyReports{display:inline-flex!important;visibility:visible!i
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enforceRequestedLayout,{once:true});
  else enforceRequestedLayout();
  const observer=new MutationObserver(enforceRequestedLayout);
- observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+ observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 })();
 </script>
