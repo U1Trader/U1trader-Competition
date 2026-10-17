@@ -929,7 +929,9 @@ function setAdminMode(user){
  // rules must not accidentally keep the admin actions hidden.
  document.querySelectorAll('.admin-only').forEach(el=>{
   if(el.id==='legacyBalanceUpdate'&&!admin)return;
-  el.style.setProperty('display',admin?(el.tagName==='SECTION'?'block':'inline-block'):'none','important');
+  const display=el.id==='savedTradeReports'?(el.hidden?'none':'grid'):
+   (el.tagName==='SECTION'||el.type==='datetime-local'?'block':'inline-block');
+  el.style.setProperty('display',admin?display:'none','important');
  });
  ['editLeague','editPrizes','exportBtn','addBtn','editCompetitionName','paymentApprovalsBtn'].forEach(id=>{
   const el=$(id);if(el)el.style.setProperty('display',admin?(el.tagName==='A'?'inline-flex':'inline-block'):'none','important');
@@ -1774,6 +1776,7 @@ html body #toggleDailyReports{display:inline-flex!important;visibility:visible!i
    if(!toggle.dataset.bound){
     toggle.dataset.bound='1';
     reports.hidden=true;
+    reports.style.setProperty('display','none','important');
     toggle.textContent='Show reports';
     toggle.setAttribute('aria-expanded','false');
     toggle.addEventListener('click',function(event){
@@ -1781,6 +1784,7 @@ html body #toggleDailyReports{display:inline-flex!important;visibility:visible!i
      event.stopPropagation();
      const open=reports.hidden;
      reports.hidden=!open;
+     reports.style.setProperty('display',open?'grid':'none','important');
      toggle.textContent=open?'Hide reports':'Show reports';
      toggle.setAttribute('aria-expanded',open?'true':'false');
     });
@@ -1805,4 +1809,12 @@ body.admin-mode .hero-schedule-card label[for="competitionEndInput"]{display:blo
 body.admin-mode .hero-schedule-card #competitionStartInput,
 body.admin-mode .hero-schedule-card #competitionEndInput{width:100%!important;min-width:0!important;max-width:100%!important;min-height:38px!important;margin-top:6px!important;padding:8px!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.65)!important;border-radius:8px!important;pointer-events:auto!important}
 body.admin-mode .hero-schedule-card input[type="datetime-local"]::-webkit-calendar-picker-indicator{cursor:pointer;filter:invert(1);opacity:1}
+</style>
+
+<style id="u1trader-final-report-date-fix">
+html body #savedTradeReports[hidden]{display:none!important}
+html body #savedTradeReports:not([hidden]){display:grid!important}
+html body.admin-mode .hero-schedule-card .datebox{min-height:0!important;height:auto!important;overflow:visible!important}
+html body.admin-mode .hero-schedule-card input[type="datetime-local"]{display:block!important;position:relative!important;z-index:20!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;user-select:auto!important;appearance:auto!important;color-scheme:dark!important;width:100%!important;min-height:42px!important;margin:8px 0 0!important;padding:9px!important;box-sizing:border-box!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.75)!important;border-radius:8px!important;font-size:13px!important}
+html body.admin-mode .hero-schedule-card .start-editor-label{display:block!important;position:relative!important;z-index:10!important;margin-top:10px!important}
 </style>
