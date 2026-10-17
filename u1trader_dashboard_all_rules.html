@@ -212,3 +212,19 @@ render();
 </script>
 </body>
 </html>
+
+<style id="final-home-aligned-header-fix-v3">
+/* Keep every competition route aligned with the welcome page; neutralise legacy sidebar offsets. */
+html,body{margin:0!important;padding:0!important;}
+body.in-main-site{margin-left:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+body.in-main-site #globalCompetitionNav,body.in-main-site #sidebarToggleBtn{display:none!important;}
+body.in-main-site #competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;margin:0!important;}
+body.in-main-site #competitionTopBar .ctb-in{position:relative!important;width:calc(100% - 48px)!important;max-width:1300px!important;height:77px!important;min-height:77px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:nowrap!important;box-sizing:border-box!important;}
+body.in-main-site #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;flex:0 0 auto!important;margin:0!important;}
+body.in-main-site #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 300px)!important;height:77px!important;min-height:77px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2.1vw,34px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+body.in-main-site #competitionTopBar .ctb-center-links a,body.in-main-site #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+body.in-main-site #competitionTopBar .ctb-center-links a:hover,body.in-main-site #competitionTopBar .ctb-center-links button:hover,body.in-main-site #competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+body.in-main-site .wrap,body.in-main-site main.wrap,body.in-main-site #competitionsHub{margin-left:auto!important;margin-right:auto!important;}
+@media(max-width:900px){body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}body.in-main-site #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}}
+@media(max-width:520px){body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}body.in-main-site #competitionTopBar .ctb-center-links{gap:20px!important;}body.in-main-site #competitionTopBar .ctb-center-links a,body.in-main-site #competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
