@@ -917,7 +917,12 @@ body:not(.admin-mode) .grid>aside{display:none!important}
   <div class="profile-detail"><small>Full name</small><strong id="profileFullName">—</strong></div>
   <div class="profile-detail"><small>Phone number</small><strong id="profilePhone">—</strong></div>
   <div class="profile-detail"><small>Email address</small><strong id="profileEmail">—</strong></div>
-  <div class="modalactions"><button type="button" class="btn" id="closeUserProfile">Close</button><button type="button" class="btn danger" id="userLogoutBtn">Logout</button></div>
+  <div class="modalactions"><button type="button" class="btn" id="editUserProfileBtn">Edit profile</button><button type="button" class="btn" id="closeUserProfile">Close</button><button type="button" class="btn danger" id="userLogoutBtn">Logout</button></div>
+  <div id="editUserProfileForm" style="display:none;margin-top:14px">
+    <div class="field"><label for="editProfileFullName">Full name</label><input id="editProfileFullName" type="text" maxlength="100" autocomplete="name"></div>
+    <div class="field"><label for="editProfilePhone">Phone number</label><input id="editProfilePhone" type="tel" maxlength="25" autocomplete="tel"></div>
+    <div class="modalactions"><button type="button" class="btn" id="cancelEditProfileBtn">Cancel</button><button type="button" class="btn primary" id="saveUserProfileBtn">Save changes</button></div>
+  </div>
   <div class="account-message" id="userProfileMessage" role="status" aria-live="polite"></div>
 </div></div>
 <div class="modalback" id="loginModalBack"><div class="modal"><h3>U1Trader Admin Login</h3><p class="hint">Only the dashboard admin can change trader balances, names and prizes.</p><div class="field"><label>Admin email</label><input id="adminEmail" type="email" autocomplete="username" placeholder="Your Supabase Auth email"></div><div class="field"><label>Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase Auth password"></div><div class="modalactions"><button class="btn" id="cancelLogin">Cancel</button><button class="btn primary" id="submitLogin">Login</button></div></div></div>
@@ -998,6 +1003,41 @@ async function loadPublicProfile(user){
   if(message)message.textContent='Profile table is not ready yet. Run the user_profiles SQL setup in Supabase.';
  }
 }
+function startEditPublicProfile(){
+ if(!publicUser)return;
+ $('editProfileFullName').value=$('profileFullName').textContent==='Not provided'?'':$('profileFullName').textContent;
+ $('editProfilePhone').value=$('profilePhone').textContent==='Not provided'?'':$('profilePhone').textContent;
+ $('editUserProfileForm').style.display='block';
+ $('editUserProfileBtn').style.display='none';
+ $('userProfileMessage').textContent='';
+}
+function cancelEditPublicProfile(){
+ $('editUserProfileForm').style.display='none';
+ $('editUserProfileBtn').style.display='inline-flex';
+ $('userProfileMessage').textContent='';
+}
+async function savePublicProfile(){
+ if(!publicUser){$('userProfileMessage').textContent='Please log in again to edit your profile.';return}
+ const full_name=$('editProfileFullName').value.trim();
+ const phone=$('editProfilePhone').value.trim();
+ const message=$('userProfileMessage');
+ if(!full_name){message.textContent='Enter your full name.';return}
+ if(!phone){message.textContent='Enter your phone number.';return}
+ const button=$('saveUserProfileBtn');
+ button.disabled=true;message.textContent='Saving your profile…';
+ try{
+  const {error}=await sb.from('user_profiles').update({full_name,phone,updated_at:new Date().toISOString()}).eq('id',publicUser.id);
+  if(error)throw error;
+  $('profileFullName').textContent=full_name;
+  $('profilePhone').textContent=phone;
+  cancelEditPublicProfile();
+  message.textContent='Profile updated successfully.';
+  toast('Profile updated');
+ }catch(error){
+  console.error('Profile update failed:',error);
+  message.textContent='Could not save profile: '+String(error?.message||error);
+ }finally{button.disabled=false}
+}
 async function submitPublicAuth(){
  const email=$('userEmail').value.trim().toLowerCase();
  const password=$('userPassword').value;
@@ -1052,6 +1092,9 @@ $('userRegisterTab').addEventListener('click',()=>openUserAuth('register'));
 $('userLoginTab').addEventListener('click',()=>openUserAuth('login'));
 $('closeUserAuth').addEventListener('click',()=>$('userAuthModalBack').style.display='none');
 $('closeUserProfile').addEventListener('click',()=>$('userProfileModalBack').style.display='none');
+$('editUserProfileBtn').addEventListener('click',startEditPublicProfile);
+$('cancelEditProfileBtn').addEventListener('click',cancelEditPublicProfile);
+$('saveUserProfileBtn').addEventListener('click',savePublicProfile);
 $('submitUserAuth').addEventListener('click',submitPublicAuth);
 $('userPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitPublicAuth()});
 $('userLogoutBtn').addEventListener('click',async()=>{
