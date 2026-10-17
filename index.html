@@ -937,8 +937,16 @@ body:not(.auth-required) #welcomePage{margin-left:var(--nav-w)!important}
  body:not(.auth-required) #competitionsHub{bottom:0!important;left:var(--nav-w)!important;padding-left:10px!important;padding-right:10px!important}
 }
 </style>
+<style id="main-site-start-on-list">
+/* Inside the main website a competition dashboard is shown ONLY when it was opened on purpose.
+   Without this, the dashboard was visible by default whenever the page had no view class yet
+   (right after a refresh, before login/data finished loading). */
+body.in-main-site:not(.page-dashboard)>.wrap{display:none!important}
+body.in-main-site:not(.page-dashboard):not(.auth-required) #competitionsHub{display:block}
+</style>
 </head>
 <body>
+<script>if(window.parent!==window)document.body.classList.add('in-main-site','page-competition');</script>
 <button type="button" id="sidebarToggleBtn" aria-label="Close navigation" aria-expanded="true" title="Close / open navigation"><span></span><span></span><span></span></button>
 
 <aside id="globalCompetitionNav" aria-label="Main navigation">
