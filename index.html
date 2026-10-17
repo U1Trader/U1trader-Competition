@@ -1249,10 +1249,26 @@ function isAdminUser(user){
 }
 function setAdminMode(user){
  currentUser=isAdminUser(user)?user:null;
- document.body.classList.toggle('admin-mode',!!currentUser);
- $('authBtn').textContent=currentUser?'Admin logout':'Admin login';
- setSyncStatus(currentUser?'Admin connected':'View-only mode');
+ const admin=!!currentUser;
+ document.body.classList.toggle('admin-mode',admin);
+ $('authBtn').textContent=admin?'Admin logout':'Admin login';
+ setSyncStatus(admin?'Admin connected':'View-only mode');
  syncGlobalSidebarUser();
+ // Explicit visibility wins over legacy styles in this long-lived HTML file.
+ document.querySelectorAll('.admin-only').forEach(el=>{
+  if(el.id==='legacyBalanceUpdate'&&!admin)return;
+  if(admin){
+   const display=el.tagName==='SECTION'||el.tagName==='FOOTER'?'block':
+     (el.tagName==='LABEL'?'inline-flex':(el.tagName==='A'?'inline-flex':'inline-block'));
+   el.style.setProperty('display',display,'important');
+  }else{
+   el.style.setProperty('display','none','important');
+  }
+ });
+ ['editLeague','editPrizes','exportBtn','addBtn','paymentApprovalsBtn','editBrandTitle','uploadLogoBtn'].forEach(id=>{
+  const el=$(id);if(!el)return;
+  el.style.setProperty('display',admin?(el.tagName==='A'?'inline-flex':'inline-block'):'none','important');
+ });
 }
 function setPublicUser(user){
  publicUser=user||null;
@@ -2286,6 +2302,14 @@ document.querySelectorAll('#competitionTopBar [data-home]').forEach(a=>a.addEven
   window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash:a.dataset.home},'https://u1trader.github.io');
 }));
 </script>
+
+<style id="admin-controls-final-visibility-fix">
+/* Keep all admin controls hidden for ordinary users and visible for the verified site admin. */
+body.admin-mode .admin-only{display:inline-block!important}
+body.admin-mode section.card.admin-only,body.admin-mode footer.admin-only{display:block!important}
+body.admin-mode .admin-only.start-editor-label,body.admin-mode label.admin-only{display:inline-flex!important}
+body:not(.admin-mode) .admin-only{display:none!important}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
