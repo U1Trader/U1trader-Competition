@@ -822,7 +822,16 @@ body.page-competition>.wrap{display:block!important}
 </head>
 <body>
 
-<div id="competitionsHub">
+<nav id="globalCompetitionNav" aria-label="Main navigation">
+  <div class="global-nav-brand"><span class="global-nav-mark">U</span><span>U1TRADER</span></div>
+  <button type="button" data-global-nav="welcome"><span>⌂</span><b>Home</b></button>
+  <button type="button" data-global-nav="competitions"><span>🏆</span><b>Competitions</b></button>
+  <button type="button" data-global-nav="leaderboard"><span>▤</span><b>Leaderboard</b></button>
+  <button type="button" data-global-nav="reports"><span>◷</span><b>Trade Reports</b></button>
+  <button type="button" data-global-nav="rules"><span>☷</span><b>Competition Rules</b></button>
+  <button type="button" data-global-nav="profile"><span>◎</span><b>My Profile</b></button>
+  <div class="global-nav-spacer"></div><div class="global-nav-foot">Trading Competition</div>
+</nav><div id="competitionsHub">
  <div class="competition-hub-head"><div><h1>Competitions</h1><p>Choose a competition to view its leaderboard and trading progress.</p></div><div class="competition-hub-actions"><button class="btn" type="button" id="hubProfileBtn">My Profile</button><button class="btn primary admin-only" type="button" id="createCompetitionBtn">+ Create Competition</button></div></div>
  <div class="competition-hub-tabs" role="tablist" aria-label="Competition status"><button class="competition-hub-tab active" data-hub-filter="all">All</button><button class="competition-hub-tab" data-hub-filter="upcoming">Upcoming</button><button class="competition-hub-tab" data-hub-filter="live">Running</button><button class="competition-hub-tab" data-hub-filter="completed">Completed</button></div>
  <div class="competition-hub-grid" id="competitionHubGrid"></div>
@@ -939,7 +948,27 @@ body.page-competition>.wrap{display:block!important}
   <div class="modalactions"><button class="btn" id="cancelTitleEdit">Cancel</button><button class="btn primary" id="saveTitleEdit">Save changes</button></div>
 </div></div>
 
-<style id="public-user-account-styles">
+<style id="global-competition-navigation-styles">
+#globalCompetitionNav{position:fixed;z-index:1500;left:0;top:0;bottom:0;width:224px;padding:22px 14px;display:flex;flex-direction:column;gap:7px;background:#0b0e16;border-right:1px solid #252b39;color:#e9edf7;box-sizing:border-box}
+.global-nav-brand{display:flex;align-items:center;gap:10px;padding:3px 10px 25px;font-size:13px;font-weight:900;letter-spacing:1.5px;color:#fff}
+.global-nav-mark{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:linear-gradient(135deg,#f5ca68,#ad7922);color:#15100a;font-size:18px;font-weight:1000}
+#globalCompetitionNav button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:12px 11px;border:1px solid transparent;border-radius:10px;background:transparent;color:#aeb8ca;font:inherit;cursor:pointer;transition:background .15s,color .15s}
+#globalCompetitionNav button span{width:20px;text-align:center;font-size:17px}
+#globalCompetitionNav button b{font-size:12px;font-weight:650}
+#globalCompetitionNav button:hover,#globalCompetitionNav button.active{background:#1b2231;border-color:#30394b;color:#f5cc70}
+.global-nav-spacer{flex:1}.global-nav-foot{padding:12px 10px 3px;color:#69758a;font-size:10px;border-top:1px solid #242b38}
+body:not(.auth-required)>.wrap{margin-left:224px!important;width:calc(100% - 224px)!important;box-sizing:border-box}
+body:not(.auth-required) #competitionsHub{margin-left:224px!important;width:calc(100% - 224px)!important;box-sizing:border-box}
+@media(max-width:760px){
+ #globalCompetitionNav{top:auto;right:0;bottom:0;width:100%;height:68px;padding:6px 5px calc(6px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid #30394b;flex-direction:row;justify-content:space-around;gap:2px;background:#0b0e16}
+ .global-nav-brand,.global-nav-spacer,.global-nav-foot{display:none!important}
+ #globalCompetitionNav button{flex:1;min-width:0;max-width:130px;flex-direction:column;justify-content:center;gap:3px;padding:5px 2px;border-radius:8px}
+ #globalCompetitionNav button span{font-size:17px;width:auto;line-height:1.1}
+ #globalCompetitionNav button b{font-size:9px;white-space:nowrap}
+ body:not(.auth-required)>.wrap{margin-left:0!important;width:100%!important;padding-bottom:82px!important}
+ body:not(.auth-required) #competitionsHub{margin-left:0!important;width:100%!important;padding-bottom:90px!important}
+}
+</style><style id="public-user-account-styles">
 .user-account-modal{width:min(480px,100%);max-height:92vh;overflow:auto}
 .user-account-modal .field{margin-bottom:12px}
 .user-account-modal .account-message{font-size:12px;line-height:1.5;color:var(--muted);margin-top:10px;white-space:pre-wrap}
@@ -1250,6 +1279,28 @@ async function deleteCompetition(id){
  if(data._activeCompetitionId===id){data._activeCompetitionId=data._competitionCatalog[0].id;data={...cleanCompetitionSnapshot(data._competitionCatalog[0].dashboardData),_competitionCatalog:data._competitionCatalog,_activeCompetitionId:data._activeCompetitionId};}
  const ok=await persist();if(ok){renderCompetitionHub();toast('Competition deleted');}
 }
+function setGlobalNavActive(key){
+ document.querySelectorAll('#globalCompetitionNav [data-global-nav]').forEach(btn=>btn.classList.toggle('active',btn.dataset.globalNav===key));
+}
+function navigateGlobalCompetition(key){
+ if(key==='welcome'){
+  try{localStorage.setItem('u1traderCompetitionView','welcome')}catch(e){}
+  document.body.classList.remove('page-competition','page-dashboard');document.body.classList.add('page-welcome');setGlobalNavActive('welcome');window.scrollTo({top:0,behavior:'smooth'});return;
+ }
+ if(key==='competitions'){openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});return;}
+ if(key==='profile'){
+  if(!publicUser){openUserAuth('login');return;}
+  $('userProfileModalBack').style.display='flex';loadPublicProfile(publicUser);setGlobalNavActive('profile');return;
+ }
+ if(!publicUser){openUserAuth('login');return;}
+ if(!document.body.classList.contains('page-dashboard')){
+  const activeId=data._activeCompetitionId||getCompetitionCatalog()[0]?.id||'main';
+  openCompetitionWorkspace(activeId);
+ }
+ const target=key==='leaderboard'?document.getElementById('leaderRows')?.closest('.card'):key==='reports'?document.getElementById('tradeUpdateSection'):key==='rules'?document.querySelector('.rules-panel'):null;
+ if(target){target.scrollIntoView({behavior:'smooth',block:'start'});setGlobalNavActive(key);}
+}
+document.querySelectorAll('#globalCompetitionNav [data-global-nav]').forEach(btn=>btn.addEventListener('click',()=>navigateGlobalCompetition(btn.dataset.globalNav)));
 $('enterCompetitionBtn').addEventListener('click',openCompetitionsHub);
 $('hubProfileBtn').addEventListener('click',async()=>{if(publicUser){$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser)}});
 $('createCompetitionBtn').addEventListener('click',createCompetition);
@@ -1905,12 +1956,12 @@ setAdminMode(null);
  if(publicUser){
   let savedView='welcome';
   try{savedView=localStorage.getItem('u1traderCompetitionView')||'welcome'}catch(e){}
-  if(savedView==='competition')openCompetitionsHub();
+  if(savedView==='competition'){openCompetitionsHub();setGlobalNavActive('competitions');}
   else if(savedView==='dashboard'){
    let activeId='main';try{activeId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main'}catch(e){}
    if(!getCompetitionCatalog().some(x=>x.id===activeId))activeId=getCompetitionCatalog()[0]?.id||'main';
-   openCompetitionWorkspace(activeId);
-  }
+   openCompetitionWorkspace(activeId);setGlobalNavActive('leaderboard');
+  }else{setGlobalNavActive('welcome');}
  }
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
