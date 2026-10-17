@@ -1071,7 +1071,7 @@ function setPublicUser(user){
  publicUser=user||null;
  document.body.classList.toggle('auth-required',!publicUser);
  document.body.classList.toggle('page-welcome',!!publicUser);
- document.body.classList.remove('page-competition');
+ document.body.classList.remove('page-competition','page-dashboard');
  const btn=$('userAuthBtn');
  if(btn)btn.textContent=publicUser?'My Profile':'Register / Login';
  const welcomeName=$('welcomeUserName');
@@ -1221,7 +1221,7 @@ async function createCompetition(){
  const id='comp-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
  const fresh={...cleanCompetitionSnapshot(data),league:name.trim(),startDateTime:start.trim(),endDateTime:end.trim(),traders:[],history:[],dailyTradeReports:[],historicalMaeResults:[],historicalDailyLossBreaches:[],firstPrize:'',secondPrize:''};
  getCompetitionCatalog().push({id,name:name.trim(),startDateTime:start.trim(),endDateTime:end.trim(),dashboardData:fresh});
- data._activeCompetitionId=id;
+ data={...fresh,_competitionCatalog:getCompetitionCatalog(),_activeCompetitionId:id};
  const ok=await persist();
  if(ok){renderCompetitionHub();toast('Competition created');}
 }
