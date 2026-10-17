@@ -2617,14 +2617,17 @@ html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!import
 </style>
 
 <style id="u1trader-profile-width-correction">
-/* User requested 950px maximum width; keep popup height and layout unchanged. */
+/* Match trader profile width to the available central page when navigation is collapsed. */
 html body #traderProfileBack .profile-modal{
- width:min(950px,calc(100vw - 48px))!important;
- max-width:min(950px,calc(100vw - 48px))!important;
+ width:min(1400px,calc(100vw - 48px))!important;
+ max-width:min(1400px,calc(100vw - 48px))!important;
  box-sizing:border-box!important;
  margin-left:auto!important;margin-right:auto!important;
 }
 @media(max-width:700px){
- html body #traderProfileBack .profile-modal{width:calc(100vw - 24px)!important;max-width:calc(100vw - 24px)!important}
+ html body #traderProfileBack .profile-modal{
+  width:calc(100vw - 24px)!important;
+  max-width:calc(100vw - 24px)!important;
+ }
 }
 </style>
