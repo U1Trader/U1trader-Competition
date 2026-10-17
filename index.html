@@ -1498,6 +1498,7 @@ window.addEventListener('message',async(event)=>{
    }
   }catch(error){console.error('Could not reuse main-site login session:',error);}
  }
+ if(event.data?.type==='U1TRADER_OPEN_HUB'){openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0});return;}
  if(event.data?.type==='U1TRADER_PARENT_SIGNED_OUT'){
   pendingProfileOpen=false;setPublicUser(null);setAdminMode(null);
   $('userAuthModalBack').style.display='none';$('userProfileModalBack').style.display='none';
@@ -2117,7 +2118,8 @@ setAdminMode(null);
   savedView=localStorage.getItem('u1traderCompetitionView')||'competition';
   savedId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main';
  }catch(e){}
- if(savedView==='dashboard'&&getCompetitionCatalog().length){
+ const openedFromMainSite=window.parent!==window;
+ if(!openedFromMainSite&&savedView==='dashboard'&&getCompetitionCatalog().length){
   if(!getCompetitionCatalog().some(x=>x.id===savedId))savedId=getCompetitionCatalog()[0]?.id||'main';
   openCompetitionWorkspace(savedId);setGlobalNavActive('competitions');
  }else{
