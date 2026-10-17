@@ -2060,8 +2060,19 @@ function openTraderProfileCore(id){
    .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
  const startVal=Number(t.start)||0;
  let runningBalance=startVal;
+ // Chart one point per actual trading day, so every date label stays readable.
+ const dailyPoints=new Map();
+ allChartTrades.forEach(trade=>{
+   const rawDate=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const day=rawDate.slice(0,10).replace(/[.]/g,'-');
+   if(!day)return;
+   dailyPoints.set(day,(dailyPoints.get(day)||0)+(Number(trade.pnl??trade.profit)||0));
+ });
  const points=[{date:'Start',balance:startVal}];
- allChartTrades.forEach((trade,i)=>{runningBalance+=Number(trade.pnl??trade.profit)||0;points.push({date:String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||('Trade '+(i+1))),balance:runningBalance});});
+ Array.from(dailyPoints.entries()).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([day,pnl])=>{
+   runningBalance+=pnl;
+   points.push({date:day,balance:runningBalance});
+ });
  // If no individual closed trades are available, retain the saved daily balance history as a fallback.
  if(!allChartTrades.length){
    const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
@@ -2096,7 +2107,7 @@ function openTraderProfileCore(id){
  svg+='<line id="currentDailyLossFloorLine" x1="130" y1="'+yFor(currentDailyLossFloor)+'" x2="1060" y2="'+yFor(currentDailyLossFloor)+'" stroke="#f0b90b" stroke-width="1.6" stroke-dasharray="2 5"><title>Current day '+esc(todayKey)+' daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
  svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||((points.length<=12)&&i%2===0)){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
+ coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||points.length<=30){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
  // Chart legend explains all three risk/target levels.
  svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#f23645" stroke-width="1.35"/><text x="108" y="364" fill="#d9364f" font-size="10.5" font-weight="600">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
  svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#9a6700" font-size="10.5" font-weight="600">Daily loss: current day opening balance − 5%</text>';
@@ -2561,4 +2572,17 @@ html body #traderProfileBack .profile-modal .profile-trades table{
   margin-top:14px!important;
  }
 }
+</style>
+
+<style id="u1trader-profile-compact-daily-chart-five-trades">
+/* Compact trader profile so the chart and five trade rows fit together. */
+html body #traderProfileBack .profile-modal{height:calc(100dvh - 132px)!important;max-height:calc(100dvh - 132px)!important;padding:8px 14px 8px!important}
+html body #traderProfileBack .profile-modal #profileBalanceHeading{margin:6px 0 4px!important}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:clamp(230px,31vh,330px)!important;min-height:230px!important;flex:0 0 auto!important}
+html body #traderProfileBack .profile-modal #profileTradeHeading{margin:7px 0 4px!important}
+html body #traderProfileBack .profile-modal .profile-trades{margin-top:0!important;overflow:auto!important}
+html body #traderProfileBack .profile-modal .profile-trades th,html body #traderProfileBack .profile-modal .profile-trades td{padding:4px 6px!important;line-height:1.2!important}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:5px 0 0!important}
+@media(max-height:800px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 110px)!important;max-height:calc(100dvh - 110px)!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}}
+@media(max-width:700px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 100px)!important;max-height:calc(100dvh - 100px)!important;padding:8px!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:250px!important;min-height:250px!important}html body #traderProfileBack .profile-modal .profile-trades{overflow:auto!important}}
 </style>
