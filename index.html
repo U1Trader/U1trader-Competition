@@ -2402,14 +2402,7 @@ body.admin-mode .grid,.grid{display:grid!important;grid-template-columns:minmax(
  const btn=document.getElementById('toggleDailyReports');
  if(host)host.hidden=true;
  if(btn){btn.textContent='Show reports';btn.setAttribute('aria-expanded','false');}
- document.addEventListener('click',function(e){
-  const target=e.target.closest('#toggleDailyReports');
-  if(!target||!host)return;
-  const opening=host.hidden;
-  host.hidden=!opening;
-  target.textContent=opening?'Hide reports':'Show reports';
-  target.setAttribute('aria-expanded',opening?'true':'false');
- });
+ // Toggle is bound once by the layout-enforcement handler below.
 })();
 </script>
 
@@ -2451,7 +2444,9 @@ html body #toggleDailyReports{display:inline-flex!important;visibility:visible!i
     reports.hidden=true;
     toggle.textContent='Show reports';
     toggle.setAttribute('aria-expanded','false');
-    toggle.addEventListener('click',function(){
+    toggle.addEventListener('click',function(event){
+     event.preventDefault();
+     event.stopPropagation();
      const open=reports.hidden;
      reports.hidden=!open;
      toggle.textContent=open?'Hide reports':'Show reports';
@@ -2469,3 +2464,13 @@ html body #toggleDailyReports{display:inline-flex!important;visibility:visible!i
  observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 })();
 </script>
+
+<style id="user-requested-admin-schedule-edit-fix">
+body.admin-mode .hero-schedule-card .start-editor-label,
+body.admin-mode .hero-schedule-card #competitionStartInput,
+body.admin-mode .hero-schedule-card #competitionEndInput,
+body.admin-mode .hero-schedule-card label[for="competitionEndInput"]{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+body.admin-mode .hero-schedule-card #competitionStartInput,
+body.admin-mode .hero-schedule-card #competitionEndInput{width:100%!important;min-width:0!important;max-width:100%!important;min-height:38px!important;margin-top:6px!important;padding:8px!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.65)!important;border-radius:8px!important;pointer-events:auto!important}
+body.admin-mode .hero-schedule-card input[type="datetime-local"]::-webkit-calendar-picker-indicator{cursor:pointer;filter:invert(1);opacity:1}
+</style>
