@@ -2413,3 +2413,59 @@ body.admin-mode .grid,.grid{display:grid!important;grid-template-columns:minmax(
 })();
 </script>
 
+
+<style id="user-requested-layout-enforcement-v2">
+/* Enforce the requested layout even when legacy admin code sets inline styles. */
+html body .competition-sidebar{display:none!important}
+html body .grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+html body .grid>section.card{grid-column:1/-1!important;width:100%!important;max-width:none!important;min-width:0!important}
+html body #legacyBalanceUpdate{display:none!important}
+html body #savedTradeReports[hidden]{display:none!important}
+html body #savedTradeReportsSection .report-head-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:12px!important;margin-left:auto!important}
+html body #toggleDailyReports{display:inline-flex!important;visibility:visible!important;opacity:1!important}
+</style>
+<script id="user-requested-layout-enforcement-v2">
+(function(){
+ function enforceRequestedLayout(){
+  const sidebar=document.querySelector('.competition-sidebar');
+  if(sidebar){sidebar.hidden=true;sidebar.style.setProperty('display','none','important');}
+  const oldEditor=document.getElementById('legacyBalanceUpdate');
+  if(oldEditor){oldEditor.hidden=true;oldEditor.style.setProperty('display','none','important');}
+  document.querySelectorAll('body .grid').forEach(grid=>{
+   grid.style.setProperty('display','grid','important');
+   grid.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+   grid.style.setProperty('width','100%','important');
+   grid.style.setProperty('max-width','none','important');
+  });
+  document.querySelectorAll('body .grid>section.card').forEach(card=>{
+   card.style.setProperty('grid-column','1/-1','important');
+   card.style.setProperty('width','100%','important');
+   card.style.setProperty('max-width','none','important');
+   card.style.setProperty('min-width','0','important');
+  });
+  const reports=document.getElementById('savedTradeReports');
+  const toggle=document.getElementById('toggleDailyReports');
+  if(reports&&toggle){
+   if(!toggle.dataset.bound){
+    toggle.dataset.bound='1';
+    reports.hidden=true;
+    toggle.textContent='Show reports';
+    toggle.setAttribute('aria-expanded','false');
+    toggle.addEventListener('click',function(){
+     const open=reports.hidden;
+     reports.hidden=!open;
+     toggle.textContent=open?'Hide reports':'Show reports';
+     toggle.setAttribute('aria-expanded',open?'true':'false');
+    });
+   }
+   toggle.style.setProperty('display','inline-flex','important');
+   toggle.style.setProperty('visibility','visible','important');
+   toggle.style.setProperty('opacity','1','important');
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enforceRequestedLayout,{once:true});
+ else enforceRequestedLayout();
+ const observer=new MutationObserver(enforceRequestedLayout);
+ observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+})();
+</script>
