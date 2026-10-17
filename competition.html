@@ -1582,58 +1582,44 @@ document.addEventListener('click',function(e){
 <!-- Recovery guard: keep Admin Login usable even if a later dashboard feature throws. -->
 <script id="admin-login-recovery-guard">
 (function(){
-  function el(id){ return document.getElementById(id); }
-  function openLogin(){
-    var modal=el('loginModalBack');
-    if(modal){ modal.style.display='flex'; var email=el('adminEmail'); if(email) email.focus(); }
-    else { alert('Admin login window is missing. Please refresh the page.'); }
+  function byId(id){return document.getElementById(id);}
+  function showLogin(){
+    var modal=byId('loginModalBack');
+    if(!modal){console.error('Admin login modal element missing');alert('Login window could not be found. Please reload the page.');return;}
+    modal.style.setProperty('display','flex','important');
+    modal.style.setProperty('z-index','99999','important');
+    var email=byId('adminEmail');
+    if(email) setTimeout(function(){email.focus();},0);
   }
-  function closeLogin(){
-    var modal=el('loginModalBack');
-    if(modal) modal.style.display='none';
+  function hideLogin(){
+    var modal=byId('loginModalBack');
+    if(modal) modal.style.setProperty('display','none','important');
   }
-  function bind(){
-    var button=el('authBtn');
-    if(button && !button.dataset.recoveryBound){
-      button.dataset.recoveryBound='1';
-      button.addEventListener('click',function(event){
-        if(document.body.classList.contains('admin-mode')) return;
-        event.preventDefault();
-        openLogin();
-      },true);
+  document.addEventListener('click',function(event){
+    var target=event.target;
+    if(!target || !target.closest) return;
+    var login=target.closest('#authBtn');
+    if(login){
+      if(document.body.classList.contains('admin-mode')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showLogin();
+      return;
     }
-    var cancel=el('cancelLogin');
-    if(cancel && !cancel.dataset.recoveryBound){
-      cancel.dataset.recoveryBound='1';
-      cancel.addEventListener('click',closeLogin,true);
-    }
-    var submit=el('submitLogin');
-    if(submit && !submit.dataset.recoveryBound){
-      submit.dataset.recoveryBound='1';
-      submit.addEventListener('click',async function(event){
-        event.preventDefault();
-        var email=(el('adminEmail')?.value||'').trim();
-        var password=el('adminPassword')?.value||'';
-        if(!email||!password){ alert('Enter admin email and password'); return; }
-        if(!window.supabase || typeof sb==='undefined'){ alert('Supabase client is not ready. Refresh and try again.'); return; }
-        submit.disabled=true;
-        try{
-          var result=await sb.auth.signInWithPassword({email:email,password:password});
-          if(result.error) throw result.error;
-          if(typeof setAdminMode==='function') setAdminMode(result.data.user);
-          closeLogin();
-          if(el('adminPassword')) el('adminPassword').value='';
-          if(typeof loadSharedData==='function') await loadSharedData();
-          alert('Admin login successful');
-        }catch(error){
-          console.error('Admin login failed',error);
-          alert('Login failed: '+(error && error.message ? error.message : String(error)));
-        }finally{ submit.disabled=false; }
-      },true);
-    }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind);
-  else bind();
+    if(target.closest('#cancelLogin')){event.preventDefault();hideLogin();return;}
+    if(target.closest('#loginModalBack')===target && target.id==='loginModalBack'){hideLogin();}
+  },true);
+  document.addEventListener('keydown',function(event){
+    if(event.key==='Escape') hideLogin();
+  });
+  window.addEventListener('error',function(event){
+    console.error('U1Trader Arena runtime error:',event.message,event.filename,event.lineno);
+    var status=byId('syncStatus');
+    if(status && /script|render|undefined/i.test(event.message||'')) status.textContent='Page error — open console';
+  });
+  window.addEventListener('unhandledrejection',function(event){
+    console.error('U1Trader Arena async error:',event.reason);
+  });
 })();
 </script>
 
