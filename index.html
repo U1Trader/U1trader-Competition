@@ -816,7 +816,7 @@ body.auth-required #userProfileModalBack{display:none!important}
 .welcome-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:28px 0}
 .welcome-features>div{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 14px;border:1px solid var(--line);border-radius:14px;background:#0b1324}
 .welcome-features span{font-size:27px}.welcome-features strong{font-size:14px}.welcome-features small{color:var(--muted);font-size:12px;line-height:1.5}
-.welcome-enter-btn{width:100%;max-width:360px;justify-content:center;padding:14px 18px;font-size:15px}
+.welcome-nav-hint{margin-top:24px!important;padding:14px;border:1px solid var(--line);border-radius:10px;background:#0b1324;font-size:13px}
 .welcome-profile-btn{display:block;margin:12px auto 0;background:transparent}
 body.auth-required #welcomePage{display:none!important}
 body.auth-required #welcomePage~.wrap{display:none!important}
@@ -868,11 +868,7 @@ body:not(.auth-required) #globalTopProfile{display:flex}
     <div class="welcome-logo">U1</div>
     <h1>Welcome<span id="welcomeUserName"></span>!</h1>
     <p>Welcome to U1Trader. Your trading community and competition dashboard are ready.</p>
-    <div class="welcome-features">
-      <div><span>🏆</span><strong>Live Competition</strong><small>View the leaderboard and competition progress.</small></div>
-      <div><span>📊</span><strong>Trader Arena</strong><small>Explore the challenge dashboard and rules.</small></div>
-    </div>
-    <button type="button" class="btn primary welcome-enter-btn" id="enterCompetitionBtn">Enter Competition <span aria-hidden="true">→</span></button>
+    <p class="welcome-nav-hint">Use the navigation menu to open Competitions or My Profile.</p>
   </div>
 </div>
 <div class="wrap">
@@ -2005,16 +2001,26 @@ setAdminMode(null);
  const {data:sessionData}=await sb.auth.getSession();
  if(sessionData?.session?.user){setPublicUser(sessionData.session.user);setAdminMode(sessionData.session.user);}
  await loadSharedData();
- let savedView='competition';
- try{savedView=localStorage.getItem('u1traderCompetitionView')||'competition'}catch(e){}
+ // Restore the last visited competition view after refresh; never force Home/Welcome.
+ let savedView='competition',savedId='main';
+ try{
+  savedView=localStorage.getItem('u1traderCompetitionView')||'competition';
+  savedId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main';
+ }catch(e){}
  if(savedView==='dashboard'&&getCompetitionCatalog().length){
-  let activeId='main';try{activeId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main'}catch(e){}
-  if(!getCompetitionCatalog().some(x=>x.id===activeId))activeId=getCompetitionCatalog()[0]?.id||'main';
-  openCompetitionWorkspace(activeId);setGlobalNavActive('competitions');
+  if(!getCompetitionCatalog().some(x=>x.id===savedId))savedId=getCompetitionCatalog()[0]?.id||'main';
+  openCompetitionWorkspace(savedId);setGlobalNavActive('competitions');
  }else{
-  // Main U1TRADER owns the login gate. Browsing competitions never asks for a second login.
   openCompetitionsHub();setGlobalNavActive('competitions');
  }
+ // Keep the current page key explicit when the tab is refreshed or closed.
+ window.addEventListener('beforeunload',()=>{
+  const view=document.body.classList.contains('page-dashboard')?'dashboard':'competition';
+  try{
+   localStorage.setItem('u1traderCompetitionView',view);
+   if(view==='dashboard'&&data._activeCompetitionId)localStorage.setItem('u1traderActiveCompetitionId',data._activeCompetitionId);
+  }catch(e){}
+ });
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
    if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
