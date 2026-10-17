@@ -832,6 +832,11 @@ button{accent-color:#d9b56d}
 .competition-list-status{border-color:rgba(217,181,109,.25)!important}
 #globalCompetitionNav{background:linear-gradient(180deg,#11100d,#080808)!important;border-right-color:rgba(217,181,109,.24)!important}
 @media(max-width:760px){body:not(.auth-required)>.wrap{padding-top:18px!important}}
+
+#globalTopProfile{position:fixed;z-index:3500;top:10px;right:16px;display:none;align-items:center;gap:9px;padding:7px 12px 7px 7px;border:1px solid rgba(217,181,109,.28);border-radius:999px;background:#11110f;color:#f6f2e9;font:600 12px Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 5px 20px #0005}
+body:not(.auth-required) #globalTopProfile{display:flex}
+#globalTopProfileInitial{width:28px;height:28px;border-radius:9px;background:#f6f2e9;color:#6657ff;display:grid;place-items:center;font-size:14px;font-weight:900}
+@media(max-width:760px){#globalTopProfile{top:8px;right:8px;padding:5px}#globalTopProfileName{display:none}#globalTopProfileInitial{width:30px;height:30px}}
 </style>
 </style>
 </head>
@@ -843,8 +848,10 @@ button{accent-color:#d9b56d}
  <button class="site-sidebar-link" id="globalNavProfile" type="button"><span class="site-sidebar-icon">👤</span><span>My Profile</span></button>
  <button class="site-sidebar-link" id="globalNavCompetition" type="button"><span class="site-sidebar-icon">🏆</span><span>Competition</span></button>
  <div class="site-sidebar-user"><strong id="globalNavName">U1Trader Member</strong><span id="globalNavEmail"></span><button class="site-sidebar-link admin-only" id="globalNavMaintenance" type="button"><span class="site-sidebar-icon">🛠</span><span id="globalNavMaintenanceText">Maintenance: OFF</span></button><button class="site-sidebar-link" id="globalNavLogout" type="button" style="margin-top:12px"><span class="site-sidebar-icon">↪</span><span>Logout</span></button></div>
-</aside><div id="competitionsHub">
- <div class="competition-hub-head"><div><h1>Competitions</h1><p>Choose a competition to view its leaderboard and trading progress.</p></div><div class="competition-hub-actions"><button class="btn" type="button" id="hubProfileBtn">My Profile</button><button class="btn primary admin-only" type="button" id="createCompetitionBtn">+ Create Competition</button></div></div>
+</aside>
+<button type="button" id="globalTopProfile" aria-label="Open My Profile" title="My Profile"><span id="globalTopProfileInitial">T</span><span id="globalTopProfileName">My Profile</span></button>
+<div id="competitionsHub">
+ <div class="competition-hub-head"><div><h1>Competitions</h1><p>Choose a competition to view its leaderboard and trading progress.</p></div><div class="competition-hub-actions"><button class="btn primary admin-only" type="button" id="createCompetitionBtn">+ Create Competition</button></div></div>
  <div class="competition-hub-tabs" role="tablist" aria-label="Competition status"><button class="competition-hub-tab active" data-hub-filter="all">All</button><button class="competition-hub-tab" data-hub-filter="upcoming">Upcoming</button><button class="competition-hub-tab" data-hub-filter="live">Running</button><button class="competition-hub-tab" data-hub-filter="completed">Completed</button></div>
  <div class="competition-hub-grid" id="competitionHubGrid"></div>
 </div>
@@ -859,7 +866,6 @@ button{accent-color:#d9b56d}
       <div><span>📊</span><strong>Trader Arena</strong><small>Explore the challenge dashboard and rules.</small></div>
     </div>
     <button type="button" class="btn primary welcome-enter-btn" id="enterCompetitionBtn">Enter Competition <span aria-hidden="true">→</span></button>
-    <button type="button" class="btn welcome-profile-btn" id="welcomeProfileBtn">My Profile</button>
   </div>
 </div>
 <div class="wrap">
@@ -1121,9 +1127,10 @@ function setPublicUser(user){
  document.body.classList.toggle('auth-required',!publicUser);
  document.body.classList.remove('page-welcome','page-competition','page-dashboard');
  if(publicUser){
-  let savedView='welcome';
-  try{savedView=localStorage.getItem('u1traderCompetitionView')||'welcome'}catch(e){}
-  document.body.classList.add(['competition','dashboard'].includes(savedView)?'page-'+savedView:'page-welcome');
+  let savedView='competition';
+  try{savedView=localStorage.getItem('u1traderCompetitionView')||'competition'}catch(e){}
+  if(savedView==='welcome')savedView='competition';
+  document.body.classList.add(['competition','dashboard'].includes(savedView)?'page-'+savedView:'page-competition');
  }
  const btn=$('userAuthBtn');
  if(btn)btn.textContent=publicUser?'My Profile':'Register / Login';
@@ -1309,15 +1316,17 @@ function syncGlobalSidebarUser(){
  $('globalNavName').textContent=name;
  $('globalNavEmail').textContent=publicUser?.email||'';
  $('globalNavMaintenanceText').textContent='🛠 Maintenance: '+(data.siteMaintenanceEnabled?'ON':'OFF');
+ $('globalTopProfileInitial').textContent=String(name||'T').trim().charAt(0).toUpperCase();
+ $('globalTopProfileName').textContent=name;
 }
-$('globalNavHome').addEventListener('click',event=>{event.preventDefault();try{localStorage.setItem('u1traderCompetitionView','welcome')}catch(e){}document.body.classList.remove('page-competition','page-dashboard');document.body.classList.add('page-welcome');window.scrollTo({top:0,behavior:'smooth'});});
+$('globalNavHome').addEventListener('click',event=>{event.preventDefault();openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
 $('globalNavProfile').addEventListener('click',()=>{if(!publicUser){openUserAuth('login');return;}$('userProfileModalBack').style.display='flex';loadPublicProfile(publicUser);setGlobalNavActive('profile');});
 $('globalNavCompetition').addEventListener('click',()=>{openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
 $('globalNavLogout').addEventListener('click',async()=>{await sb.auth.signOut();setPublicUser(null);setAdminMode(null);$('userProfileModalBack').style.display='none';render();toast('Logged out');});
 $('globalNavMaintenance').addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
 
-$('enterCompetitionBtn').addEventListener('click',openCompetitionsHub);
-$('hubProfileBtn').addEventListener('click',async()=>{if(publicUser){$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser)}});
+$('enterCompetitionBtn')?.addEventListener('click',openCompetitionsHub);
+$('globalTopProfile').addEventListener('click',async()=>{if(!publicUser){openUserAuth('login');return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
 $('createCompetitionBtn').addEventListener('click',createCompetition);
 $('backToCompetitions').addEventListener('click',openCompetitionsHub);
 document.querySelectorAll('[data-hub-filter]').forEach(btn=>btn.addEventListener('click',()=>{
