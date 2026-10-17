@@ -1654,6 +1654,34 @@ document.addEventListener('click',function(e){
 })();
 </script>
 
+<style id="user-requested-leaderboard-reports-layout">
+/* Admin layout: remove the legacy balance editor panel but keep its controls in the DOM for compatibility. */
+#legacyBalanceUpdate,
+.competition-sidebar{display:none!important}
+body.admin-mode .grid,
+.grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+.grid>section.card{grid-column:1/-1!important;width:100%!important;min-width:0!important;max-width:none!important}
+.grid .tablewrap{width:100%!important;max-width:none!important;overflow-x:auto}
+.grid .tablewrap table{width:100%!important;min-width:900px}
+/* Daily reports are a collapsible history panel with an obvious right-aligned control. */
+#savedTradeReportsSection .cardhead{display:flex;align-items:center;justify-content:space-between;gap:16px}
+#savedTradeReportsSection .report-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-left:auto}
+#toggleDailyReports{display:inline-flex!important;align-items:center;justify-content:center;min-height:34px;padding:7px 13px;border:1px solid var(--gold,#caa24a);border-radius:8px;background:rgba(202,162,74,.12);color:var(--text,#f4eee2);font-weight:800;cursor:pointer;white-space:nowrap}
+#savedTradeReports[hidden]{display:none!important}
+#savedTradeReports{display:grid;gap:10px;padding:0 16px 16px}
+@media(max-width:650px){
+ #savedTradeReportsSection .cardhead{align-items:flex-start}
+ #savedTradeReportsSection .report-head-actions{gap:6px;flex-wrap:wrap}
+}
+</style>
+<script id="user-requested-daily-reports-default-collapsed">
+(function(){
+ const host=document.getElementById('savedTradeReports');
+ const btn=document.getElementById('toggleDailyReports');
+ if(host)host.hidden=true;
+ if(btn){btn.textContent='Show reports';btn.setAttribute('aria-expanded','false');}
+})();
+</script>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
