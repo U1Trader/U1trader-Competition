@@ -1559,8 +1559,10 @@ $('userLogoutBtn').addEventListener('click',async()=>{
 });
 // Competition reuses the main website's login; no separate competition login.
 let pendingProfileOpen=false;
+let lastParentSessionToken='', parentSessionApplying=false, parentSessionRequested=false;
 async function requestParentSession(){
- if(window.parent===window)return;
+ if(window.parent===window||parentSessionRequested)return;
+ parentSessionRequested=true;
  window.parent.postMessage({type:'U1TRADER_COMPETITION_READY'},'https://u1trader.github.io');
 }
 window.addEventListener('message',async(event)=>{
@@ -1568,6 +1570,11 @@ window.addEventListener('message',async(event)=>{
  if(event.data?.type==='U1TRADER_PARENT_SESSION'){
   const session=event.data.session;
   if(!session?.access_token||!session?.refresh_token)return;
+  // Parent can send the same session more than once during startup.
+  // setSession triggers a network /auth/v1/user request, so ignore duplicates.
+  if(parentSessionApplying||session.access_token===lastParentSessionToken)return;
+  parentSessionApplying=true;
+  lastParentSessionToken=session.access_token;
   try{
    const {data:authData,error}=await sb.auth.setSession({access_token:session.access_token,refresh_token:session.refresh_token});
    if(error)throw error;
@@ -1577,17 +1584,18 @@ window.addEventListener('message',async(event)=>{
     document.body.classList.remove('auth-required');
     if(pendingProfileOpen){pendingProfileOpen=false;$('userProfileModalBack').style.display='flex';await loadPublicProfile(authData.user);}
    }
-  }catch(error){console.error('Could not reuse main-site login session:',error);}
+  }catch(error){
+   console.warn('Could not reuse main-site login session. Duplicate session requests are suppressed.',error);
+  }finally{parentSessionApplying=false;}
  }
  if(event.data?.type==='U1TRADER_OPEN_HUB'){openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0});return;}
  if(event.data?.type==='U1TRADER_PARENT_SIGNED_OUT'){
-  pendingProfileOpen=false;setPublicUser(null);setAdminMode(null);
+  pendingProfileOpen=false;lastParentSessionToken='';setPublicUser(null);setAdminMode(null);
   $('userAuthModalBack').style.display='none';$('userProfileModalBack').style.display='none';
   document.body.classList.remove('auth-required');
  }
 });
 requestParentSession();
-window.addEventListener('load',requestParentSession);
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  // Keep a copy of the local cache before reading cloud data. A previous stale
