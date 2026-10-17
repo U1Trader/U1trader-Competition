@@ -1256,10 +1256,12 @@ async function submitPublicAuth(){
 }
 
 function openCompetitionsHub(){
- if(!publicUser){openUserAuth('login');return}
+ // Competition browsing should open directly even if the parent-site session
+ // has not reached this iframe yet. Authentication is only needed for account actions.
+ document.body.classList.remove('auth-required','page-welcome','page-dashboard');
+ $('userAuthModalBack').style.display='none';
  syncActiveCompetitionSnapshot();
  try{localStorage.setItem('u1traderCompetitionView','competition')}catch(e){}
- document.body.classList.remove('page-welcome','page-dashboard');
  document.body.classList.add('page-competition');
  renderCompetitionHub();
 }
