@@ -2101,11 +2101,11 @@ function openTraderProfileCore(id){
  let svg='<rect x="0" y="0" width="1100" height="375" fill="#0b1220"/> ';
  for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#26364d" stroke-width="0.8"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#f1f5f9" font-size="12" font-weight="700" font-family="Inter,Arial,sans-serif">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
  // Thresholds: visually separate red max-loss from daily-loss when the values nearly overlap.
- const maxLossY=yFor(maxLossLevel),dailyLossY=yFor(dailyLossFloor);
+ const maxLossY=yFor(maxLossLevel),dailyLossY=yFor(currentDailyLossFloor);
  const maxLossVisualY=Math.abs(maxLossY-dailyLossY)<5?maxLossY-5:maxLossY;
  svg+='<line x1="130" y1="'+maxLossVisualY+'" x2="1060" y2="'+maxLossVisualY+'" stroke="#ff3048" stroke-width="2.4"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
- svg+='<line id="currentDailyLossLine" x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffb000" stroke-width="1.8" stroke-dasharray="3 5"><title>Current day daily loss floor: '+esc(fmt(dailyLossFloor))+'</title></line>';
+ svg+='<line id="currentDailyLossLine" x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffb000" stroke-width="1.8" stroke-dasharray="3 5"><title>Current day daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
  svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
  // Small dots mark each closed trade balance point.
  coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||points.length<=30){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
