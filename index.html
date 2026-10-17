@@ -859,6 +859,23 @@ body.sidebar-collapsed #competitionsHub,body.sidebar-collapsed>.wrap,body.sideba
  #globalCompetitionNav{z-index:4000!important}
 }
 </style>
+<style id="sidebar-toggle-visibility-hotfix">
+/* Keep the sidebar toggle visible above every page/header layer. */
+#sidebarToggleBtn{
+ position:fixed!important;display:flex!important;visibility:visible!important;opacity:1!important;
+ z-index:2147483000!important;left:104px!important;top:12px!important;
+ width:30px!important;height:30px!important;min-width:30px!important;padding:0!important;
+ align-items:center!important;justify-content:center!important;gap:3px!important;
+ background:#d9b56d!important;color:#17130b!important;border:1px solid #f4dba2!important;
+ border-radius:8px!important;box-shadow:0 3px 12px #0009!important;pointer-events:auto!important;
+}
+#sidebarToggleBtn span{display:block!important;visibility:visible!important;opacity:1!important;width:3px!important;height:3px!important;border-radius:50%!important;background:#17130b!important;flex:0 0 3px!important}
+body.sidebar-collapsed #sidebarToggleBtn{left:12px!important;top:12px!important}
+@media(max-width:760px){
+ #sidebarToggleBtn{left:auto!important;right:12px!important;top:12px!important}
+ body.sidebar-collapsed #sidebarToggleBtn{left:12px!important;right:auto!important}
+}
+</style>
 </head>
 <body>
 <button type="button" id="sidebarToggleBtn" aria-label="Close navigation" aria-expanded="true" title="Close / open navigation"><span></span><span></span><span></span></button>
