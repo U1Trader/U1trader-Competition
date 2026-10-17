@@ -785,6 +785,9 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 
 
 <style id="public-login-first-page-gate">
+/* Do not block the competition list/dashboard with a second login screen on startup. */
+#userAuthModalBack,#userProfileModalBack{display:none}
+
 /* Require public authentication before showing the competition welcome/dashboard page. */
 body.auth-required>.wrap{display:none!important}
 body.auth-required #userAuthModalBack{display:flex!important;z-index:10000!important;background:radial-gradient(ellipse at top,#14213b 0%,#0b1020 70%)!important}
@@ -1053,7 +1056,7 @@ const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_8xtYAX6736Bi6cg2N5_qOQ_WV_PRv5e';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let currentUser=null, publicUser=null, lastRemoteJson='', loadingRemote=true, userAuthMode='register';
-document.body.classList.add('auth-required');
+// Competition browsing is public. Login is requested only when opening My Profile or using account features.
 let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[],dailyTradeReports:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
 if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
