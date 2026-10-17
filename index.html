@@ -1070,8 +1070,12 @@ function setAdminMode(user){
 function setPublicUser(user){
  publicUser=user||null;
  document.body.classList.toggle('auth-required',!publicUser);
- document.body.classList.toggle('page-welcome',!!publicUser);
- document.body.classList.remove('page-competition','page-dashboard');
+ document.body.classList.remove('page-welcome','page-competition','page-dashboard');
+ if(publicUser){
+  let savedView='welcome';
+  try{savedView=localStorage.getItem('u1traderCompetitionView')||'welcome'}catch(e){}
+  document.body.classList.add(['competition','dashboard'].includes(savedView)?'page-'+savedView:'page-welcome');
+ }
  const btn=$('userAuthBtn');
  if(btn)btn.textContent=publicUser?'My Profile':'Register / Login';
  const welcomeName=$('welcomeUserName');
@@ -1197,6 +1201,7 @@ async function submitPublicAuth(){
 function openCompetitionsHub(){
  if(!publicUser){openUserAuth('login');return}
  syncActiveCompetitionSnapshot();
+ try{localStorage.setItem('u1traderCompetitionView','competition')}catch(e){}
  document.body.classList.remove('page-welcome','page-dashboard');
  document.body.classList.add('page-competition');
  renderCompetitionHub();
@@ -1204,6 +1209,7 @@ function openCompetitionsHub(){
 function openCompetitionWorkspace(id){
  const item=getCompetitionCatalog().find(x=>x.id===id);if(!item)return;
  syncActiveCompetitionSnapshot();
+ try{localStorage.setItem('u1traderCompetitionView','dashboard');localStorage.setItem('u1traderActiveCompetitionId',item.id)}catch(e){}
  data={...cleanCompetitionSnapshot(item.dashboardData||{}),_competitionCatalog:getCompetitionCatalog(),_activeCompetitionId:item.id};
  document.body.classList.remove('page-welcome','page-competition');
  document.body.classList.add('page-dashboard');
@@ -1896,6 +1902,16 @@ setAdminMode(null);
  const {data:sessionData}=await sb.auth.getSession();
  if(sessionData?.session?.user){setPublicUser(sessionData.session.user);setAdminMode(sessionData.session.user);}
  await loadSharedData();
+ if(publicUser){
+  let savedView='welcome';
+  try{savedView=localStorage.getItem('u1traderCompetitionView')||'welcome'}catch(e){}
+  if(savedView==='competition')openCompetitionsHub();
+  else if(savedView==='dashboard'){
+   let activeId='main';try{activeId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main'}catch(e){}
+   if(!getCompetitionCatalog().some(x=>x.id===activeId))activeId=getCompetitionCatalog()[0]?.id||'main';
+   openCompetitionWorkspace(activeId);
+  }
+ }
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
    if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
