@@ -949,7 +949,7 @@ body.page-competition>.wrap{display:block!important}
 </div></div>
 
 <style id="global-competition-navigation-styles">
-#globalCompetitionNav{position:fixed;z-index:1500;left:0;top:0;bottom:0;width:224px;padding:22px 14px;display:flex;flex-direction:column;gap:7px;background:#0b0e16;border-right:1px solid #252b39;color:#e9edf7;box-sizing:border-box}
+#globalCompetitionNav{position:fixed;z-index:3000;left:0;top:0;bottom:0;width:224px;padding:22px 14px;display:flex;flex-direction:column;gap:7px;background:#0b0e16;border-right:1px solid #252b39;color:#e9edf7;box-sizing:border-box}
 .global-nav-brand{display:flex;align-items:center;gap:10px;padding:3px 10px 25px;font-size:13px;font-weight:900;letter-spacing:1.5px;color:#fff}
 .global-nav-mark{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:linear-gradient(135deg,#f5ca68,#ad7922);color:#15100a;font-size:18px;font-weight:1000}
 #globalCompetitionNav button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:12px 11px;border:1px solid transparent;border-radius:10px;background:transparent;color:#aeb8ca;font:inherit;cursor:pointer;transition:background .15s,color .15s}
@@ -957,16 +957,18 @@ body.page-competition>.wrap{display:block!important}
 #globalCompetitionNav button b{font-size:12px;font-weight:650}
 #globalCompetitionNav button:hover,#globalCompetitionNav button.active{background:#1b2231;border-color:#30394b;color:#f5cc70}
 .global-nav-spacer{flex:1}.global-nav-foot{padding:12px 10px 3px;color:#69758a;font-size:10px;border-top:1px solid #242b38}
+body:not(.auth-required) #globalCompetitionNav{display:flex!important}
 body:not(.auth-required)>.wrap{margin-left:224px!important;width:calc(100% - 224px)!important;box-sizing:border-box}
-body:not(.auth-required) #competitionsHub{margin-left:224px!important;width:calc(100% - 224px)!important;box-sizing:border-box}
+body:not(.auth-required) #competitionsHub{position:fixed;left:224px;top:0;right:0;bottom:0;margin:0!important;width:auto!important;overflow-y:auto;box-sizing:border-box}
 @media(max-width:760px){
  #globalCompetitionNav{top:auto;right:0;bottom:0;width:100%;height:68px;padding:6px 5px calc(6px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid #30394b;flex-direction:row;justify-content:space-around;gap:2px;background:#0b0e16}
  .global-nav-brand,.global-nav-spacer,.global-nav-foot{display:none!important}
  #globalCompetitionNav button{flex:1;min-width:0;max-width:130px;flex-direction:column;justify-content:center;gap:3px;padding:5px 2px;border-radius:8px}
  #globalCompetitionNav button span{font-size:17px;width:auto;line-height:1.1}
  #globalCompetitionNav button b{font-size:9px;white-space:nowrap}
+ body:not(.auth-required) #globalCompetitionNav{display:flex!important}
  body:not(.auth-required)>.wrap{margin-left:0!important;width:100%!important;padding-bottom:82px!important}
- body:not(.auth-required) #competitionsHub{margin-left:0!important;width:100%!important;padding-bottom:90px!important}
+ body:not(.auth-required) #competitionsHub{position:fixed;left:0;top:0;right:0;bottom:0;margin:0!important;width:100%!important;padding:18px 12px 90px!important;overflow-y:auto;box-sizing:border-box}
 }
 </style><style id="public-user-account-styles">
 .user-account-modal{width:min(480px,100%);max-height:92vh;overflow:auto}
