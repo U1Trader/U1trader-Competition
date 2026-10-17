@@ -1215,10 +1215,14 @@ function setPublicUser(user){
  publicUser=user||null;
  // Authentication is controlled by the main website only.
  document.body.classList.remove('auth-required');
+ const wasOnDashboard=document.body.classList.contains('page-dashboard');
  document.body.classList.remove('page-welcome','page-competition','page-dashboard');
  if(publicUser){
   let savedView='competition';
   try{savedView=localStorage.getItem('u1traderCompetitionView')||'competition'}catch(e){}
+  /* Inside the main website never restore an old competition after a refresh: start on the list,
+     and only stay inside a competition if the visitor already opened one in this session. */
+  if(window.parent!==window)savedView=wasOnDashboard?'dashboard':'competition';
   if(savedView==='welcome')savedView='competition';
   document.body.classList.add(['competition','dashboard'].includes(savedView)?'page-'+savedView:'page-competition');
  }
@@ -2135,7 +2139,7 @@ setAdminMode(null);
  // Preserve the exact visible scroll position through a browser refresh.
  try{
   const priorScroll=sessionStorage.getItem('u1traderCompetitionScrollY');
-  if(priorScroll!==null)requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
+  if(priorScroll!==null&&!openedFromMainSite)requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
  }catch(e){}
  let scrollSaveQueued=false;
  window.addEventListener('scroll',()=>{
@@ -2150,7 +2154,7 @@ setAdminMode(null);
  window.addEventListener('beforeunload',()=>{
   const view=document.body.classList.contains('page-dashboard')?'dashboard':'competition';
   try{
-   localStorage.setItem('u1traderCompetitionView',view);
+   if(window.parent===window)localStorage.setItem('u1traderCompetitionView',view);
    if(view==='dashboard'&&data._activeCompetitionId)localStorage.setItem('u1traderActiveCompetitionId',data._activeCompetitionId);
   }catch(e){}
  });
