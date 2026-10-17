@@ -1818,3 +1818,38 @@ html body.admin-mode .hero-schedule-card .datebox{min-height:0!important;height:
 html body.admin-mode .hero-schedule-card input[type="datetime-local"]{display:block!important;position:relative!important;z-index:20!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;user-select:auto!important;appearance:auto!important;color-scheme:dark!important;width:100%!important;min-height:42px!important;margin:8px 0 0!important;padding:9px!important;box-sizing:border-box!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.75)!important;border-radius:8px!important;font-size:13px!important}
 html body.admin-mode .hero-schedule-card .start-editor-label{display:block!important;position:relative!important;z-index:10!important;margin-top:10px!important}
 </style>
+
+<style id="u1trader-profile-modal-viewport-fix">
+/* Keep the trader profile modal fully below the sticky navigation so its top border remains visible. */
+html body #traderProfileBack{
+ position:fixed!important;
+ inset:0!important;
+ z-index:10000!important;
+ display:none;
+ align-items:flex-start!important;
+ justify-content:center!important;
+ box-sizing:border-box!important;
+ padding:82px 18px 18px!important;
+ overflow-y:auto!important;
+ overscroll-behavior:contain;
+}
+html body #traderProfileBack[style*="display: flex"],
+html body #traderProfileBack[style*="display:flex"]{display:flex!important}
+html body #traderProfileBack .profile-modal{
+ width:min(1600px,97vw)!important;
+ height:calc(100dvh - 100px)!important;
+ max-height:calc(100dvh - 100px)!important;
+ min-height:0!important;
+ margin:0 auto!important;
+ flex:0 0 auto!important;
+ box-sizing:border-box!important;
+ border:1px solid var(--line,#5b4a2b)!important;
+ border-radius:16px!important;
+ overflow:hidden!important;
+}
+html body #traderProfileBack .profile-balance-footer{display:none!important}
+@media(max-width:700px){
+ html body #traderProfileBack{padding:76px 8px 8px!important}
+ html body #traderProfileBack .profile-modal{width:100%!important;height:calc(100dvh - 84px)!important;max-height:calc(100dvh - 84px)!important;padding:12px!important}
+}
+</style>
