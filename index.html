@@ -2116,7 +2116,20 @@ function openTraderProfileCore(id){
  $('profileBalanceChart').innerHTML=svg;
 
 
- }catch(chartError){console.error('Profile chart render failed:',chartError);const chartEl=$('profileBalanceChart');if(chartEl)chartEl.innerHTML='<text x="30" y="40" fill="#cbd5e1" font-size="14">Balance chart unavailable</text>';}
+ }catch(chartError){
+ console.error('Profile chart render failed:',chartError);
+ const chartEl=$('profileBalanceChart');
+ if(chartEl){
+  /* Keep a visible fallback chart if legacy trade data contains an unexpected field. */
+  const sb=Number(t.start)||0, cb=Number(t.current)||sb;
+  const low=Math.floor((Math.min(sb,cb)-5000)/1000)*1000, high=Math.ceil((Math.max(sb,cb)+3000)/1000)*1000;
+  const span=Math.max(1,high-low), y=v=>300-((v-low)/span)*250;
+  let fallback='<rect width="1100" height="375" fill="#0b1220"/>';
+  for(let v=low;v<=high;v+=1000)fallback+='<line x1="80" y1="'+y(v)+'" x2="1060" y2="'+y(v)+'" stroke="#26364d"/><text x="12" y="'+(y(v)-4)+'" fill="#f1f5f9" font-size="12">'+esc(Math.round(v).toLocaleString('en-US'))+'</text>';
+  fallback+='<line x1="130" y1="'+y(sb-5000)+'" x2="1060" y2="'+y(sb-5000)+'" stroke="#ff3048" stroke-width="2"/><line x1="130" y1="'+y(sb*1.03)+'" x2="1060" y2="'+y(sb*1.03)+'" stroke="#089981" stroke-width="1.5"/><polyline points="130,'+y(sb)+' 1060,'+y(cb)+'" fill="none" stroke="#2878d0" stroke-width="2.5"/><circle cx="130" cy="'+y(sb)+'" r="3" fill="#fff"/><circle cx="1060" cy="'+y(cb)+'" r="4" fill="#fff"/><text x="130" y="326" fill="#f1f5f9" font-size="11">Start</text><text x="1060" y="326" text-anchor="end" fill="#f1f5f9" font-size="11">Current</text><text x="108" y="364" fill="#d9364f" font-size="11">Red: Max loss</text><text x="390" y="364" fill="#9a6700" font-size="11">Yellow: Daily loss</text><text x="746" y="364" fill="#087f5b" font-size="11">Green: Profit target</text>';
+  chartEl.innerHTML=fallback;
+ }
+}
  // Backfill missing lot values for previously saved traders from each report's retained OCR text, without replacing existing trade data.
  let legacyLotsBackfilled=false;
  (Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&Array.isArray(r.trades)&&r.ocrText).forEach(r=>{
@@ -2604,10 +2617,10 @@ html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!import
 </style>
 
 <style id="u1trader-profile-width-correction">
-/* Narrow the popup substantially while keeping its existing height. */
+/* User requested 950px maximum width; keep popup height and layout unchanged. */
 html body #traderProfileBack .profile-modal{
- width:min(900px,calc(100vw - 48px))!important;
- max-width:min(900px,calc(100vw - 48px))!important;
+ width:min(950px,calc(100vw - 48px))!important;
+ max-width:min(950px,calc(100vw - 48px))!important;
  box-sizing:border-box!important;
  margin-left:auto!important;margin-right:auto!important;
 }
