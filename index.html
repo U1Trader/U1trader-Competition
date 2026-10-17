@@ -944,7 +944,7 @@ body:not(.auth-required) #welcomePage{margin-left:var(--nav-w)!important}
 <aside id="globalCompetitionNav" aria-label="Main navigation">
  <a class="site-sidebar-brand" href="#" id="globalNavHome"><img src="https://u1trader.github.io/u1trader-logo-mark.jpg" alt=""><span class="site-sidebar-word">U1<span>TRADER</span></span></a>
  <div class="site-sidebar-label">MENU</div>
- <button class="site-sidebar-link" id="globalNavProfile" type="button"><span class="site-sidebar-icon">👤</span><span class="site-sidebar-text">My Profile</span></button>
+ <button class="site-sidebar-link" id="globalNavHomeBtn" type="button"><span class="site-sidebar-icon">🏠</span><span class="site-sidebar-text">Home</span></button>
  <button class="site-sidebar-link" id="globalNavCompetition" type="button"><span class="site-sidebar-icon">🏆</span><span class="site-sidebar-text">Competition</span></button>
  <div class="site-sidebar-user"><strong id="globalNavName">U1Trader Member</strong><span id="globalNavEmail"></span><button class="site-sidebar-link admin-only" id="globalNavMaintenance" type="button"><span class="site-sidebar-icon">🛠</span><span class="site-sidebar-text" id="globalNavMaintenanceText">Maintenance: OFF</span></button><button class="site-sidebar-link" id="globalNavLogout" type="button" style="margin-top:12px"><span class="site-sidebar-icon">↪</span><span class="site-sidebar-text">Logout</span></button></div>
 </aside>
@@ -1433,7 +1433,10 @@ $('sidebarToggleBtn').addEventListener('click',()=>{
  $('sidebarToggleBtn').title=collapsed?'Open navigation':'Close navigation';
 });
 $('globalNavHome').addEventListener('click',event=>{event.preventDefault();openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
-$('globalNavProfile').addEventListener('click',async()=>{setGlobalNavActive('profile');if(!publicUser){pendingProfileOpen=true;await requestParentSession();return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
+$('globalNavHomeBtn').addEventListener('click',()=>{
+ if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash:''},'https://u1trader.github.io');return;}
+ window.location.href='https://u1trader.github.io/';
+});
 $('globalNavCompetition').addEventListener('click',()=>{openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
 $('globalNavLogout').addEventListener('click',async()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');return;}await sb.auth.signOut();setPublicUser(null);setAdminMode(null);$('userProfileModalBack').style.display='none';render();});
 $('globalNavMaintenance').addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
