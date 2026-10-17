@@ -1437,7 +1437,13 @@ $('globalNavHomeBtn').addEventListener('click',()=>{
  if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash:''},'https://u1trader.github.io');return;}
  window.location.href='https://u1trader.github.io/';
 });
-$('globalNavCompetition').addEventListener('click',()=>{openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
+$('globalNavCompetition').addEventListener('click',()=>{
+ /* Always land on the competitions list, whatever page or popup is open right now. */
+ ['userProfileModalBack','traderProfileBack'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
+ openCompetitionsHub();setGlobalNavActive('competitions');
+ const hub=$('competitionsHub');if(hub)hub.scrollTop=0;
+ window.scrollTo({top:0});
+});
 $('globalNavLogout').addEventListener('click',async()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');return;}await sb.auth.signOut();setPublicUser(null);setAdminMode(null);$('userProfileModalBack').style.display='none';render();});
 $('globalNavMaintenance').addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
 
