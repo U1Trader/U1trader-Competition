@@ -785,6 +785,10 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 
 
 <style id="public-login-first-page-gate">
+/* The main U1Trader site owns authentication. Never show a second login/register modal in this app. */
+#userAuthModalBack{display:none!important}
+#userAuthBtn{display:none!important}
+
 /* Do not block the competition list/dashboard with a second login screen on startup. */
 #userAuthModalBack,#userProfileModalBack{display:none}
 
