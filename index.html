@@ -845,8 +845,23 @@ body:not(.auth-required) #globalTopProfile{display:flex}
 #globalTopProfileInitial{width:28px;height:28px;border-radius:9px;background:#f6f2e9;color:#6657ff;display:grid;place-items:center;font-size:14px;font-weight:900}
 @media(max-width:760px){#globalTopProfile{top:8px;right:8px;padding:5px}#globalTopProfileName{display:none}#globalTopProfileInitial{width:30px;height:30px}}
 </style>
+<style id="sidebar-toggle-three-dots">
+#sidebarToggleBtn{position:fixed;z-index:5001;left:246px;top:14px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(217,181,109,.3);border-radius:9px;background:#11110f;color:#f4dba2;cursor:pointer;box-shadow:0 4px 14px #0005;transition:left .25s ease,background .2s ease}
+#sidebarToggleBtn span{display:block;width:4px;height:4px;border-radius:50%;background:currentColor}
+#globalCompetitionNav{transition:transform .25s ease!important}
+body.sidebar-collapsed #globalCompetitionNav{transform:translateX(-102%)!important}
+body.sidebar-collapsed #sidebarToggleBtn{left:12px}
+body.sidebar-collapsed #competitionsHub,body.sidebar-collapsed>.wrap,body.sidebar-collapsed #welcomePage{margin-left:0!important}
+@media(max-width:760px){
+ #sidebarToggleBtn{left:246px;top:12px;width:32px;height:32px}
+ body.sidebar-collapsed #sidebarToggleBtn{left:12px}
+ body:not(.sidebar-collapsed)::after{content:"";position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:3998;pointer-events:none}
+ #globalCompetitionNav{z-index:4000!important}
+}
+</style>
 </head>
 <body>
+<button type="button" id="sidebarToggleBtn" aria-label="Close navigation" aria-expanded="true" title="Close / open navigation"><span></span><span></span><span></span></button>
 
 <aside id="globalCompetitionNav" aria-label="Main navigation">
  <a class="site-sidebar-brand" href="#" id="globalNavHome"><img src="https://u1trader.github.io/u1trader-logo-mark.jpg" alt=""><span class="site-sidebar-word">U1<span>TRADER</span></span></a>
@@ -1330,6 +1345,13 @@ function syncGlobalSidebarUser(){
  $('globalTopProfileInitial').textContent=String(name||'T').trim().charAt(0).toUpperCase();
  $('globalTopProfileName').textContent=name;
 }
+$('sidebarToggleBtn').addEventListener('click',()=>{
+ document.body.classList.toggle('sidebar-collapsed');
+ const collapsed=document.body.classList.contains('sidebar-collapsed');
+ $('sidebarToggleBtn').setAttribute('aria-expanded',String(!collapsed));
+ $('sidebarToggleBtn').setAttribute('aria-label',collapsed?'Open navigation':'Close navigation');
+ $('sidebarToggleBtn').title=collapsed?'Open navigation':'Close navigation';
+});
 $('globalNavHome').addEventListener('click',event=>{event.preventDefault();openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
 $('globalNavProfile').addEventListener('click',async()=>{setGlobalNavActive('profile');if(!publicUser){pendingProfileOpen=true;await requestParentSession();return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
 $('globalNavCompetition').addEventListener('click',()=>{openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
