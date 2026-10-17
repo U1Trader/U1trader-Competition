@@ -2001,7 +2001,7 @@ setAdminMode(null);
  const {data:sessionData}=await sb.auth.getSession();
  if(sessionData?.session?.user){setPublicUser(sessionData.session.user);setAdminMode(sessionData.session.user);}
  await loadSharedData();
- // Restore the last visited competition view after refresh; never force Home/Welcome.
+ // Restore last competition view after refresh. Never force Welcome/Home.
  let savedView='competition',savedId='main';
  try{
   savedView=localStorage.getItem('u1traderCompetitionView')||'competition';
@@ -2011,8 +2011,23 @@ setAdminMode(null);
   if(!getCompetitionCatalog().some(x=>x.id===savedId))savedId=getCompetitionCatalog()[0]?.id||'main';
   openCompetitionWorkspace(savedId);setGlobalNavActive('competitions');
  }else{
+  document.body.classList.remove('page-welcome','page-dashboard');
   openCompetitionsHub();setGlobalNavActive('competitions');
  }
+ // Preserve the exact visible scroll position through a browser refresh.
+ try{
+  const priorScroll=sessionStorage.getItem('u1traderCompetitionScrollY');
+  if(priorScroll!==null)requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
+ }catch(e){}
+ let scrollSaveQueued=false;
+ window.addEventListener('scroll',()=>{
+  if(scrollSaveQueued)return;
+  scrollSaveQueued=true;
+  requestAnimationFrame(()=>{
+   scrollSaveQueued=false;
+   try{sessionStorage.setItem('u1traderCompetitionScrollY',String(window.scrollY))}catch(e){}
+  });
+ },{passive:true});
  // Keep the current page key explicit when the tab is refreshed or closed.
  window.addEventListener('beforeunload',()=>{
   const view=document.body.classList.contains('page-dashboard')?'dashboard':'competition';
