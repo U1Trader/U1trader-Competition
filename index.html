@@ -783,6 +783,20 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 }
 </style>
 
+
+<style id="public-login-first-page-gate">
+/* Require public authentication before showing the competition welcome/dashboard page. */
+body.auth-required>.wrap{display:none!important}
+body.auth-required #userAuthModalBack{display:flex!important;z-index:10000!important;background:radial-gradient(ellipse at top,#14213b 0%,#0b1020 70%)!important}
+body.auth-required #userAuthModalBack .modal{width:min(460px,100%);padding:clamp(22px,5vw,34px);box-shadow:0 24px 80px #0008}
+body.auth-required #userAuthModalBack .modal h3{font-size:clamp(24px,5vw,30px);margin-bottom:8px}
+body.auth-required #userAuthModalBack .modal .hint{font-size:13px;line-height:1.6}
+body.auth-required #userAuthModalBack #closeUserAuth{display:none!important}
+body.auth-required #userAuthModalBack .account-tabs{margin-top:20px}
+body.auth-required #userAuthModalBack .modalactions{justify-content:stretch}
+body.auth-required #userAuthModalBack #submitUserAuth{flex:1}
+body.auth-required #userProfileModalBack{display:none!important}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -944,6 +958,7 @@ const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_8xtYAX6736Bi6cg2N5_qOQ_WV_PRv5e';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let currentUser=null, publicUser=null, lastRemoteJson='', loadingRemote=true, userAuthMode='register';
+document.body.classList.add('auth-required');
 let data={league:'Friends Trading Challenge',startDate:'',endDate:'',startDateTime:'',endDateTime:'',firstPrize:'',secondPrize:'',traders:[],history:[],dailyTradeReports:[]};
 try{const saved=localStorage.getItem('traderArenaSeparateFixedData');if(saved)data=JSON.parse(saved)}catch(e){}
 if(!Array.isArray(data.dailyTradeReports))data.dailyTradeReports=[];
@@ -969,10 +984,17 @@ function setAdminMode(user){
 }
 function setPublicUser(user){
  publicUser=user||null;
+ document.body.classList.toggle('auth-required',!publicUser);
  const btn=$('userAuthBtn');
  if(btn)btn.textContent=publicUser?'My Profile':'Register / Login';
+ if(publicUser){
+  $('userAuthModalBack').style.display='none';
+ }else{
+  $('userAuthModalBack').style.display='flex';
+ }
 }
 function openUserAuth(mode='register'){
+ document.body.classList.remove('auth-required');
  userAuthMode=mode;
  $('userAuthTitle').textContent=mode==='register'?'Create your U1Trader account':'Login to U1Trader';
  $('submitUserAuth').textContent=mode==='register'?'Create account':'Login';
