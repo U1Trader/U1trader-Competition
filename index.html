@@ -1184,17 +1184,31 @@ function cancelEditPublicProfile(){
  $('userProfileMessage').textContent='';
 }
 async function savePublicProfile(){
- if(!publicUser){$('userProfileMessage').textContent='Please log in again to edit your profile.';return}
+ const message=$('userProfileMessage');
+ if(!publicUser?.id){message.textContent='Please log in again to edit your profile.';return}
  const full_name=$('editProfileFullName').value.trim();
  const phone=$('editProfilePhone').value.trim();
- const message=$('userProfileMessage');
  if(!full_name){message.textContent='Enter your full name.';return}
  if(!phone){message.textContent='Enter your phone number.';return}
  const button=$('saveUserProfileBtn');
- button.disabled=true;message.textContent='Saving your profile…';
+ button.disabled=true;message.textContent='Verifying your account…';
  try{
-  const {error}=await sb.from('user_profiles').update({full_name,phone,updated_at:new Date().toISOString()}).eq('id',publicUser.id);
+  // Re-check the live Supabase session and only update the signed-in user's own profile row.
+  const {data:authData,error:authError}=await sb.auth.getUser();
+  if(authError)throw authError;
+  const authenticatedUser=authData?.user;
+  if(!authenticatedUser?.id||authenticatedUser.id!==publicUser.id){
+   throw new Error('Your session has changed. Please log in again before editing your profile.');
+  }
+  message.textContent='Saving your profile…';
+  const {data:updatedRows,error}=await sb.from('user_profiles')
+   .update({full_name,phone,updated_at:new Date().toISOString()})
+   .eq('id',authenticatedUser.id)
+   .select('id');
   if(error)throw error;
+  if(!updatedRows?.some(row=>row.id===authenticatedUser.id)){
+   throw new Error('No profile row was updated. Check the user_profiles table permissions in Supabase.');
+  }
   $('profileFullName').textContent=full_name;
   $('profilePhone').textContent=phone;
   cancelEditPublicProfile();
