@@ -1391,19 +1391,23 @@ async function submitPublicAuth(){
 }
 
 function openCompetitionsHub(){
+ // Save the current competition only when leaving an actual dashboard.
+ // The hub/list must never copy stale top-level data over a competition's saved traders.
+ if(document.body.classList.contains('page-dashboard'))syncActiveCompetitionSnapshot();
  // Competition browsing should open directly even if the parent-site session
  // has not reached this iframe yet. Authentication is only needed for account actions.
  document.body.classList.remove('auth-required','page-welcome','page-dashboard');
  $('userAuthModalBack').style.display='none';
- syncActiveCompetitionSnapshot();
  try{localStorage.setItem('u1traderCompetitionView','competition')}catch(e){}
  try{sessionStorage.setItem('u1traderCompView',JSON.stringify({view:'list'}))}catch(e){}
  document.body.classList.add('page-competition');
  renderCompetitionHub();
 }
 function openCompetitionWorkspace(id){
- const item=getCompetitionCatalog().find(x=>x.id===id);if(!item)return;
- syncActiveCompetitionSnapshot();
+ // Only persist the competition currently being viewed as a dashboard.
+ // When opening from the list, stale top-level data must not overwrite the target's traders.
+ if(document.body.classList.contains('page-dashboard'))syncActiveCompetitionSnapshot();
+ const item=getCompetitionCatalog().find(x=>String(x.id)===String(id));if(!item)return;
  try{localStorage.setItem('u1traderCompetitionView','dashboard');localStorage.setItem('u1traderActiveCompetitionId',item.id)}catch(e){}
  try{sessionStorage.setItem('u1traderCompView',JSON.stringify({view:'dashboard',id:item.id}))}catch(e){}
  data={...cleanCompetitionSnapshot(item.dashboardData||{}),_competitionCatalog:getCompetitionCatalog(),_activeCompetitionId:item.id};
@@ -1552,8 +1556,9 @@ async function loadSharedData(){
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
  if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=stableJson(row.dashboard_data);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}}
  else {lastRemoteJson=stableJson(row?.dashboard_data||{});}
+ // Ensure a legacy single-competition record gets a catalog entry, but do not
+ // overwrite any saved competition dashboardData while the hub/list is loading.
  getCompetitionCatalog();
- syncActiveCompetitionSnapshot();
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
 async function loginAdmin(){
