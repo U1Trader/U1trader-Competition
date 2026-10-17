@@ -1198,6 +1198,25 @@ function renderCompetitionHub(){
  grid.querySelectorAll('[data-edit-competition]').forEach(btn=>btn.addEventListener('click',()=>editCompetitionMetadata(btn.dataset.editCompetition)));
  grid.querySelectorAll('[data-delete-competition]').forEach(btn=>btn.addEventListener('click',()=>deleteCompetition(btn.dataset.deleteCompetition)));
 }
+/* Order-independent JSON, so the saved copy and the cloud copy compare equal. */
+function stableJson(v){return JSON.stringify(v,(k,val)=>val&&typeof val==='object'&&!Array.isArray(val)?Object.keys(val).sort().reduce((o,key)=>(o[key]=val[key],o),{}):val)}
+/* Apply a newer cloud copy WITHOUT replacing the competition the visitor has open.
+   The cloud row's top-level fields belong to whichever competition was saved last, so they must not
+   overwrite the open competition's date/time/traders. The open competition is rebuilt from its own catalog entry. */
+function applyRemoteDashboard(remote){
+ const myId=data._activeCompetitionId;
+ const cat=Array.isArray(remote._competitionCatalog)&&remote._competitionCatalog.length?remote._competitionCatalog:null;
+ const mine=cat&&cat.find(x=>x.id===myId);
+ if(cat&&mine){
+  const snap=cleanCompetitionSnapshot(mine.dashboardData||{});
+  if(mine.name)snap.league=mine.name;
+  if(mine.startDateTime&&!snap.startDateTime)snap.startDateTime=mine.startDateTime;
+  if(mine.endDateTime&&!snap.endDateTime)snap.endDateTime=mine.endDateTime;
+  data={...snap,_competitionCatalog:cat,_activeCompetitionId:myId};
+ }else{
+  data={...data,...remote};
+ }
+}
 async function persist(){
  syncActiveCompetitionSnapshot();
  const snapshot=JSON.stringify(data);
@@ -1205,7 +1224,7 @@ async function persist(){
  if(!currentUser){toast('Please log in as admin before editing');return false}
  const {error}=await sb.from('competition_dashboard').update({dashboard_data:data,updated_at:new Date().toISOString()}).eq('id',1);
  if(error){console.error(error);setSyncStatus('Sync error');toast('Cloud save failed: '+error.message);return false}
- lastRemoteJson=snapshot;setSyncStatus('Synced');return true;
+ lastRemoteJson=stableJson(data);setSyncStatus('Synced');return true;
 }
 function isAdminUser(user){
  const meta=user?.app_metadata||{};
@@ -1531,8 +1550,8 @@ async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}}
- else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
+ if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=stableJson(row.dashboard_data);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}}
+ else {lastRemoteJson=stableJson(row?.dashboard_data||{});}
  getCompetitionCatalog();
  syncActiveCompetitionSnapshot();
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
@@ -2176,23 +2195,23 @@ setAdminMode(null);
  });
  sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
    const remote=payload.new?.dashboard_data;
-   if(remote&&JSON.stringify(remote)!==lastRemoteJson){data={...data,...remote};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
+   if(remote&&stableJson(remote)!==lastRemoteJson){applyRemoteDashboard(remote);lastRemoteJson=stableJson(remote);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
  }).subscribe();
  // Polling fallback works even if Realtime is not enabled for the table.
  setInterval(async()=>{
    const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
-   if(!error&&row?.dashboard_data){const remoteJson=JSON.stringify(row.dashboard_data);if(remoteJson!==lastRemoteJson){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}}
+   if(!error&&row?.dashboard_data){const remoteJson=stableJson(row.dashboard_data);if(remoteJson!==lastRemoteJson){applyRemoteDashboard(row.dashboard_data);lastRemoteJson=remoteJson;try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}}
  },5000);
  // Safari/iPhone can suspend timers while the tab is in the background; refresh immediately on return.
  const refreshSharedDataOnReturn=async()=>{
    if(document.visibilityState==='visible'){
      const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
      if(!error&&row?.dashboard_data&&Object.keys(row.dashboard_data).length){
-       const remoteJson=JSON.stringify(row.dashboard_data);
+       const remoteJson=stableJson(row.dashboard_data);
        if(remoteJson!==lastRemoteJson){
-         data={...data,...row.dashboard_data};
-         lastRemoteJson=JSON.stringify(data);
-         try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}
+         applyRemoteDashboard(row.dashboard_data);
+         lastRemoteJson=remoteJson;
+         try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
          render();
        }
        setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
