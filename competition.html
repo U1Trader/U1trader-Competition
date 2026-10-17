@@ -1978,17 +1978,38 @@ html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!import
 </style>
 
 <style id="u1trader-profile-width-correction">
-/* Match trader profile width to the available central page when navigation is collapsed. */
+/* Match the profile popup to the available page width. */
 html body #traderProfileBack .profile-modal{
- width:min(1400px,calc(100vw - 48px))!important;
- max-width:min(1400px,calc(100vw - 48px))!important;
+ width:min(1500px,96vw)!important;
+ max-width:96vw!important;
  box-sizing:border-box!important;
- margin-left:auto!important;margin-right:auto!important;
+ margin-left:auto!important;
+ margin-right:auto!important;
+}
+html body #traderProfileBack .profile-trades{
+ width:100%!important;
+ max-width:100%!important;
+ min-width:0!important;
+ overflow-x:auto!important;
+}
+html body #traderProfileBack .profile-trades table{
+ width:100%!important;
+ min-width:0!important;
+ max-width:100%!important;
+ table-layout:fixed!important;
+}
+html body #traderProfileBack .profile-trades th,
+html body #traderProfileBack .profile-trades td{
+ padding:4px 5px!important;
+ font-size:10px!important;
+ white-space:normal!important;
+ overflow-wrap:anywhere!important;
+ line-height:1.25!important;
 }
 @media(max-width:700px){
  html body #traderProfileBack .profile-modal{
-  width:calc(100vw - 24px)!important;
-  max-width:calc(100vw - 24px)!important;
+  width:calc(100vw - 16px)!important;
+  max-width:calc(100vw - 16px)!important;
  }
 }
 </style>
