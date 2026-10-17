@@ -1501,7 +1501,7 @@ async function analyzeProfileHistoricalMae(options={}){
   const merged=new Map((Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).map(r=>[String(r.traderId)+'|'+String(r.tradeKey||''),r]));
   for(const incoming of incomingMae){
    const key=String(incoming.traderId)+'|'+String(incoming.tradeKey||''),old=merged.get(key);
-   if(old&&old.status==='ok'&&incoming.status!=='ok'){const oldMae=Number(old.maeUsd);const oldSymbol=String(old.symbol||'').toUpperCase().replace(/[^A-Z0-9]/g,'');const staleCrypto=/^BTCUSD(M|\\d+|PRO)?$/.test(oldSymbol)&&Number.isFinite(oldMae)&&Math.abs(oldMae)>1000000;if(!staleCrypto)continue;}
+   if(old&&old.status==='ok'&&incoming.status!=='ok'){const oldMae=Number(old.maeUsd);const oldSymbol=String(old.symbol||'').toUpperCase().replace(/[^A-Z0-9]/g,'');const staleCrypto=/^BTCUSD(M|\d+|PRO)?$/.test(oldSymbol)&&Number.isFinite(oldMae)&&Math.abs(oldMae)>1000000;if(!staleCrypto)continue;}
    merged.set(key,incoming);
   }
   data.historicalMaeResults=Array.from(merged.values());
