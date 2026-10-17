@@ -1378,6 +1378,7 @@ function openCompetitionsHub(){
  $('userAuthModalBack').style.display='none';
  syncActiveCompetitionSnapshot();
  try{localStorage.setItem('u1traderCompetitionView','competition')}catch(e){}
+ try{sessionStorage.setItem('u1traderCompView',JSON.stringify({view:'list'}))}catch(e){}
  document.body.classList.add('page-competition');
  renderCompetitionHub();
 }
@@ -1385,6 +1386,7 @@ function openCompetitionWorkspace(id){
  const item=getCompetitionCatalog().find(x=>x.id===id);if(!item)return;
  syncActiveCompetitionSnapshot();
  try{localStorage.setItem('u1traderCompetitionView','dashboard');localStorage.setItem('u1traderActiveCompetitionId',item.id)}catch(e){}
+ try{sessionStorage.setItem('u1traderCompView',JSON.stringify({view:'dashboard',id:item.id}))}catch(e){}
  data={...cleanCompetitionSnapshot(item.dashboardData||{}),_competitionCatalog:getCompetitionCatalog(),_activeCompetitionId:item.id};
  document.body.classList.remove('page-welcome','page-competition');
  document.body.classList.add('page-dashboard');
@@ -2137,7 +2139,13 @@ setAdminMode(null);
   savedId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main';
  }catch(e){}
  const openedFromMainSite=window.parent!==window;
- if(!openedFromMainSite&&savedView==='dashboard'&&getCompetitionCatalog().length){
+ /* Browser refresh while inside a competition: come back to that same competition.
+    (The main page clears this when Competition is opened fresh, so a fresh open still shows the list.) */
+ let restoreId=null;
+ if(openedFromMainSite){try{const v=JSON.parse(sessionStorage.getItem('u1traderCompView')||'null');if(v&&v.view==='dashboard'&&getCompetitionCatalog().some(x=>x.id===v.id))restoreId=v.id;}catch(e){}}
+ if(restoreId){
+  openCompetitionWorkspace(restoreId);setGlobalNavActive('competitions');
+ }else if(!openedFromMainSite&&savedView==='dashboard'&&getCompetitionCatalog().length){
   if(!getCompetitionCatalog().some(x=>x.id===savedId))savedId=getCompetitionCatalog()[0]?.id||'main';
   openCompetitionWorkspace(savedId);setGlobalNavActive('competitions');
  }else{
@@ -2147,7 +2155,7 @@ setAdminMode(null);
  // Preserve the exact visible scroll position through a browser refresh.
  try{
   const priorScroll=sessionStorage.getItem('u1traderCompetitionScrollY');
-  if(priorScroll!==null&&!openedFromMainSite)requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
+  if(priorScroll!==null&&(!openedFromMainSite||restoreId))requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
  }catch(e){}
  let scrollSaveQueued=false;
  window.addEventListener('scroll',()=>{
