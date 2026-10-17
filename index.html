@@ -2602,3 +2602,18 @@ html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!import
  html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}
 }
 </style>
+
+<style id="u1trader-profile-width-correction">
+/* User requested a narrower modal, not a shorter one. Preserve screen height and reduce width only. */
+html body #traderProfileBack{padding-left:18px!important;padding-right:18px!important}
+html body #traderProfileBack .profile-modal{
+ width:min(1120px,calc(100vw - 36px))!important;
+ max-width:min(1120px,calc(100vw - 36px))!important;
+ height:82dvh!important;max-height:82dvh!important;
+ margin-left:auto!important;margin-right:auto!important;
+}
+@media(max-width:700px){
+ html body #traderProfileBack{padding-left:8px!important;padding-right:8px!important}
+ html body #traderProfileBack .profile-modal{width:calc(100vw - 16px)!important;max-width:calc(100vw - 16px)!important}
+}
+</style>
