@@ -914,14 +914,43 @@ async function persist(){
  if(error){console.error(error);setSyncStatus('Sync error');toast('Cloud save failed: '+error.message);return false}
  lastRemoteJson=snapshot;setSyncStatus('Synced');return true;
 }
-function setAdminMode(user){currentUser=user||null;document.body.classList.toggle('admin-mode',!!currentUser);$('authBtn').textContent=currentUser?'Admin logout':'Admin login';setSyncStatus(currentUser?'Admin connected':'View-only mode')}
+function setAdminMode(user){
+ currentUser=user||null;
+ const admin=!!currentUser;
+ document.body.classList.toggle('admin-mode',admin);
+ $('authBtn').textContent=admin?'Admin logout':'Admin login';
+ setSyncStatus(admin?'Admin connected':'View-only mode');
+ // Explicitly toggle the controls as well as the CSS class; later legacy CSS
+ // rules must not accidentally keep the admin actions hidden.
+ document.querySelectorAll('.admin-only').forEach(el=>{
+  if(el.id==='legacyBalanceUpdate'&&!admin)return;
+  el.style.setProperty('display',admin?(el.tagName==='SECTION'?'block':'inline-block'):'none','important');
+ });
+ ['editLeague','editPrizes','exportBtn','addBtn','editCompetitionName','paymentApprovalsBtn'].forEach(id=>{
+  const el=$(id);if(el)el.style.setProperty('display',admin?(el.tagName==='A'?'inline-flex':'inline-block'):'none','important');
+ });
+}
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
+ // Preserve the browser's saved copy before fetching cloud state. Only use it
+ // to restore traders if the cloud trader list is empty; never replace a non-empty cloud list.
+ let localBackup=null;
+ try{const raw=localStorage.getItem('traderArenaSeparateFixedData');if(raw)localBackup=JSON.parse(raw)}catch(e){}
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
- if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}}
- else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
- loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
+ if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){
+  data={...data,...row.dashboard_data};
+  if((!Array.isArray(data.traders)||data.traders.length===0)&&Array.isArray(localBackup?.traders)&&localBackup.traders.length){
+   data.traders=localBackup.traders;
+   console.warn('Restored trader list from this browser backup; cloud data remains unchanged until an admin explicitly saves.');
+  }
+  lastRemoteJson=JSON.stringify(row.dashboard_data);
+  try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
+ }else{
+  lastRemoteJson=JSON.stringify(row?.dashboard_data||{});
+  if((!Array.isArray(data.traders)||data.traders.length===0)&&Array.isArray(localBackup?.traders)&&localBackup.traders.length)data.traders=localBackup.traders;
+ }
+ loadingRemote=false;render();setAdminMode(currentUser);setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
 async function loginAdmin(){
  const email=$('adminEmail').value.trim(),password=$('adminPassword').value;
