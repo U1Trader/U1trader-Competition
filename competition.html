@@ -895,6 +895,11 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $=id=>document.getElementById(id);
+// Declare rule thresholds before any startup path can call render().
+const RULE_ACCOUNT_BASE=50000;
+const RULE_DAILY_LOSS_LIMIT=RULE_ACCOUNT_BASE*0.05;
+const RULE_OVERALL_FLOOR=RULE_ACCOUNT_BASE*0.90;
+
 const fmt=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n)||0);
 const pct=n=>(n>0?'+':'')+Number(n||0).toFixed(2)+'%';
 const SUPABASE_URL='https://muwbkndrxyvgnblnikdh.supabase.co';
@@ -1015,9 +1020,6 @@ function localDateString(){const now=new Date();return `${now.getFullYear()}-${S
 function profit(t){return (Number(t.current)||0)-(Number(t.start)||0)}
 function ret(t){return Number(t.start)>0?profit(t)/Number(t.start)*100:0}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
-const RULE_ACCOUNT_BASE=50000;
-const RULE_DAILY_LOSS_LIMIT=RULE_ACCOUNT_BASE*0.05;
-const RULE_OVERALL_FLOOR=RULE_ACCOUNT_BASE*0.90;
 function ruleDateValue(value){
  if(value===null||value===undefined||value==='')return NaN;
  if(value instanceof Date)return value.getTime();
