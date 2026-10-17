@@ -1127,7 +1127,8 @@ function setAdminMode(user){
 }
 function setPublicUser(user){
  publicUser=user||null;
- document.body.classList.toggle('auth-required',!publicUser);
+ // Authentication is controlled by the main website only.
+ document.body.classList.remove('auth-required');
  document.body.classList.remove('page-welcome','page-competition','page-dashboard');
  if(publicUser){
   let savedView='competition';
@@ -1325,13 +1326,13 @@ function syncGlobalSidebarUser(){
  $('globalTopProfileName').textContent=name;
 }
 $('globalNavHome').addEventListener('click',event=>{event.preventDefault();openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
-$('globalNavProfile').addEventListener('click',()=>{if(!publicUser){openUserAuth('login');return;}$('userProfileModalBack').style.display='flex';loadPublicProfile(publicUser);setGlobalNavActive('profile');});
+$('globalNavProfile').addEventListener('click',async()=>{setGlobalNavActive('profile');if(!publicUser){pendingProfileOpen=true;await requestParentSession();return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
 $('globalNavCompetition').addEventListener('click',()=>{openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
-$('globalNavLogout').addEventListener('click',async()=>{await sb.auth.signOut();setPublicUser(null);setAdminMode(null);$('userProfileModalBack').style.display='none';render();toast('Logged out');});
+$('globalNavLogout').addEventListener('click',async()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');return;}await sb.auth.signOut();setPublicUser(null);setAdminMode(null);$('userProfileModalBack').style.display='none';render();});
 $('globalNavMaintenance').addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
 
 $('enterCompetitionBtn')?.addEventListener('click',openCompetitionsHub);
-$('globalTopProfile').addEventListener('click',async()=>{if(!publicUser){openUserAuth('login');return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
+$('globalTopProfile').addEventListener('click',async()=>{if(!publicUser){pendingProfileOpen=true;await requestParentSession();return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
 $('createCompetitionBtn').addEventListener('click',createCompetition);
 $('backToCompetitions').addEventListener('click',openCompetitionsHub);
 document.querySelectorAll('[data-hub-filter]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -1346,11 +1347,10 @@ $('welcomeProfileBtn').addEventListener('click',async()=>{
  await loadPublicProfile(publicUser);
 });
 $('userAuthBtn').addEventListener('click',async()=>{
- if(publicUser){
-  $('userProfileModalBack').style.display='flex';
-  await loadPublicProfile(publicUser);
- }else openUserAuth('register');
+ if(!publicUser){pendingProfileOpen=true;await requestParentSession();return;}
+ $('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);
 });
+$('userAuthBtn').style.display='none';
 $('userRegisterTab').addEventListener('click',()=>openUserAuth('register'));
 $('userLoginTab').addEventListener('click',()=>openUserAuth('login'));
 $('closeUserAuth').addEventListener('click',()=>$('userAuthModalBack').style.display='none');
@@ -1366,17 +1366,36 @@ $('userLogoutBtn').addEventListener('click',async()=>{
  $('userProfileModalBack').style.display='none';
  render();toast('Logged out');
 });
-// Reuse the authenticated session from the parent U1Trader website (single-login flow).
+// Competition reuses the main website's login; no separate competition login.
+let pendingProfileOpen=false;
+async function requestParentSession(){
+ if(window.parent===window)return;
+ window.parent.postMessage({type:'U1TRADER_COMPETITION_READY'},'https://u1trader.github.io');
+}
 window.addEventListener('message',async(event)=>{
- if(event.origin!==window.location.origin||event.data?.type!=='U1TRADER_PARENT_SESSION')return;
- const session=event.data.session;
- if(!session?.access_token||!session?.refresh_token)return;
- try{
-  const {data:authData,error}=await sb.auth.setSession({access_token:session.access_token,refresh_token:session.refresh_token});
-  if(error)throw error;
-  if(authData?.user){setPublicUser(authData.user);setAdminMode(authData.user);$('userAuthModalBack').style.display='none';}
- }catch(error){console.error('Could not reuse main-site login session:',error);}
+ if(event.origin!=='https://u1trader.github.io')return;
+ if(event.data?.type==='U1TRADER_PARENT_SESSION'){
+  const session=event.data.session;
+  if(!session?.access_token||!session?.refresh_token)return;
+  try{
+   const {data:authData,error}=await sb.auth.setSession({access_token:session.access_token,refresh_token:session.refresh_token});
+   if(error)throw error;
+   if(authData?.user){
+    setPublicUser(authData.user);setAdminMode(authData.user);
+    $('userAuthModalBack').style.display='none';
+    document.body.classList.remove('auth-required');
+    if(pendingProfileOpen){pendingProfileOpen=false;$('userProfileModalBack').style.display='flex';await loadPublicProfile(authData.user);}
+   }
+  }catch(error){console.error('Could not reuse main-site login session:',error);}
+ }
+ if(event.data?.type==='U1TRADER_PARENT_SIGNED_OUT'){
+  pendingProfileOpen=false;setPublicUser(null);setAdminMode(null);
+  $('userAuthModalBack').style.display='none';$('userProfileModalBack').style.display='none';
+  document.body.classList.remove('auth-required');
+ }
 });
+requestParentSession();
+window.addEventListener('load',requestParentSession);
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
