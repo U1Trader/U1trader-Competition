@@ -1176,6 +1176,17 @@ $('userLogoutBtn').addEventListener('click',async()=>{
  $('userProfileModalBack').style.display='none';
  render();toast('Logged out');
 });
+// Reuse the authenticated session from the parent U1Trader website (single-login flow).
+window.addEventListener('message',async(event)=>{
+ if(event.origin!==window.location.origin||event.data?.type!=='U1TRADER_PARENT_SESSION')return;
+ const session=event.data.session;
+ if(!session?.access_token||!session?.refresh_token)return;
+ try{
+  const {data:authData,error}=await sb.auth.setSession({access_token:session.access_token,refresh_token:session.refresh_token});
+  if(error)throw error;
+  if(authData?.user){setPublicUser(authData.user);setAdminMode(authData.user);$('userAuthModalBack').style.display='none';}
+ }catch(error){console.error('Could not reuse main-site login session:',error);}
+});
 async function loadSharedData(){
  setSyncStatus('Loading leaderboard…');
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
