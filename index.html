@@ -1010,7 +1010,8 @@ async function persist(){
 }
 function isAdminUser(user){
  const meta=user?.app_metadata||{};
- return meta.role==='admin'||(Array.isArray(meta.roles)&&meta.roles.includes('admin'));
+ const isDesignatedAdmin=String(user?.email||'').trim().toLowerCase()==='tharmesh2001@gmail.com';
+ return isDesignatedAdmin&&(meta.role==='admin'||(Array.isArray(meta.roles)&&meta.roles.includes('admin')));
 }
 function setAdminMode(user){
  currentUser=isAdminUser(user)?user:null;
@@ -1846,3 +1847,5 @@ body:not(.admin-mode) .admin-mae-only{display:none!important}
 .rule-breach{display:inline!important;color:#ef4444!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;max-width:none!important;white-space:normal}
 .profile-breach-status.breached{display:block!important;background:transparent!important;color:#ef4444!important;padding:0!important;border:0!important;border-radius:0!important}
 </style>
+
+<style id="use-main-site-login-for-admin">/* Admin access is inherited from the shared U1Trader site login. */#authBtn{display:none!important}</style>
