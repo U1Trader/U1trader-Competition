@@ -1853,3 +1853,45 @@ html body #traderProfileBack .profile-balance-footer{display:none!important;visi
  html body #traderProfileBack .profile-modal{width:100%!important;height:calc(100dvh - 98px)!important;max-height:calc(100dvh - 98px)!important;padding:12px!important}
 }
 </style>
+
+<style id="u1trader-profile-chart-spacing-fix">
+/* Give the chart more vertical room, then separate trade history from its legend. */
+html body #traderProfileBack .profile-modal #profileBalanceHeading{
+ margin:14px 0 8px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ display:block!important;
+ width:100%!important;
+ height:clamp(420px,48vh,500px)!important;
+ min-height:420px!important;
+ flex:0 0 auto!important;
+ box-sizing:border-box!important;
+}
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+ margin:18px 0 10px!important;
+ line-height:1.35!important;
+ flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{
+ margin-top:4px!important;
+ min-height:0!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades table{
+ margin-top:0!important;
+}
+@media(max-height:800px){
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:400px!important;
+  min-height:400px!important;
+ }
+}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:360px!important;
+  min-height:360px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileTradeHeading{
+  margin-top:14px!important;
+ }
+}
+</style>
