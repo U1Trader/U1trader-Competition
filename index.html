@@ -1296,9 +1296,9 @@ async function loadSharedData(){
  const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data,updated_at').eq('id',1).maybeSingle();
  if(error){console.error(error);setSyncStatus('Connection error');toast('Could not load shared data: '+error.message);return}
  if(row&&row.dashboard_data&&Object.keys(row.dashboard_data).length){data={...data,...row.dashboard_data};lastRemoteJson=JSON.stringify(data);try{localStorage.setItem('traderArenaSeparateFixedData',lastRemoteJson)}catch(e){}}
+ else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
  getCompetitionCatalog();
  syncActiveCompetitionSnapshot();
- else {lastRemoteJson=JSON.stringify(row?.dashboard_data||{});}
  loadingRemote=false;render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
 }
 async function loginAdmin(){
