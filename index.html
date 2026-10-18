@@ -2470,11 +2470,14 @@ setAdminMode(null);
 </style>
 
 <script>
-/* Header links / logo: go back to the main U1Trader page (parent) and jump to that section. */
-document.querySelectorAll('#competitionTopBar [data-home]').forEach(a=>a.addEventListener('click',e=>{
+/* Header links / logo: return to the main site and scroll to the matching section. */
+document.querySelectorAll('#competitionTopBar a[href]').forEach(a=>a.addEventListener('click',e=>{
   if(window.parent===window)return; /* opened on its own: normal link */
+  const href=a.getAttribute('href')||'';
+  const hash=a.dataset.home || (href.startsWith('https://u1trader.github.io/#') ? href.slice('https://u1trader.github.io/'.length) : '');
+  if(!/^#(home|about|discounts|payouts|giveaways|contact)$/.test(hash))return;
   e.preventDefault();
-  window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash:a.dataset.home},'https://u1trader.github.io');
+  window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash},'https://u1trader.github.io');
 }));
 </script>
 
