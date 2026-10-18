@@ -3037,17 +3037,69 @@ html body #competitionTopBar .ctb-links{display:none!important}
 }
 </style>
 
-<style id="prevent-embedded-duplicate-home-header-v15">
-/* When embedded in the main site, the parent owns the shared navigation and profile control.
-   Hide only these duplicate global controls; keep the competition dashboard/action buttons intact.
-   Direct visits to the competition URL retain their own navigation and profile control. */
-html body.in-main-site > #competitionTopBar,
-html body.in-main-site > #globalTopProfile,
-html body.in-main-site > #globalProfileDropdown{
-  display:none!important;
+<style id="shared-home-header-on-competition-v16">
+/* Competition opens in a full-screen iframe, so it must render the same shared header here.
+   Keep the duplicate profile widget hidden in the embedded view; the competition actions remain intact.
+   Header geometry and navigation typography mirror the main site's .nav / .navin / .navlinks. */
+html body.in-main-site > #competitionTopBar{
+  display:block!important;
+  position:sticky!important;top:0!important;z-index:2147482000!important;
+  width:100%!important;height:76px!important;min-height:76px!important;
+  margin:0!important;padding:0!important;
+  background:rgba(9,9,9,.88)!important;
+  -webkit-backdrop-filter:blur(14px)!important;backdrop-filter:blur(14px)!important;
+  border-bottom:1px solid var(--line,rgba(217,181,109,.25))!important;
+  box-sizing:border-box!important;
 }
-html body.in-main-site #competitionsHub{
-  top:0!important;
-  margin-top:0!important;
+html body.in-main-site > #competitionTopBar .ctb-in{
+  position:relative!important;width:min(1120px,calc(100% - 36px))!important;
+  max-width:1120px!important;height:76px!important;min-height:76px!important;
+  margin:0 auto!important;padding:0!important;display:flex!important;
+  align-items:center!important;justify-content:space-between!important;gap:20px!important;
+  flex-wrap:nowrap!important;box-sizing:border-box!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-logo{
+  flex:0 0 auto!important;display:inline-flex!important;align-items:center!important;
+  gap:10px!important;margin:0!important;text-decoration:none!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links{
+  position:absolute!important;left:50%!important;top:0!important;transform:translateX(-50%)!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 1 auto!important;gap:24px!important;width:max-content!important;max-width:calc(100% - 240px)!important;
+  height:76px!important;margin:0!important;padding:0!important;overflow:visible!important;
+  white-space:nowrap!important;flex-wrap:nowrap!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links a,
+html body.in-main-site > #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;
+  border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  color:#d3cbb9!important;font:600 .9rem Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links a:hover,
+html body.in-main-site > #competitionTopBar .ctb-center-links button:hover,
+html body.in-main-site > #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body.in-main-site > #competitionTopBar .ctb-links{display:none!important}
+html body.in-main-site > #globalTopProfile,
+html body.in-main-site > #globalProfileDropdown{display:none!important}
+html body.in-main-site #competitionsHub{top:0!important;margin-top:0!important}
+@media(max-width:900px){
+ html body.in-main-site > #competitionTopBar{height:auto!important;min-height:76px!important}
+ html body.in-main-site > #competitionTopBar .ctb-in{
+  width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+  flex-wrap:wrap!important;justify-content:space-between!important;padding:10px 0!important;row-gap:8px!important;
+ }
+ html body.in-main-site > #competitionTopBar .ctb-center-links{
+  position:static!important;left:auto!important;top:auto!important;transform:none!important;
+  order:3!important;width:100%!important;max-width:100%!important;height:auto!important;
+  justify-content:flex-start!important;gap:clamp(16px,3.2vw,24px)!important;overflow-x:auto!important;padding:0 0 4px!important;
+ }
+}
+@media(max-width:600px){
+ html body.in-main-site > #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+ html body.in-main-site > #competitionTopBar .ctb-center-links{gap:20px!important}
+ html body.in-main-site > #competitionTopBar .ctb-center-links a,
+ html body.in-main-site > #competitionTopBar .ctb-center-links button{font-size:12px!important}
 }
 </style>
