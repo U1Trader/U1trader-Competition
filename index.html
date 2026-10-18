@@ -1145,6 +1145,35 @@ html.embedded-competition-view body>#competitionTopBar,
 html.embedded-competition-view body>#globalTopProfile,
 html.embedded-competition-view body>#globalProfileDropdown{display:none!important;visibility:hidden!important;pointer-events:none!important}
 </style>
+
+<style id="u1trader-profile-chart-trade-history-final-fix">
+/* Keep the chart wide and legible while fitting exactly five trade rows underneath. */
+html body #traderProfileBack .profile-modal{
+ width:min(1120px,calc(100vw - 32px))!important;
+ max-width:min(1120px,calc(100vw - 32px))!important;
+ height:calc(100dvh - 116px)!important;
+ max-height:calc(100dvh - 116px)!important;
+ min-height:0!important;
+ padding:8px 12px 8px!important;
+ overflow-y:auto!important;
+ overflow-x:hidden!important;
+ gap:0!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceHeading{margin:5px 0 3px!important;flex:0 0 auto!important}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ width:100%!important;height:clamp(230px,30vh,330px)!important;min-height:230px!important;
+ flex:0 0 auto!important;display:block!important;background:#0b1220!important;
+}
+html body #traderProfileBack .profile-modal #profileTradeHeading{margin:5px 0 3px!important;flex:0 0 auto!important}
+html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!important;min-height:0!important;margin:0!important;overflow-x:auto!important;overflow-y:hidden!important}
+html body #traderProfileBack .profile-modal .profile-trades table{width:100%!important;min-width:900px!important;table-layout:auto!important}
+html body #traderProfileBack .profile-modal .profile-trades th,
+html body #traderProfileBack .profile-modal .profile-trades td{padding:4px 5px!important;font-size:10px!important;line-height:1.25!important;white-space:nowrap!important}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:4px 0 0!important;margin:0!important;flex:0 0 auto!important}
+html body #traderProfileBack .profile-modal .profile-page-info{padding-top:2px!important;margin:0!important}
+@media(max-height:800px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 100px)!important;max-height:calc(100dvh - 100px)!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}}
+@media(max-width:700px){html body #traderProfileBack .profile-modal{width:calc(100vw - 16px)!important;max-width:calc(100vw - 16px)!important;height:calc(100dvh - 100px)!important;max-height:calc(100dvh - 100px)!important;padding:8px!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}}
+</style>
 </head>
 <body><script id="report-competition-route-to-parent">
 (function(){
@@ -2279,59 +2308,74 @@ function openTraderProfileCore(id){
    .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
  const startVal=Number(t.start)||0;
  let runningBalance=startVal;
- // Chart one point per actual trading day, so every date label stays readable.
- const dailyPoints=new Map();
- allChartTrades.forEach(trade=>{
-   const rawDate=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
-   const day=rawDate.slice(0,10).replace(/[.]/g,'-');
-   if(!day)return;
-   dailyPoints.set(day,(dailyPoints.get(day)||0)+(Number(trade.pnl??trade.profit)||0));
+ // Plot every closed trade as its own cumulative balance point; only label each trading date once.
+ const uniqueTrades=new Map();
+ allChartTrades.forEach((trade,index)=>{
+   const raw=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const key=maeTradeKey(trade)||[raw,trade.symbol||'',trade.pnl??trade.profit??'',index].join('|');
+   if(!uniqueTrades.has(key))uniqueTrades.set(key,trade);
  });
- const points=[{date:'Start',balance:startVal}];
- Array.from(dailyPoints.entries()).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([day,pnl])=>{
-   runningBalance+=pnl;
-   points.push({date:day,balance:runningBalance});
+ const tradePoints=Array.from(uniqueTrades.values()).sort((a,b)=>
+   String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||''))
+ );
+ const points=[{date:'Start',balance:startVal,day:'Start'}];
+ tradePoints.forEach(trade=>{
+   runningBalance+=Number(trade.pnl??trade.profit)||0;
+   const raw=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const day=raw.slice(0,10).replace(/[.]/g,'-');
+   points.push({date:raw||day||'Trade',day:day||'Unknown date',balance:runningBalance});
  });
- // If no individual closed trades are available, retain the saved daily balance history as a fallback.
- if(!allChartTrades.length){
+ // If there are no closed trades, use the saved balance history as a fallback.
+ if(!tradePoints.length){
    const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
-   const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),balance:Number(p.balance)}));
+   const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),day:String(p.date),balance:Number(p.balance)}));
    points.push(...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date))));
-   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',balance:Number(t.current)||0});
+   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',day:t.updated||'Current',balance:Number(t.current)||0});
  }
  const vals=points.map(p=>Number(p.balance)||0);
- const maxLossLevel=startVal-5000; // Fixed overall loss limit: $5,000 below a $50,000 starting balance.
- const profitTargetLevel=startVal*1.03; // +3% from starting balance.
- // Daily loss chart MUST use the exact same current-day opening balance and 5% floor as the Daily Loss card above.
- // Do not build historical per-day lines: they make yesterday's yellow line remain visible after a reset.
+ const maxLossLevel=startVal-5000;
+ const profitTargetLevel=startVal*1.03;
  const currentDailyLossFloor=todayOpeningBalance-dailyLimit;
- const dailyLossLevels=[{day:todayKey,startIndex:0,endIndex:Math.max(0,points.length-1),level:currentDailyLossFloor}];
- const thresholds=[maxLossLevel,profitTargetLevel,currentDailyLossFloor];
- const dataMin=Math.min(...vals,...thresholds),dataMax=Math.max(...vals,...thresholds);
- const rawSpan=Math.max(dataMax-dataMin,Math.abs(startVal)*0.01,1);
- const tickStep=1000;
- const axisMin=Math.floor((dataMin-rawSpan*0.08)/tickStep)*tickStep;
- const axisMax=Math.ceil((dataMax+rawSpan*0.08)/tickStep)*tickStep;
- const axisSpan=Math.max(axisMax-axisMin,tickStep);
- const yTop=8,yBottom=318,plotHeight=yBottom-yTop;
- const yFor=v=>yBottom-((v-axisMin)/axisSpan)*plotHeight;
- const plotLeft=130,plotRight=1035;const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
+ // Keep every point visible; the vertical scale includes at least +/-5% of starting balance.
+ // Only the top (+5%) and bottom (-5%) price labels are shown to keep the axis clean.
+ const fivePct=Math.max(Math.abs(startVal)*0.05,1);
+ const axisMin=Math.min(startVal-fivePct,Math.min(...vals));
+ const axisMax=Math.max(startVal+fivePct,Math.max(...vals));
+ const axisPad=Math.max(fivePct*0.08,1);
+ const plotMin=axisMin-axisPad,plotMax=axisMax+axisPad,axisSpan=Math.max(plotMax-plotMin,1);
+ const yTop=12,yBottom=315,plotHeight=yBottom-yTop;
+ const yFor=v=>yBottom-((v-plotMin)/axisSpan)*plotHeight;
+ const plotLeft=130,plotRight=1035;
+ const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
  const poly=coords.map(p=>p.x+','+p.y).join(' ');
- let svg='<rect x="0" y="0" width="1100" height="375" fill="#0b1220"/> ';
- for(let tick=axisMin;tick<=axisMax+tickStep*0.001;tick+=tickStep){const y=yFor(tick);const major=Math.round(tick/1000)===tick/1000; if(major)svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#26364d" stroke-width="0.8"/>'; svg+='<text x="12" y="'+Math.max(14,y-5)+'" fill="#f1f5f9" font-size="12" font-weight="700" font-family="Inter,Arial,sans-serif">'+esc(Math.round(tick).toLocaleString('en-US'))+'</text>';}
- // Thresholds: visually separate red max-loss from daily-loss when the values nearly overlap.
+ let svg='<rect x="0" y="0" width="1100" height="375" fill="#0b1220"/>';
+ // Subtle grid lines, without cluttering the price axis with intermediate numbers.
+ for(let i=0;i<=5;i++){const y=yTop+(plotHeight/5)*i;svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="#26364d" stroke-width="0.8"/>';}
+ svg+='<text x="12" y="'+(yTop+4)+'" fill="#f8fafc" font-size="12" font-weight="700" font-family="Inter,Arial,sans-serif">'+esc(fmt(startVal+fivePct))+'</text>';
+ svg+='<text x="12" y="'+(yBottom+1)+'" fill="#f8fafc" font-size="12" font-weight="700" font-family="Inter,Arial,sans-serif">'+esc(fmt(startVal-fivePct))+'</text>';
+ // Risk/target reference lines remain visible even when the current daily floor is close to the max-loss line.
  const maxLossY=yFor(maxLossLevel),dailyLossY=yFor(currentDailyLossFloor);
  const maxLossVisualY=Math.abs(maxLossY-dailyLossY)<5?maxLossY-5:maxLossY;
- svg+='<line x1="130" y1="'+maxLossVisualY+'" x2="1060" y2="'+maxLossVisualY+'" stroke="#ff3048" stroke-width="2.4"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
- svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#089981" stroke-width="1.35"/>';
- svg+='<line id="currentDailyLossLine" x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffb000" stroke-width="1.8" stroke-dasharray="3 5"><title>Current day daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
- svg+='<polyline points="'+poly+'" fill="none" stroke="#2878d0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
- // Small dots mark each closed trade balance point.
- coords.forEach((p,i)=>{const label=String(points[i].date||'').slice(0,19);const isCurrent=i===points.length-1;if(isCurrent)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="4.2" fill="none" stroke="#ffffff" stroke-width="1.0"><title>Current balance point</title></circle>';svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(isCurrent?'2.2':'1.2')+'" fill="#ffffff" stroke="#ffffff" stroke-width="0.8"><title>'+esc(label)+' — Balance: '+esc(fmt(points[i].balance))+'</title></circle>';if(i===0||isCurrent||points.length<=30){svg+='<text x="'+p.x+'" y="326" text-anchor="middle" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label.slice(0,10))+'</text>';}});
- // Chart legend explains all three risk/target levels.
- svg+='<line x1="82" y1="360" x2="102" y2="360" stroke="#f23645" stroke-width="1.35"/><text x="108" y="364" fill="#d9364f" font-size="10.5" font-weight="600">Max loss: '+esc(fmt(maxLossLevel))+' (fixed −$5,000)</text>';
- svg+='<line x1="390" y1="360" x2="410" y2="360" stroke="#f0b90b" stroke-width="1.35" stroke-dasharray="2 5"/><text x="416" y="364" fill="#9a6700" font-size="10.5" font-weight="600">Daily loss: current day opening balance − 5%</text>';
- svg+='<line x1="720" y1="360" x2="740" y2="360" stroke="#089981" stroke-width="1.35"/><text x="746" y="364" fill="#087f5b" font-size="10.5" font-weight="600">Profit target: +3% ('+esc(fmt(profitTargetLevel))+')</text>';
+ svg+='<line x1="130" y1="'+maxLossVisualY+'" x2="1060" y2="'+maxLossVisualY+'" stroke="#ff4355" stroke-width="2.2"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#18c99a" stroke-width="1.7"><title>Profit target: '+esc(fmt(profitTargetLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffc247" stroke-width="1.8" stroke-dasharray="4 5"><title>Daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
+ svg+='<polyline points="'+poly+'" fill="none" stroke="#3b9cff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+ // Each trade close has its own visible point; dates are printed once per day.
+ const labelledDays=new Set();
+ coords.forEach((p,i)=>{
+   const point=points[i],day=String(point.day||point.date||'');
+   const title=String(point.date||'').slice(0,19);
+   svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(i===coords.length-1?'3.2':'2.4')+'" fill="#f8fafc" stroke="#3b9cff" stroke-width="1.1"><title>'+esc(title)+' — Balance after close: '+esc(fmt(point.balance))+'</title></circle>';
+   if(i===0||!labelledDays.has(day)){
+     const label=i===0?'Start':day.slice(0,10);
+     svg+='<text x="'+p.x+'" y="337" text-anchor="'+(p.x<180?'start':p.x>990?'end':'middle')+'" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label)+'</text>';
+     labelledDays.add(day);
+   }
+ });
+ // High-contrast, readable legend for all three horizontal reference lines.
+ svg+='<line x1="72" y1="361" x2="94" y2="361" stroke="#ff4355" stroke-width="2.4"/><text x="101" y="365" fill="#ff7b87" font-size="11.5" font-weight="700">Max loss: '+esc(fmt(maxLossLevel))+'</text>';
+ svg+='<line x1="388" y1="361" x2="410" y2="361" stroke="#ffc247" stroke-width="2.2" stroke-dasharray="4 4"/><text x="417" y="365" fill="#ffd777" font-size="11.5" font-weight="700">Daily loss floor: '+esc(fmt(currentDailyLossFloor))+' (5% below day open)</text>';
+ svg+='<line x1="790" y1="361" x2="812" y2="361" stroke="#18c99a" stroke-width="2.2"/><text x="819" y="365" fill="#58e4bd" font-size="11.5" font-weight="700">Profit target: '+esc(fmt(profitTargetLevel))+'</text>';
  $('profileBalanceChart').innerHTML=svg;
 
 
