@@ -1082,6 +1082,13 @@ html body #competitionTopBar .ctb-links{display:none!important}
  html body #competitionTopBar .ctb-center-links a,html body #competitionTopBar .ctb-center-links button{font-size:12px!important}
 }
 </style>
+<style id="embedded-competition-fill-viewport">
+/* In the main-site iframe, keep the competition background filled to the bottom of the visible viewport. */
+html,body{min-height:100%!important;background:#10121a!important}
+html body.in-main-site{min-height:100vh!important;background:#10121a!important}
+html body.in-main-site #competitionsHub{min-height:calc(100vh - 56px)!important;padding-bottom:40px!important;background:#10121a!important}
+html body.in-main-site #competitionTopBar{position:sticky!important;top:0!important;z-index:1000!important}
+</style>
 </head>
 <body>
 <script>if(window.parent!==window)document.body.classList.add('in-main-site','page-competition');</script>
