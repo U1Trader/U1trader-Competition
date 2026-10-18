@@ -2782,6 +2782,33 @@ html body.page-dashboard>.wrap>header.top .top-actions{
   align-self:flex-start!important;
 }
 </style>
+
+<style id="dashboard-top-gap-hard-fix-v2">
+/* Remove the leftover blank strip above the competition hero in dashboard view. */
+html body.page-dashboard,
+html body.in-main-site.page-dashboard{
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap,
+html body.in-main-site.page-dashboard>.wrap{
+  margin-top:0!important;
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top,
+html body.in-main-site.page-dashboard>.wrap>header.top{
+  display:flex!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:0!important;
+}
+html body.page-dashboard>.wrap>.hero,
+html body.in-main-site.page-dashboard>.wrap>.hero{
+  margin-top:0!important;
+}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
