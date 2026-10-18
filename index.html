@@ -3118,3 +3118,21 @@ html body.in-main-site #competitionsHub{
   box-sizing:border-box!important;
 }
 </style>
+
+<style id="fix-competition-header-overlay-crop-v18">
+/* The fixed shared nav overlays the hub in the embedded viewport; reserve real space beneath it. */
+html body.in-main-site #competitionsHub{
+  position:relative!important;
+  top:0!important;
+  bottom:auto!important;
+  margin-top:0!important;
+  padding-top:110px!important;
+  scroll-margin-top:90px!important;
+}
+html body.in-main-site #competitionsHub .competition-hub-head{
+  margin-top:0!important;
+}
+html body.in-main-site > #competitionTopBar{
+  top:0!important;
+}
+</style>
