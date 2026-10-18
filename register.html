@@ -51,7 +51,15 @@ html body main.wrap{position:relative!important;margin-top:0!important;padding-t
 html body main.wrap>.brand{display:block!important;position:relative!important;margin-top:8px!important;margin-bottom:18px!important;line-height:1.5!important;z-index:1!important}
 @media(max-width:600px){html body main.wrap{padding-top:22px!important}}
 </style>
-</head><body>
+</head><body><script id="report-competition-route-to-parent">
+(function(){
+ if(window.parent===window)return;
+ document.body.classList.add('in-main-site');
+ const report=()=>{try{window.parent.postMessage({type:'U1TRADER_COMPETITION_ROUTE',path:window.location.pathname+window.location.search+window.location.hash},'https://u1trader.github.io')}catch(e){}};
+ report();
+ window.addEventListener('pageshow',report);
+})();
+</script>
 <main class="wrap"><div class="brand">U1TRADER · ARENA</div><section class="card"><div id="closed" class="hidden"><h1>Registration is closed</h1><p>New entries are currently disabled by the competition admin. Please check again later.</p></div><div id="formWrap"><h1>Competition Registration</h1><p>Complete your details and upload your ₹499 payment screenshot. Your entry is pending until the admin verifies payment.</p><div class="fee">₹499 <span style="font-size:13px;color:var(--muted);font-weight:500">entry fee</span></div>
 <form id="regForm"><div class="grid"><div class="field"><label for="fullName">Full name *</label><input id="fullName" required maxlength="100" autocomplete="name" placeholder="Your full name"></div><div class="field"><label for="initials">Initials *</label><input id="initials" required maxlength="20" placeholder="e.g. T. A."></div><div class="field"><label for="phone">Phone number *</label><input id="phone" required maxlength="20" type="tel" autocomplete="tel" placeholder="Mobile number"></div><div class="field"><label for="email">Email address *</label><input id="email" required maxlength="254" type="email" autocomplete="email" placeholder="you@example.com"></div></div>
 <div class="upi"><div style="font-size:12px;color:var(--muted);margin-bottom:5px">Pay exactly ₹499 using UPI</div><strong id="upiText">tharmesh712-5@oksbi</strong> <button type="button" class="btn" id="copyUpi" style="padding:6px 10px;font-size:12px;margin-left:6px">Copy UPI</button><p class="note" style="margin-bottom:0">After paying, upload a screenshot of the successful transaction below. Payment is verified manually by the admin.</p></div>
