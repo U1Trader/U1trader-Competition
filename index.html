@@ -2910,3 +2910,30 @@ html body > #competitionTopBar .ctb-links{display:none!important}
   html body > #competitionTopBar .ctb-center-links button{font-size:12px!important}
 }
 </style>
+
+<style id="remove-duplicate-navigation-keep-home-header-v10">
+/* Keep the home-style global header as the only site navigation on competition pages. */
+html body #globalCompetitionNav,
+html body #sidebarToggleBtn{
+  display:none!important;visibility:hidden!important;pointer-events:none!important;
+}
+html body:not(.auth-required)>.wrap,
+html body:not(.auth-required) main.wrap,
+html body.in-main-site>.wrap,
+html body.in-main-site main.wrap{
+  margin-left:0!important;margin-right:auto!important;width:100%!important;
+  max-width:none!important;box-sizing:border-box!important;
+}
+/* Remove the duplicate U1TRADER/Trader Arena brand header; retain working competition/admin actions. */
+html body .wrap>header.top .brand{display:none!important}
+html body .wrap>header.top{
+  margin-top:0!important;padding-top:14px!important;
+  border-top:0!important;box-shadow:none!important;
+}
+html body.in-main-site #competitionsHub{
+  left:0!important;right:0!important;width:100%!important;margin:0!important;
+}
+@media(max-width:760px){
+  html body:not(.auth-required)>.wrap{padding-bottom:24px!important}
+}
+</style>
