@@ -3136,3 +3136,13 @@ html body.in-main-site > #competitionTopBar{
   top:0!important;
 }
 </style>
+
+<style id="use-parent-home-header-v19">
+/* The parent page keeps its actual .nav header visible above the iframe.
+   Hide this page's duplicate nav only in embedded mode and restore normal hub spacing. */
+html body.in-main-site > #competitionTopBar{display:none!important}
+html body.in-main-site #competitionsHub{
+ position:relative!important;top:0!important;bottom:auto!important;
+ margin:0!important;padding-top:30px!important;scroll-margin-top:0!important;
+}
+</style>
