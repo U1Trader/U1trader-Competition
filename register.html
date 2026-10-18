@@ -55,7 +55,20 @@ html body main.wrap>.brand{display:block!important;position:relative!important;m
 html body.in-main-site main.wrap{padding-top:72px!important;margin-top:0!important}
 html body.in-main-site main.wrap>.brand{margin-top:8px!important;margin-bottom:18px!important}
 </style>
-</head><body><script id="report-competition-route-to-parent">
+<script id="early-registration-embed-detection">
+if(window.parent!==window){document.documentElement.classList.add('embedded-registration-page');}
+</script>
+<style id="prevent-registration-refresh-flash">
+/* Establish embedded layout before first paint so refresh never shows the standalone page layout first. */
+html.embedded-registration-page body{opacity:0}
+html.embedded-registration-page body.registration-layout-ready{opacity:1;transition:opacity .08s ease}
+</style>
+</head><body><script id="reveal-registration-after-embed-layout">
+(function(){
+ const ready=()=>document.body.classList.add('registration-layout-ready');
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
+})();
+</script><script id="report-competition-route-to-parent">
 (function(){
  if(window.parent===window)return;
  document.body.classList.add('in-main-site');
