@@ -1128,7 +1128,15 @@ html.embedded-competition-view body>#globalTopProfile,
 html.embedded-competition-view body>#globalProfileDropdown{display:none!important;visibility:hidden!important;pointer-events:none!important}
 </style>
 </head>
-<body>
+<body><script id="report-competition-route-to-parent">
+(function(){
+ if(window.parent===window)return;
+ document.body.classList.add('in-main-site');
+ const report=()=>{try{window.parent.postMessage({type:'U1TRADER_COMPETITION_ROUTE',path:window.location.pathname+window.location.search+window.location.hash},'https://u1trader.github.io')}catch(e){}};
+ report();
+ window.addEventListener('pageshow',report);
+})();
+</script>
 <script>
 if(window.parent!==window){
  document.body.classList.add('in-main-site','page-competition');
