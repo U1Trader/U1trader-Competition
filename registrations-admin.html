@@ -48,10 +48,16 @@ if(window.parent!==window){document.documentElement.classList.add('embedded-comp
 html.embedded-competition-view body>#competitionTopBar,
 html.embedded-competition-view body>#globalSiteNav{display:none!important;visibility:hidden!important}
 </style>
+<style id="embedded-payment-approvals-crop-fix">
+/* The parent site's shared header is outside this iframe; reserve its full height. */
+html body.in-main-site{padding-top:100px!important}
+html body.in-main-site main.wrap{margin-top:0!important;padding-top:0!important;overflow:visible!important}
+html body.in-main-site main.wrap>.row:first-child{scroll-margin-top:100px!important}
+</style>
 </head><body><script id="report-admin-route-to-parent">
 (function(){if(window.parent===window)return;document.body.classList.add('in-main-site');const report=()=>{try{window.parent.postMessage({type:'U1TRADER_COMPETITION_ROUTE',path:window.location.pathname+window.location.search+window.location.hash},'https://u1trader.github.io')}catch(e){}};report();window.addEventListener('pageshow',report);})();
 </script>
-<main class="wrap"><div class="row"><div><h1>U1Trader Arena — Registrations</h1><div class="status">Use the same Supabase Auth account as your existing dashboard admin.</div></div><span class="spacer"></span><a href="https://u1trader.github.io/U1trader-Competition/">← Competition dashboard</a></div>
+<main class="wrap"><div class="row"><div><h1>U1Trader Arena — Registrations</h1><div class="status">Use the same Supabase Auth account as your existing dashboard admin.</div></div><span class="spacer"></span><a href="https://u1trader.github.io/U1trader-Competition/index.html">← Competition dashboard</a></div>
 <section class="card" id="loginCard"><h2>Admin login</h2><div class="field"><label>Email</label><input id="email" type="email" autocomplete="username"></div><div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password"></div><button id="loginBtn">Login</button><div id="loginStatus" class="status"></div></section>
 <div id="adminApp" class="hidden"><section class="card"><div class="row"><div><h2>Registration settings</h2><div class="small">Entry fee and UPI details shown on the public form.</div></div><span class="spacer"></span><span id="stateBadge" class="pill">Loading…</span></div><div class="field"><label>Entry fee (INR)</label><input id="fee" type="number" min="1" step="1" value="499"></div><div class="field"><label>UPI ID</label><input id="upi" value="tharmesh712-5@oksbi"></div><button id="saveSettings">Save fee / UPI</button><button id="toggleOpen" class="secondary">Toggle registration</button><div id="settingsStatus" class="status"></div><p><a href="register.html" target="_blank" rel="noopener">Open public registration form ↗</a></p></section>
 <section class="card"><div class="row"><h2>Participants</h2><span class="spacer"></span><button class="secondary" id="refresh">Refresh</button></div><div id="listStatus" class="status">Loading registrations…</div><div class="tablewrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Fee</th><th>Payment</th><th>Registration</th></tr></thead><tbody id="rows"></tbody></table></div></section>
