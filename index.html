@@ -1110,6 +1110,10 @@ html body .competition-hero-layout .hero-schedule-card .register-cta{
  margin-bottom:0!important;
 }
 </style>
+<style id="prevent-embedded-legacy-header-flash">
+/* When opened inside the main website, use only the parent navigation from first paint. */
+html body.in-main-site > #competitionTopBar{display:none!important;visibility:hidden!important}
+</style>
 </head>
 <body>
 <script>if(window.parent!==window)document.body.classList.add('in-main-site','page-competition');</script>
