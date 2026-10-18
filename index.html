@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trader Arena — Separate Fixed Dashboard</title>
+<script id="u1-hard-refresh-boot-guard">
+document.documentElement.classList.add('u1-hard-refresh-pending');
+document.addEventListener('DOMContentLoaded',function(){
+ document.documentElement.classList.remove('u1-hard-refresh-pending');
+},{once:true});
+</script>
+<style id="u1-hard-refresh-boot-guard-style">
+html.u1-hard-refresh-pending body{visibility:hidden!important}
+</style>
 <style>
 :root{--bg:#0b1020;--panel:#121a2d;--panel2:#172239;--line:#263550;--text:#edf3ff;--muted:#94a5c3;--green:#42d392;--red:#ff7185;--blue:#76a9ff;--gold:#f5c86b}
 .admin-only{display:none!important}body.admin-mode .admin-only{display:initial!important}body.admin-mode section.card.admin-only{display:block!important}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#14213b 0%,var(--bg) 55%);color:var(--text);font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
