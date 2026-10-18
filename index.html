@@ -515,6 +515,10 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 @media(max-width:900px){.profile-modal{width:98vw;padding:12px;height:96vh}.profile-objectives{grid-template-columns:repeat(3,minmax(0,1fr));overflow:auto}.profile-chart{height:23vh}.profile-trades{overflow:auto}.profile-trades table{min-width:800px}}
 @media(max-height:760px){.profile-chart{height:36vh;min-height:260px}.profile-objective{padding:7px 9px}.profile-objective>strong{margin:4px 0 5px}.profile-modal{padding-top:10px}}
 .trader-row-actions{margin-top:5px;display:flex;gap:5px}.trader-row-actions .btn{padding:3px 7px;font-size:10px;min-height:22px}
+/* Keep trader Edit and remove controls beside the name, with a little breathing room. */
+.trader-row-actions{display:inline-flex!important;vertical-align:middle!important;margin:0 0 0 12px!important;gap:6px!important;align-items:center!important}
+.trader-row-actions .btn{flex:0 0 auto!important}
+@media(max-width:600px){.trader-row-actions{margin-left:10px!important;gap:6px!important}}
 .profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}.profile-pagination{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:14px 0 2px}.profile-pagination button{min-width:34px;padding:7px 10px;border:1px solid var(--line,#263550);border-radius:8px;background:var(--panel,#152238);color:var(--text,#eef4ff);cursor:pointer}.profile-pagination button.active{background:var(--blue,#78aaff);color:#081326;border-color:transparent;font-weight:800}.profile-pagination button:disabled{opacity:.4;cursor:not-allowed}.profile-page-info{width:100%;text-align:center;color:var(--muted,#94a5c3);font-size:12px;padding-top:4px}
 @media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:380px}}
 
