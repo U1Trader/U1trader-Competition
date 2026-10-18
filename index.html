@@ -3037,10 +3037,13 @@ html body #competitionTopBar .ctb-links{display:none!important}
 }
 </style>
 
-<style id="prevent-embedded-duplicate-home-header-v14">
-/* The parent U1Trader home page already owns the shared navigation when this page is embedded.
-   Hide this page's copy only inside the embedded view; keep it for direct standalone visits. */
-html body.in-main-site > #competitionTopBar{
+<style id="prevent-embedded-duplicate-home-header-v15">
+/* When embedded in the main site, the parent owns the shared navigation and profile control.
+   Hide only these duplicate global controls; keep the competition dashboard/action buttons intact.
+   Direct visits to the competition URL retain their own navigation and profile control. */
+html body.in-main-site > #competitionTopBar,
+html body.in-main-site > #globalTopProfile,
+html body.in-main-site > #globalProfileDropdown{
   display:none!important;
 }
 html body.in-main-site #competitionsHub{
