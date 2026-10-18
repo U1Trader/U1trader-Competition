@@ -1119,6 +1119,14 @@ html.embedded-competition-view body>#competitionTopBar,
 html.embedded-competition-view body>#globalTopProfile,
 html.embedded-competition-view body>#globalProfileDropdown{display:none!important;visibility:hidden!important}
 </style>
+<script id="early-embedded-competition-detection">
+if(window.parent!==window){document.documentElement.classList.add('embedded-competition-view');}
+</script>
+<style id="hide-embedded-header-before-first-paint">
+html.embedded-competition-view body>#competitionTopBar,
+html.embedded-competition-view body>#globalTopProfile,
+html.embedded-competition-view body>#globalProfileDropdown{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
 </head>
 <body>
 <script>
