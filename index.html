@@ -1625,40 +1625,39 @@ function setGlobalNavActive(key){
 }
 function syncGlobalSidebarUser(){
  const name=publicUser?.user_metadata?.full_name||publicUser?.email?.split('@')[0]||'U1Trader Member';
- $('globalNavName').textContent=name;
- $('globalNavEmail').textContent=publicUser?.email||'';
- $('globalNavMaintenanceText').textContent='🛠 Maintenance: '+(data.siteMaintenanceEnabled?'ON':'OFF');
- $('globalTopProfileInitial').textContent=String(name||'T').trim().charAt(0).toUpperCase();
- $('globalTopProfileName').textContent=name;
- $('gpdName').textContent=name;$('gpdEmail').textContent=publicUser?.email||'';$('gpdMaintenance').textContent='🛠 Maintenance: '+(data.siteMaintenanceEnabled?'ON':'OFF');
+ const email=publicUser?.email||'';
+ const setText=(id,value)=>{const el=$(id);if(el)el.textContent=value;};
+ setText('globalNavName',name);setText('globalNavEmail',email);
+ setText('globalNavMaintenanceText','🛠 Maintenance: '+(data.siteMaintenanceEnabled?'ON':'OFF'));
+ setText('globalTopProfileInitial',String(name||'T').trim().charAt(0).toUpperCase());
+ setText('globalTopProfileName',name);setText('gpdName',name);setText('gpdEmail',email);
+ setText('gpdMaintenance','🛠 Maintenance: '+(data.siteMaintenanceEnabled?'ON':'OFF'));
 }
-$('sidebarToggleBtn').addEventListener('click',()=>{
+$('sidebarToggleBtn')?.addEventListener('click',()=>{
  document.body.classList.toggle('sidebar-collapsed');
  const collapsed=document.body.classList.contains('sidebar-collapsed');
- $('sidebarToggleBtn').setAttribute('aria-expanded',String(!collapsed));
- $('sidebarToggleBtn').setAttribute('aria-label',collapsed?'Open navigation':'Close navigation');
- $('sidebarToggleBtn').title=collapsed?'Open navigation':'Close navigation';
+ const toggle=$('sidebarToggleBtn');
+ if(toggle){toggle.setAttribute('aria-expanded',String(!collapsed));toggle.setAttribute('aria-label',collapsed?'Open navigation':'Close navigation');toggle.title=collapsed?'Open navigation':'Close navigation';}
 });
-$('globalNavHome').addEventListener('click',event=>{event.preventDefault();openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
-$('globalNavHomeBtn').addEventListener('click',()=>{
+$('globalNavHome')?.addEventListener('click',event=>{event.preventDefault();openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});});
+$('globalNavHomeBtn')?.addEventListener('click',()=>{
  if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash:''},'https://u1trader.github.io');return;}
  window.location.href='https://u1trader.github.io/';
 });
-$('globalNavCompetition').addEventListener('click',()=>{
- /* Always land on the competitions list, whatever page or popup is open right now. */
+$('globalNavCompetition')?.addEventListener('click',()=>{
  ['userProfileModalBack','traderProfileBack'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
  openCompetitionsHub();setGlobalNavActive('competitions');
  const hub=$('competitionsHub');if(hub)hub.scrollTop=0;
  window.scrollTo({top:0});
 });
-$('globalNavLogout').addEventListener('click',async()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');return;}await sb.auth.signOut();setPublicUser(null);setAdminMode(null);$('userProfileModalBack').style.display='none';render();});
-$('globalNavMaintenance').addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
+$('globalNavLogout')?.addEventListener('click',async()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');return;}await sb.auth.signOut();setPublicUser(null);setAdminMode(null);const modal=$('userProfileModalBack');if(modal)modal.style.display='none';render();});
+$('globalNavMaintenance')?.addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
 
 $('enterCompetitionBtn')?.addEventListener('click',openCompetitionsHub);
 $('globalTopProfile').addEventListener('click',event=>{event.stopPropagation();const menu=$('globalProfileDropdown');menu.hidden=!menu.hidden;});
 $('gpdOpenProfile').addEventListener('click',async()=>{$('globalProfileDropdown').hidden=true;if(!publicUser){pendingProfileOpen=true;await requestParentSession();return;}$('userProfileModalBack').style.display='flex';await loadPublicProfile(publicUser);});
-$('gpdMaintenance').addEventListener('click',()=>{$('globalProfileDropdown').hidden=true;$('globalNavMaintenance').click();});
-$('gpdLogout').addEventListener('click',()=>{$('globalProfileDropdown').hidden=true;$('globalNavLogout').click();});
+$('gpdMaintenance')?.addEventListener('click',()=>{$('globalProfileDropdown').hidden=true;const navMaintenance=$('globalNavMaintenance');if(navMaintenance)navMaintenance.click();});
+$('gpdLogout')?.addEventListener('click',()=>{$('globalProfileDropdown').hidden=true;const navLogout=$('globalNavLogout');if(navLogout)navLogout.click();else if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');}else{sb.auth.signOut().then(()=>{setPublicUser(null);setAdminMode(null);render();});}});
 $('globalTopHome').addEventListener('click',()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash:''},'https://u1trader.github.io');return;}window.location.href='https://u1trader.github.io/';});
 $('globalTopCompetition').addEventListener('click',()=>{['userProfileModalBack','traderProfileBack'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});openCompetitionsHub();setGlobalNavActive('competitions');window.scrollTo({top:0,behavior:'smooth'});$('globalProfileDropdown').hidden=true;});
 document.addEventListener('click',event=>{const menu=$('globalProfileDropdown');if(menu&&!menu.hidden&&!menu.contains(event.target)&&!$('globalTopProfile').contains(event.target))menu.hidden=true;});
