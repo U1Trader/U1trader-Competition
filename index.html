@@ -1089,6 +1089,27 @@ html body.in-main-site{min-height:100vh!important;background:#10121a!important}
 html body.in-main-site #competitionsHub{min-height:calc(100vh - 56px)!important;padding-bottom:40px!important;background:#10121a!important}
 html body.in-main-site #competitionTopBar{position:sticky!important;top:0!important;z-index:1000!important}
 </style>
+<style id="remove-empty-black-area-below-register">
+/* The schedule column should end after Register Now, not stretch into an empty black panel. */
+html body .competition-hero-layout .hero-schedule-card{
+ height:auto!important;
+ min-height:0!important;
+ align-self:start!important;
+ justify-content:flex-start!important;
+ background:transparent!important;
+}
+html body .competition-hero-layout .hero-schedule-card .sidebody{
+ flex:0 0 auto!important;
+ height:auto!important;
+ min-height:0!important;
+ background:transparent!important;
+ padding:0!important;
+}
+html body .competition-hero-layout .hero-schedule-card .register-cta{
+ flex:0 0 auto!important;
+ margin-bottom:0!important;
+}
+</style>
 </head>
 <body>
 <script>if(window.parent!==window)document.body.classList.add('in-main-site','page-competition');</script>
