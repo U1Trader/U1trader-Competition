@@ -2937,3 +2937,39 @@ html body.in-main-site #competitionsHub{
   html body:not(.auth-required)>.wrap{padding-bottom:24px!important}
 }
 </style>
+
+<style id="actually-remove-duplicate-header-final-v11">
+/* Highest-specificity cleanup: old !important selectors previously overrode the hide rules. */
+html body:not(.auth-required) #globalCompetitionNav,
+html body:not(.auth-required) #sidebarToggleBtn,
+html body.in-main-site #globalCompetitionNav,
+html body.in-main-site #sidebarToggleBtn{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+/* Keep the shared top navigation, remove the competition page's second brand/header row. */
+html body .wrap>header.top .brand,
+html body .wrap>header.top> .brand,
+html body.in-main-site .wrap>header.top .brand{
+  display:none!important;
+  visibility:hidden!important;
+}
+html body .wrap>header.top,
+html body.in-main-site .wrap>header.top{
+  margin-top:0!important;
+  padding-top:14px!important;
+  border-top:0!important;
+  box-shadow:none!important;
+}
+/* Do not let the legacy fixed-sidebar layout shift content after its sidebar is hidden. */
+html body:not(.auth-required)>.wrap,
+html body.in-main-site>.wrap{
+  margin-left:0!important;
+  margin-right:auto!important;
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+</style>
