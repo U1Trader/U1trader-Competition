@@ -1818,14 +1818,14 @@ $('saveTitleEdit').addEventListener('click',()=>{
 });
 
 const storedLogo=data.brandLogo||localStorage.getItem('traderArenaU1Logo');
-if(storedLogo)$('brandLogo').src=storedLogo;
+if(storedLogo){const brandLogoEl=$('brandLogo');if(brandLogoEl)brandLogoEl.src=storedLogo;}
 $('logoFile')?.addEventListener('change',e=>{
  if(!currentUser){toast('Admin login required');e.target.value='';return}
  const file=e.target.files&&e.target.files[0];
  if(!file)return;
  if(!file.type.startsWith('image/')){toast('Please choose an image file');return;}
  const reader=new FileReader();
- reader.onload=()=>{ $('brandLogo').src=reader.result; persistLogo(reader.result); toast('Logo updated'); };
+ reader.onload=()=>{ const brandLogoEl=$('brandLogo');if(brandLogoEl)brandLogoEl.src=reader.result; persistLogo(reader.result); toast('Logo updated'); };
  reader.readAsDataURL(file);
 });
 
