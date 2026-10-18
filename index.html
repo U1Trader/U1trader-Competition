@@ -1800,7 +1800,7 @@ function openTitleEditor(){
  $('titleEditBack').style.display='flex';
 }
 function closeTitleEditor(){ $('titleEditBack').style.display='none'; }
-$('editBrandTitle').addEventListener('click',openTitleEditor);
+$('editBrandTitle')?.addEventListener('click',openTitleEditor);
 $('editCompetitionName').addEventListener('click',openTitleEditor);
 $('cancelTitleEdit').addEventListener('click',closeTitleEditor);
 $('titleEditBack').addEventListener('click',e=>{if(e.target===$('titleEditBack'))closeTitleEditor();});
@@ -1819,7 +1819,7 @@ $('saveTitleEdit').addEventListener('click',()=>{
 
 const storedLogo=data.brandLogo||localStorage.getItem('traderArenaU1Logo');
 if(storedLogo)$('brandLogo').src=storedLogo;
-$('logoFile').addEventListener('change',e=>{
+$('logoFile')?.addEventListener('change',e=>{
  if(!currentUser){toast('Admin login required');e.target.value='';return}
  const file=e.target.files&&e.target.files[0];
  if(!file)return;
