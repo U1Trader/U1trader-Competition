@@ -2809,6 +2809,21 @@ html body.in-main-site.page-dashboard>.wrap>.hero{
   margin-top:0!important;
 }
 </style>
+
+<style id="dashboard-hero-nav-clearance-fix">
+/* Keep the hero fully below the shared site navigation; no large blank spacer. */
+html body.page-dashboard>.wrap,
+html body.in-main-site.page-dashboard>.wrap{
+  padding-top:12px!important;
+  margin-top:0!important;
+}
+html body.page-dashboard>.wrap>section.hero,
+html body.in-main-site.page-dashboard>.wrap>section.hero{
+  margin-top:0!important;
+  position:relative!important;
+  clear:both!important;
+}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
