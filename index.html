@@ -1792,10 +1792,10 @@ $('adminPassword').addEventListener('keydown',e=>{if(e.key==='Enter')loginAdmin(
 function persistLogo(src){data.brandLogo=src;persist();try{localStorage.setItem('traderArenaU1Logo',src)}catch(e){toast('Logo is too large. Please use a smaller image.')}} 
 
 const savedBrandTitle=localStorage.getItem('traderArenaBrandTitle');
-if(savedBrandTitle){$('brandTitle').textContent=savedBrandTitle;}
+if(savedBrandTitle){const brandTitleEl=$('brandTitle');if(brandTitleEl)brandTitleEl.textContent=savedBrandTitle;}
 function openTitleEditor(){
  if(!currentUser){toast('Admin login required');return}
- $('brandTitleInput').value=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||$('brandTitle').textContent||'Trader Arena';
+ $('brandTitleInput').value=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||$('brandTitle')?.textContent||'Trader Arena';
  $('competitionTitleInput').value=data.league||'Friends Trading Challenge';
  $('titleEditBack').style.display='flex';
 }
@@ -1906,7 +1906,7 @@ function sortLeaderboardTraders(traders){
  });
 }
 function render(){
- $('leagueName').textContent=data.league||'Friends Trading Challenge';$('brandTitle').textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
+ $('leagueName').textContent=data.league||'Friends Trading Challenge';const brandTitleEl=$('brandTitle');if(brandTitleEl)brandTitleEl.textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
  const startInput=$('competitionStartInput');
  if(startInput && document.activeElement!==startInput) startInput.value=data.startDateTime||'';
  const startDisplay=$('competitionStartDisplay'), endInput=$('competitionEndInput'), endDisplay=$('competitionEndDisplay');
