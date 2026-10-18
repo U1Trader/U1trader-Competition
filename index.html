@@ -2516,6 +2516,35 @@ body.admin-mode section.card.admin-only,body.admin-mode footer.admin-only{displa
 body.admin-mode .admin-only.start-editor-label,body.admin-mode label.admin-only{display:inline-flex!important}
 body:not(.admin-mode) .admin-only{display:none!important}
 </style>
+
+<style id="final-register-black-panel-fix-v2">
+/* Final override: do not stretch or paint the schedule column below the Register Now CTA. */
+html body .competition-hero-layout{align-items:start!important}
+html body .competition-hero-layout .hero-schedule-card{
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ align-self:start!important;
+ justify-content:initial!important;
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+ overflow:visible!important;
+}
+html body .competition-hero-layout .hero-schedule-card .sidebody{
+ display:block!important;
+ flex:0 0 auto!important;
+ height:auto!important;
+ min-height:0!important;
+ background:transparent!important;
+}
+html body .competition-hero-layout .hero-schedule-card .register-cta{
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ margin-bottom:0!important;
+}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
