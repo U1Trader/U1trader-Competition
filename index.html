@@ -528,6 +528,11 @@ body:not(.admin-mode) #exportBtn,body:not(.admin-mode) .footer{display:none!impo
 .trader-row-actions{display:inline-flex!important;vertical-align:middle!important;margin:0 0 0 12px!important;gap:6px!important;align-items:center!important}
 .trader-row-actions .btn{flex:0 0 auto!important}
 @media(max-width:600px){.trader-row-actions{margin-left:10px!important;gap:6px!important}}
+/* Keep Edit and remove controls on the SAME line as the trader name. */
+td .trader-link{display:inline!important;width:auto!important;max-width:none!important;vertical-align:middle!important}
+td .trader-row-actions{display:inline-flex!important;width:auto!important;max-width:none!important;vertical-align:middle!important;margin:0 0 0 14px!important;gap:6px!important;align-items:center!important;white-space:nowrap!important}
+td .trader-row-actions .btn{display:inline-flex!important;width:auto!important;vertical-align:middle!important}
+@media(max-width:600px){td .trader-row-actions{margin-left:12px!important}}
 .profile-trades{overflow:auto;margin-top:12px}.profile-trades table{min-width:600px}.profile-pagination{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:14px 0 2px}.profile-pagination button{min-width:34px;padding:7px 10px;border:1px solid var(--line,#263550);border-radius:8px;background:var(--panel,#152238);color:var(--text,#eef4ff);cursor:pointer}.profile-pagination button.active{background:var(--blue,#78aaff);color:#081326;border-color:transparent;font-weight:800}.profile-pagination button:disabled{opacity:.4;cursor:not-allowed}.profile-page-info{width:100%;text-align:center;color:var(--muted,#94a5c3);font-size:12px;padding-top:4px}
 @media(max-width:520px){.profile-metrics{grid-template-columns:1fr}.profile-metric strong{font-size:18px}.profile-chart{height:380px}}
 
