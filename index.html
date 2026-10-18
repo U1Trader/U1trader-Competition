@@ -3036,3 +3036,15 @@ html body #competitionTopBar .ctb-links{display:none!important}
   html body #competitionTopBar .ctb-center-links button{font-size:12px!important}
 }
 </style>
+
+<style id="prevent-embedded-duplicate-home-header-v14">
+/* The parent U1Trader home page already owns the shared navigation when this page is embedded.
+   Hide this page's copy only inside the embedded view; keep it for direct standalone visits. */
+html body.in-main-site > #competitionTopBar{
+  display:none!important;
+}
+html body.in-main-site #competitionsHub{
+  top:0!important;
+  margin-top:0!important;
+}
+</style>
