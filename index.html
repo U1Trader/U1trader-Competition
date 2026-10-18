@@ -1906,7 +1906,7 @@ function sortLeaderboardTraders(traders){
  });
 }
 function render(){
- $('leagueName').textContent=data.league||'Friends Trading Challenge';const brandTitleEl=$('brandTitle');if(brandTitleEl)brandTitleEl.textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
+ const leagueNameEl=$('leagueName');if(leagueNameEl)leagueNameEl.textContent=data.league||'Friends Trading Challenge';const brandTitleEl=$('brandTitle');if(brandTitleEl)brandTitleEl.textContent=data.brandTitle||localStorage.getItem('traderArenaBrandTitle')||'Trader Arena';
  const startInput=$('competitionStartInput');
  if(startInput && document.activeElement!==startInput) startInput.value=data.startDateTime||'';
  const startDisplay=$('competitionStartDisplay'), endInput=$('competitionEndInput'), endDisplay=$('competitionEndDisplay');
