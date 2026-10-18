@@ -1198,6 +1198,16 @@ html body #traderProfileBack .profile-modal .profile-chart .current-balance-puls
  html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:300px!important;min-height:300px!important}
 }
 </style>
+<style id="competition-card-image-title-layout-fix">
+/* Keep competition artwork in its own row so the title and dates never overlay it. */
+.competition-list-card{display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.competition-list-card .competition-list-art{position:relative!important;display:block!important;flex:0 0 195px!important;width:100%!important;height:195px!important;min-height:195px!important;margin:0!important;padding:0!important;overflow:hidden!important;line-height:0!important;border-radius:0!important}
+.competition-list-card .competition-list-art img{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:cover!important;border-radius:0!important;margin:0!important}
+.competition-list-card .competition-list-body{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;min-width:0!important;margin:0!important;padding:17px!important;z-index:1!important}
+.competition-list-card .competition-list-body h2{position:static!important;display:block!important;margin:0 0 8px!important;line-height:1.3!important;overflow-wrap:anywhere}
+.competition-list-card .competition-list-dates{display:block!important;margin:0 0 16px!important;line-height:1.6!important}
+@media(max-width:560px){.competition-list-card .competition-list-art{flex-basis:180px!important;height:180px!important;min-height:180px!important}.competition-list-card .competition-list-body{padding:15px!important}}
+</style>
 </head>
 <body><script id="report-competition-route-to-parent">
 (function(){
