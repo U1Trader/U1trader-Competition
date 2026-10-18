@@ -1114,9 +1114,24 @@ html body .competition-hero-layout .hero-schedule-card .register-cta{
 /* When opened inside the main website, use only the parent navigation from first paint. */
 html body.in-main-site > #competitionTopBar{display:none!important;visibility:hidden!important}
 </style>
+<style id="remove-duplicate-embedded-nav-before-paint">
+html.embedded-competition-view body>#competitionTopBar,
+html.embedded-competition-view body>#globalTopProfile,
+html.embedded-competition-view body>#globalProfileDropdown{display:none!important;visibility:hidden!important}
+</style>
 </head>
 <body>
-<script>if(window.parent!==window)document.body.classList.add('in-main-site','page-competition');</script>
+<script>
+if(window.parent!==window){
+ document.body.classList.add('in-main-site','page-competition');
+ document.documentElement.classList.add('embedded-competition-view');
+ document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('competitionTopBar')?.remove();
+  document.getElementById('globalTopProfile')?.remove();
+  document.getElementById('globalProfileDropdown')?.remove();
+ },{once:true});
+}
+</script>
 
 
 
