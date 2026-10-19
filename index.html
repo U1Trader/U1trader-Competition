@@ -1588,8 +1588,19 @@ function applyRemoteDashboard(remote){
   data={...data,...remote};
  }
 }
+let maintenanceSettingChangePending=false;
 async function persist(){
  syncActiveCompetitionSnapshot();
+ // Maintenance is a site-wide switch. Preserve the latest cloud value on every unrelated dashboard save,
+ // so stale competition data or autosaves cannot silently turn maintenance off.
+ if(!maintenanceSettingChangePending){
+  try{
+   const {data:remoteRow,error:maintenanceReadError}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+   if(!maintenanceReadError&&remoteRow?.dashboard_data&&Object.prototype.hasOwnProperty.call(remoteRow.dashboard_data,'siteMaintenanceEnabled')){
+    data.siteMaintenanceEnabled=!!remoteRow.dashboard_data.siteMaintenanceEnabled;
+   }
+  }catch(maintenanceReadError){console.warn('Could not refresh site-wide maintenance setting before save:',maintenanceReadError);}
+ }
  const snapshot=JSON.stringify(data);
  try{localStorage.setItem('traderArenaSeparateFixedData',snapshot)}catch(e){}
  if(!currentUser){toast('Please log in as admin before editing');return false}
@@ -1874,7 +1885,7 @@ $('globalNavCompetition')?.addEventListener('click',()=>{
  window.scrollTo({top:0});
 });
 $('globalNavLogout')?.addEventListener('click',async()=>{if(window.parent!==window){window.parent.postMessage({type:'U1TRADER_LOGOUT_REQUEST'},'https://u1trader.github.io');return;}await sb.auth.signOut();setPublicUser(null);setAdminMode(null);const modal=$('userProfileModalBack');if(modal)modal.style.display='none';render();});
-$('globalNavMaintenance')?.addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();const ok=await persist();if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
+$('globalNavMaintenance')?.addEventListener('click',async()=>{if(!currentUser)return;data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;maintenanceSettingChangePending=true;syncGlobalSidebarUser();const ok=await persist();maintenanceSettingChangePending=false;if(ok){syncGlobalSidebarUser();toast('Maintenance '+(data.siteMaintenanceEnabled?'enabled':'disabled'));}else{data.siteMaintenanceEnabled=!data.siteMaintenanceEnabled;syncGlobalSidebarUser();}});
 
 $('enterCompetitionBtn')?.addEventListener('click',openCompetitionsHub);
 $('globalTopProfile').addEventListener('click',event=>{event.stopPropagation();const menu=$('globalProfileDropdown');menu.hidden=!menu.hidden;});
