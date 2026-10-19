@@ -2454,8 +2454,8 @@ function openTraderProfileCore(id){
  const fivePct=Math.max(Math.abs(startVal)*0.06,1);
  const twoPct=Math.max(Math.abs(startVal)*0.02,1);
  // Axis expands in 2% increments when balances move beyond the +/-5% reference range.
- const rawMin=Math.min(startVal-fivePct,Math.min(...vals));
- const rawMax=Math.max(startVal+fivePct,Math.max(...vals));
+ const rawMin=Math.min(startVal-fivePct,Math.min(...vals),maxLossLevel,currentDailyLossFloor,profitTargetLevel);
+ const rawMax=Math.max(startVal+fivePct,Math.max(...vals),maxLossLevel,currentDailyLossFloor,profitTargetLevel);
  const step=twoPct;
  const axisMin=startVal-Math.ceil((startVal-rawMin)/step)*step;
  const axisMax=startVal+Math.ceil((rawMax-startVal)/step)*step;
@@ -2483,8 +2483,7 @@ function openTraderProfileCore(id){
  });
  // Risk/target reference lines remain visible even when the current daily floor is close to the max-loss line.
  const maxLossY=yFor(maxLossLevel),dailyLossY=yFor(currentDailyLossFloor);
- const maxLossVisualY=Math.abs(maxLossY-dailyLossY)<5?maxLossY-5:maxLossY;
- svg+='<line x1="130" y1="'+maxLossVisualY+'" x2="1060" y2="'+maxLossVisualY+'" stroke="#ff4355" stroke-width="2.2"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+maxLossY+'" x2="1060" y2="'+maxLossY+'" stroke="#ff4355" stroke-width="2.2"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
  svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#18c99a" stroke-width="1.7"><title>Profit target: '+esc(fmt(profitTargetLevel))+'</title></line>';
  svg+='<line x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffc247" stroke-width="1.8" stroke-dasharray="4 5"><title>Daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
  svg+='<polyline points="'+poly+'" fill="none" stroke="#3b9cff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
