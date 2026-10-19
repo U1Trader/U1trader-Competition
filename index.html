@@ -3217,17 +3217,19 @@ html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!import
 </style>
 
 <style id="u1trader-profile-width-correction">
-/* Final profile layout override: use the available desktop viewport instead of the old 950px cap. */
+/* Final profile modal sizing: centered, about 60% of desktop width, never edge-to-edge. */
 html body #traderProfileBack.modalback{
  padding:12px!important;
+ display:flex!important;
  align-items:center!important;
  justify-content:center!important;
 }
 html body #traderProfileBack .profile-modal{
- width:min(1480px,calc(100vw - 32px))!important;
- max-width:min(1480px,calc(100vw - 32px))!important;
- height:calc(100dvh - 32px)!important;
- max-height:calc(100dvh - 32px)!important;
+ width:60vw!important;
+ max-width:1200px!important;
+ min-width:0!important;
+ height:84dvh!important;
+ max-height:84dvh!important;
  min-height:0!important;
  box-sizing:border-box!important;
  padding:14px 18px 12px!important;
@@ -3235,16 +3237,18 @@ html body #traderProfileBack .profile-modal{
  overflow-y:auto!important;
  margin-left:auto!important;
  margin-right:auto!important;
+ flex:0 1 1200px!important;
 }
 html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ display:block!important;
  width:100%!important;
- height:clamp(340px,43vh,500px)!important;
- min-height:300px!important;
+ height:clamp(280px,35vh,400px)!important;
+ min-height:260px!important;
  flex:0 0 auto!important;
 }
 html body #traderProfileBack .profile-modal #profileBalanceHeading,
 html body #traderProfileBack .profile-modal #profileTradeHeading{
- margin:10px 0 5px!important;
+ margin:12px 0 6px!important;
 }
 html body #traderProfileBack .profile-trades{
  display:block!important;width:100%!important;max-width:100%!important;
@@ -3252,14 +3256,23 @@ html body #traderProfileBack .profile-trades{
  overflow-x:auto!important;overflow-y:auto!important;margin:0!important;
 }
 html body #traderProfileBack .profile-trades table{
- width:100%!important;min-width:1050px!important;max-width:none!important;table-layout:auto!important;
+ width:100%!important;min-width:900px!important;max-width:none!important;table-layout:auto!important;
 }
 html body #traderProfileBack .profile-trades th,
 html body #traderProfileBack .profile-trades td{
  padding:5px 6px!important;font-size:10px!important;line-height:1.25!important;white-space:nowrap!important;
 }
-html body #traderProfileBack .profile-modal .profile-pagination{padding:6px 0 0!important}
-html body #traderProfileBack .profile-modal .profile-page-info{padding-top:3px!important;margin:0!important}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:7px 0 0!important}
+html body #traderProfileBack .profile-modal .profile-page-info{padding-top:4px!important;margin:0!important}
+@media(max-width:900px){
+ html body #traderProfileBack .profile-modal{
+  width:calc(100vw - 24px)!important;max-width:calc(100vw - 24px)!important;
+  height:90dvh!important;max-height:90dvh!important;padding:12px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:300px!important;min-height:260px!important;
+ }
+}
 @media(max-width:700px){
  html body #traderProfileBack .profile-modal{
   width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important;
@@ -3267,9 +3280,9 @@ html body #traderProfileBack .profile-modal .profile-page-info{padding-top:3px!i
   padding:10px!important;
  }
  html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
-  height:320px!important;min-height:320px!important;
+  height:280px!important;min-height:240px!important;
  }
- html body #traderProfileBack .profile-trades table{min-width:1050px!important}
+ html body #traderProfileBack .profile-trades table{min-width:900px!important}
 }
 </style>
 
