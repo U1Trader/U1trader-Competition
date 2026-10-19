@@ -2890,6 +2890,63 @@ html body #traderProfileBack .profile-modal .profile-page-info{
   }
 }
 </style>
+
+<style id="u1trader-profile-modal-actually-fullscreen-fix">
+/* Make the profile dialog itself use the viewport, not just stretch its contents. */
+html body #traderProfileBack.modalback{
+  padding:12px!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+html body #traderProfileBack > .modal.profile-modal{
+  box-sizing:border-box!important;
+  width:calc(100vw - 24px)!important;
+  max-width:calc(100vw - 24px)!important;
+  min-width:0!important;
+  height:calc(100dvh - 24px)!important;
+  max-height:calc(100dvh - 24px)!important;
+  min-height:0!important;
+  padding:14px 18px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  border-radius:16px!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileBalanceChart.profile-chart{
+  width:100%!important;
+  height:clamp(340px,43vh,500px)!important;
+  min-height:300px!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileBalanceHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileTradeHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack > .modal.profile-modal .profile-trades{
+  min-height:0!important;
+  flex:0 0 auto!important;
+  overflow:auto!important;
+  margin:0!important;
+}
+html body #traderProfileBack > .modal.profile-modal .profile-trades table{
+  width:100%!important;
+  min-width:1050px!important;
+}
+@media(max-width:700px){
+  html body #traderProfileBack > .modal.profile-modal{
+    width:calc(100vw - 12px)!important;
+    max-width:calc(100vw - 12px)!important;
+    height:calc(100dvh - 12px)!important;
+    max-height:calc(100dvh - 12px)!important;
+    padding:10px!important;
+  }
+  html body #traderProfileBack > .modal.profile-modal #profileBalanceChart.profile-chart{
+    height:320px!important;
+    min-height:320px!important;
+  }
+}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
