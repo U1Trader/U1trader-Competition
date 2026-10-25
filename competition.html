@@ -1114,8 +1114,9 @@ function getDailyLossStatus(t){
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
  const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
  const hasTodayTrade=trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
- const todayReports=reports.filter(r=>ruleRecordDayKey(r.date||r.createdAt)===todayKey);
- const hasTodayActivity=hasTodayTrade||todayReports.length>0;
+ // Report header date is not the trade date; use the actual trade exit timestamp.
+ const todayReports=reports.filter(r=>Array.isArray(r.trades)&&r.trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey));
+ const hasTodayActivity=hasTodayTrade;
  const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[])
    .filter(h=>h&&h.date&&Number.isFinite(Number(h.balance)))
    .map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)}))
@@ -1452,7 +1453,7 @@ function openTraderProfileCore(id){
  const todayTradePnl=todayTrades.reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
  const todayReports=dailyLossStatus.todayReports;
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
- const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
+ const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
