@@ -2089,9 +2089,10 @@ function getDailyLossStatus(t){
  const todayKey=ruleDayKey(new Date());
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
  const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const todayReports=reports.filter(r=>ruleRecordDayKey(r.date||r.createdAt)===todayKey);
+ // The report heading date is only the upload/report label. Each trade belongs to its own exit-date trading day.
  const todayTrades=trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
- const hasTodayActivity=todayReports.length>0||todayTrades.length>0;
+ const todayReports=reports.filter(r=>Array.isArray(r.trades)&&r.trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey));
+ const hasTodayActivity=todayTrades.length>0;
  const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[]).filter(h=>h&&h.date&&Number.isFinite(Number(h.balance))).map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)})).filter(h=>h.day&&h.day<todayKey).sort((a,b)=>b.day.localeCompare(a.day)||b.date.localeCompare(a.date));
  const firstReport=todayReports.filter(r=>r.balanceBefore!==null&&r.balanceBefore!==undefined&&r.balanceBefore!==''&&Number.isFinite(Number(r.balanceBefore))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))[0];
  const currentBalance=Number(t.current)||Number(t.start)||RULE_ACCOUNT_BASE;
@@ -2409,7 +2410,7 @@ function openTraderProfileCore(id){
  const todayTradePnl=todayTrades.reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
  const todayReports=dailyLossStatus.todayReports;
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
- const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
+ const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
