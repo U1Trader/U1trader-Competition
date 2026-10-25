@@ -1090,10 +1090,11 @@ function isNewYorkDaylightTime(date){
  const dstEnd=new Date(year,10,nthSunday(10,1),2,0,0,0);
  return date>=dstStart&&date<dstEnd;
 }
-// Exness daily rollover: 02:30 IST during US daylight time, 03:30 IST during US standard time.
+// Fixed daily trading-day reset at 03:29 India Standard Time (IST).
+// Browser-local date/time is used; the dashboard should be operated in IST.
 function ruleDayKey(value){
  const ms=ruleDateValue(value);if(!Number.isFinite(ms))return '';
- const d=new Date(ms),resetMinutes=isNewYorkDaylightTime(d)?150:210;
+ const d=new Date(ms),resetMinutes=3*60+29;
  if(d.getHours()*60+d.getMinutes()<resetMinutes)d.setDate(d.getDate()-1);
  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
