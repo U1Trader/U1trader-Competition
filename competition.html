@@ -1864,6 +1864,11 @@ html body.in-main-site > .wrap > section.competition-hero-layout{
   transform:translateY(0)!important;
 }
 </style>
+<style id="force-first-card-down-by-margin">
+/* Move the whole competition content block down below the navigation. */
+html body > div.wrap{margin-top:28px!important;}
+@media(max-width:800px){html body > div.wrap{margin-top:20px!important;}}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
