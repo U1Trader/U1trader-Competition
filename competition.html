@@ -1102,6 +1102,37 @@ function ruleDayKey(value){
  }
  return y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
 }
+// Report dates and balance-history dates are date-only labels, not midnight timestamps.
+// Keep those labels on the selected trading day; real trade timestamps still use the 03:29 IST boundary.
+function ruleRecordDayKey(value){
+ const raw=String(value??'').trim();
+ const match=raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+ return match?raw:ruleDayKey(value);
+}
+function getDailyLossStatus(t){
+ const todayKey=ruleDayKey(new Date());
+ const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
+ const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ const hasTodayTrade=trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
+ const todayReports=reports.filter(r=>ruleRecordDayKey(r.date||r.createdAt)===todayKey);
+ const hasTodayActivity=hasTodayTrade||todayReports.length>0;
+ const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[])
+   .filter(h=>h&&h.date&&Number.isFinite(Number(h.balance)))
+   .map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)}))
+   .filter(h=>h.day&&h.day<todayKey)
+   .sort((a,b)=>b.day.localeCompare(a.day)||b.date.localeCompare(a.date));
+ const latestPriorBalance=history.length?history[0].balance:null;
+ const firstReportWithOpening=todayReports
+   .filter(r=>Number.isFinite(Number(r.balanceBefore)))
+   .sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))[0];
+ const startBalance=Number(t.start)||RULE_ACCOUNT_BASE;
+ const currentBalance=Number(t.current)||startBalance;
+ const openingBalance=latestPriorBalance!==null?latestPriorBalance:
+   (firstReportWithOpening?Number(firstReportWithOpening.balanceBefore):(!hasTodayActivity?currentBalance:startBalance));
+ const dailyFloor=openingBalance*0.95;
+ return {todayKey,openingBalance,dailyFloor,hasTodayActivity,breached:hasTodayActivity&&currentBalance<=dailyFloor,
+   todayReports,todayTrades:trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey)};
+}
 function getTraderRuleBreaches(t){
  const breaches=[];
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
@@ -1125,10 +1156,9 @@ function getTraderRuleBreaches(t){
  // Historical combined-floating records were produced by a backend that grouped
  // candles by UTC calendar date, not the required 03:29 Asia/Kolkata trading day.
  // Do not let those misaligned records falsely mark a trader as breached.
- // Historical report P&L is not enough to prove a current-day equity breach.
- // The profile objective card computes today's live balance-vs-floor status below.
- // Do not make a past daily report permanently mark this trader as breached.
- const dailyBreach=false;
+ // Daily loss status is calculated from the same 03:29 IST trading-day opening balance
+ // used by the profile objective card, not from historical report dates or the fixed account base.
+ const dailyBreach=getDailyLossStatus(t).breached;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
@@ -1416,37 +1446,22 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
- const todayKey=ruleDayKey(new Date());
- const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
- const todayTradePnl=todayTrades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&ruleDayKey(r.createdAt||r.date)===todayKey);
+ const dailyLossStatus=getDailyLossStatus(t);
+ const todayKey=dailyLossStatus.todayKey;
+ const todayTrades=dailyLossStatus.todayTrades;
+ const todayTradePnl=todayTrades.reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
+ const todayReports=dailyLossStatus.todayReports;
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
  const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
  const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90;
- const allDailyTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const dateKey=value=>ruleDayKey(value);
- // One Exness trading day runs from 03:29 IST to the next 03:29 IST.
- // Combine ALL reports/trades assigned to that day; report upload time is not the trading date.
- const todayTradeItems=allDailyTrades.filter(tr=>dateKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
- const todayReportItems=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[])
-   .filter(r=>String(r.traderId)===String(t.id)&&dateKey(r.date||r.createdAt)===todayKey);
- const hasTodayActivity=todayTradeItems.length>0||todayReportItems.length>0;
- const priorBalanceSnapshots=(Array.isArray(t.balanceHistory)?t.balanceHistory:[])
-   .filter(h=>h&&h.date&&dateKey(h.date)<todayKey&&Number.isFinite(Number(h.balance)))
-   .sort((a,b)=>dateKey(b.date).localeCompare(dateKey(a.date))||String(b.date).localeCompare(String(a.date)));
- // If no trades/reports have been recorded for this trading day, current balance is
- // the latest known close and becomes today's opening reference (not initial balance).
- const todayOpeningBalance=hasTodayActivity
-   ? (priorBalanceSnapshots.length?Number(priorBalanceSnapshots[0].balance):startBalance)
-   : currentBalance;
- const dailyLimit=RULE_ACCOUNT_BASE*0.05;
- const dailyFloor=todayOpeningBalance-dailyLimit;
+ // Use the shared day key, opening-balance snapshot, floor and breach result everywhere.
+ const todayOpeningBalance=dailyLossStatus.openingBalance;
+ const dailyFloor=dailyLossStatus.dailyFloor;
+ const dailyBreached=dailyLossStatus.breached;
  const ruleBreachesForObjectives=getTraderRuleBreaches(t);
- // Current account balance reflects the cumulative result of all updates for this day.
- const dailyBreached=hasTodayActivity&&currentBalance<=dailyFloor;
  const overallBreached=ruleBreachesForObjectives.includes('Overall Loss');
  // Keep the profile headline in sync with the same day-based status shown on the card.
  const finalProfileBreaches=[...new Set([...ruleBreachesForObjectives.filter(x=>x!=='Maximum Daily Loss'),...(dailyBreached?['Maximum Daily Loss']:[])])];
