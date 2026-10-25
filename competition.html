@@ -1167,10 +1167,14 @@ function getTraderRuleBreaches(t){
  // Do not let those misaligned records falsely mark a trader as breached.
  // Daily loss status is calculated from the same 03:29 IST trading-day opening balance
  // used by the profile objective card, not from historical report dates or the fixed account base.
- // Apply the existing daily-loss rule only from the account's calculated daily status.
- // Do not use an account-wide historical flag here: it can incorrectly tag accounts
- // whose current/recorded trading-day equity never crossed the 5% daily floor.
- const dailyBreach=getDailyLossStatus(t).breached;
+ // Maximum Daily Loss is 5% of the fixed $50,000 account ($2,500) for a single
+ // trading day. Use each saved daily report's own P&L (not total account P&L and not
+ // an account-wide historical flag), plus the live/current-day equity calculation.
+ const hasReportedDailyLossBreach=reports.some(r=>{
+   const pnl=Number(r.dailyPnl);
+   return r.dailyPnl!==null&&r.dailyPnl!==undefined&&r.dailyPnl!==''&&Number.isFinite(pnl)&&pnl<=-2500;
+ });
+ const dailyBreach=getDailyLossStatus(t).breached||hasReportedDailyLossBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
