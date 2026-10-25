@@ -1167,7 +1167,13 @@ function getTraderRuleBreaches(t){
  // Do not let those misaligned records falsely mark a trader as breached.
  // Daily loss status is calculated from the same 03:29 IST trading-day opening balance
  // used by the profile objective card, not from historical report dates or the fixed account base.
- const dailyBreach=getDailyLossStatus(t).breached;
+ // Persisted historical daily-loss breaches must remain visible after the trading day ends.
+ const savedDailyBreaches=Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[];
+ const hasSavedDailyBreach=savedDailyBreaches.some(r=>String(r.traderId)===String(t.id));
+ // Re-evaluate saved daily reports: a report's cumulative daily P&L at or below -$2,500
+ // breaches the competition's fixed $50,000 / 5% daily-loss limit.
+ const hasReportDailyBreach=reports.some(r=>Number.isFinite(Number(r.dailyPnl))&&r.dailyPnl!==null&&r.dailyPnl!==undefined&&r.dailyPnl!==''&&Number(r.dailyPnl)<=-2500);
+ const dailyBreach=getDailyLossStatus(t).breached||hasSavedDailyBreach||hasReportDailyBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
