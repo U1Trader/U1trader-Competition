@@ -2127,23 +2127,15 @@ function getTraderRuleBreaches(t){
  });
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
  const combinedHistoricalDailyBreach=(Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[]).some(r=>String(r.traderId)===String(t.id)&&Number(r.estimatedCombinedFloatingPnl)<=-RULE_DAILY_LOSS_LIMIT);
- const dailyBreach=getDailyLossStatus(t).breached;
+ // Use only dated daily reports/equity snapshots for historical daily breaches.
+ // Never infer a daily breach from total account profit/loss or a broad historical flag.
+ const reportDailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
+ const dailyBreach=getDailyLossStatus(t).breached||equityDailyBreach||reportDailyBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
  const balance=Number(t.current),equity=(t.equity!==null&&t.equity!==undefined&&t.equity!==''?Number(t.equity):NaN);
  if((Number.isFinite(balance)&&balance<=RULE_OVERALL_FLOOR)||(Number.isFinite(equity)&&equity<=RULE_OVERALL_FLOOR))breaches.push('Overall Loss');
- // Use recorded reports/trades to find last activity. A fifth full inactive calendar day is a breach.
- const activityValues=[];
- reports.forEach(r=>activityValues.push(r.date,r.createdAt));
- trades.forEach(tr=>activityValues.push(tr.entryDateTime||tr.entryDate,tr.exitDateTime||tr.exitDate||tr.closedAt));
- (Array.isArray(t.balanceHistory)?t.balanceHistory:[]).forEach(h=>activityValues.push(h.date));
- activityValues.push(t.updated);
- const activityMs=activityValues.map(ruleDateValue).filter(Number.isFinite);
- if(activityMs.length){
-   const last=Math.max(...activityMs);const today=new Date();const lastDate=new Date(last);const todayMid=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();const lastMid=new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate()).getTime();
-   if(Math.floor((todayMid-lastMid)/86400000)>=5)breaches.push('Inactivity');
- }
  // Count overlapping entry-to-exit intervals. Missing timestamps cannot prove a layering breach.
  const seen=new Set(),events=[];
  trades.forEach((tr,index)=>{
@@ -2157,6 +2149,19 @@ function getTraderRuleBreaches(t){
  let open=0,layeringBreach=false;
  for(const event of events){open+=event.delta;if(open>3){layeringBreach=true;break;}}
  if(layeringBreach)breaches.push('Layering');
+ // Show Inactivity only when no other competition rule has been breached.
+ if(breaches.length===0){
+   const activityValues=[];
+   reports.forEach(r=>activityValues.push(r.date,r.createdAt));
+   trades.forEach(tr=>activityValues.push(tr.entryDateTime||tr.entryDate,tr.exitDateTime||tr.exitDate||tr.closedAt));
+   (Array.isArray(t.balanceHistory)?t.balanceHistory:[]).forEach(h=>activityValues.push(h.date));
+   activityValues.push(t.updated);
+   const activityMs=activityValues.map(ruleDateValue).filter(Number.isFinite);
+   if(activityMs.length){
+     const last=Math.max(...activityMs);const today=new Date();const lastDate=new Date(last);const todayMid=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();const lastMid=new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate()).getTime();
+     if(Math.floor((todayMid-lastMid)/86400000)>=5)breaches.push('Inactivity');
+   }
+ }
  return breaches;
 }
 // Rule violators always rank below every trader with no recorded breach, regardless of balance or return.
