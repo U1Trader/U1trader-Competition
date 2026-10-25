@@ -2118,7 +2118,7 @@ function getTraderRuleBreaches(t){
  // total for that day; only aggregate individual trades on days without a dailyPnl report.
  const reportPnlByDay=new Map();
  reports.forEach(r=>{
-   const day=ruleDayKey(r.date||r.createdAt),value=r.dailyPnl;
+   const day=(typeof r.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(r.date.trim()))?ruleRecordDayKey(r.date):ruleDayKey(r.createdAt||r.date),value=r.dailyPnl;
    const pnl=Number(value);
    if(day&&value!==null&&value!==undefined&&value!==''&&Number.isFinite(pnl)){
      if(!reportPnlByDay.has(day)||pnl<reportPnlByDay.get(day))reportPnlByDay.set(day,pnl);
@@ -2138,7 +2138,7 @@ function getTraderRuleBreaches(t){
  const tradeDailyBreach=[...tradePnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
  const equityByDay=new Map();
  reports.forEach(r=>{
-   const day=ruleDayKey(r.date||r.createdAt),eq=Number(r.equity);
+   const day=(typeof r.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(r.date.trim()))?ruleRecordDayKey(r.date):ruleDayKey(r.createdAt||r.date),eq=Number(r.equity);
    if(day&&r.equity!==null&&r.equity!==undefined&&r.equity!==''&&Number.isFinite(eq)){
      if(!equityByDay.has(day))equityByDay.set(day,[]);
      equityByDay.get(day).push({time:ruleDateValue(r.createdAt)||ruleDateValue(r.date),equity:eq});
