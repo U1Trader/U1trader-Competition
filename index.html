@@ -2075,9 +2075,28 @@ function ruleDateValue(value){
  if(mt5)return new Date(Number(mt5[1]),Number(mt5[2])-1,Number(mt5[3]),Number(mt5[4]||0),Number(mt5[5]||0),Number(mt5[6]||0)).getTime();
  const parsed=Date.parse(raw);return Number.isFinite(parsed)?parsed:NaN;
 }
+// Trading day is 03:29–03:28 Asia/Kolkata; use each trade's own timestamp.
 function ruleDayKey(value){
  const ms=ruleDateValue(value);if(!Number.isFinite(ms))return '';
- const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(ms));
+ const p={};parts.forEach(x=>p[x.type]=x.value);
+ let y=Number(p.year),m=Number(p.month),day=Number(p.day);
+ if(Number(p.hour)*60+Number(p.minute)<209){const prior=new Date(Date.UTC(y,m-1,day)-86400000);y=prior.getUTCFullYear();m=prior.getUTCMonth()+1;day=prior.getUTCDate();}
+ return y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+function ruleRecordDayKey(value){const raw=String(value??'').trim();return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:ruleDayKey(value);}
+function getDailyLossStatus(t){
+ const todayKey=ruleDayKey(new Date());
+ const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
+ const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ const todayTrades=trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
+ const todayReports=reports.filter(r=>Array.isArray(r.trades)&&r.trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey));
+ const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[]).filter(h=>h&&h.date&&Number.isFinite(Number(h.balance))).map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)})).filter(h=>h.day&&h.day<todayKey).sort((a,b)=>b.day.localeCompare(a.day)||b.date.localeCompare(a.date));
+ const firstReport=todayReports.filter(r=>r.balanceBefore!==null&&r.balanceBefore!==undefined&&r.balanceBefore!==''&&Number.isFinite(Number(r.balanceBefore))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))[0];
+ const currentBalance=Number(t.current)||Number(t.start)||RULE_ACCOUNT_BASE;
+ const openingBalance=history.length?history[0].balance:(firstReport?Number(firstReport.balanceBefore):currentBalance);
+ const dailyFloor=openingBalance*0.95;
+ return {todayKey,todayTrades,todayReports,openingBalance,dailyFloor,hasTodayActivity:todayTrades.length>0,breached:todayTrades.length>0&&currentBalance<=dailyFloor};
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
@@ -2097,7 +2116,7 @@ function getTraderRuleBreaches(t){
  });
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
  const combinedHistoricalDailyBreach=(Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[]).some(r=>String(r.traderId)===String(t.id)&&Number(r.estimatedCombinedFloatingPnl)<=-RULE_DAILY_LOSS_LIMIT);
- const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || combinedHistoricalDailyBreach;
+ const dailyBreach=getDailyLossStatus(t).breached;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
@@ -2382,23 +2401,22 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
- const nowForTradingDay=new Date(); const todayKey=[nowForTradingDay.getFullYear(),String(nowForTradingDay.getMonth()+1).padStart(2,'0'),String(nowForTradingDay.getDate()).padStart(2,'0')].join('-');
- const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
- const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
+ const dailyLossStatus=getDailyLossStatus(t);
+ const todayKey=dailyLossStatus.todayKey;
+ const todayTrades=dailyLossStatus.todayTrades;
+ const todayTradePnl=todayTrades.reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
+ const todayReports=dailyLossStatus.todayReports;
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
  const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
  const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90;
- const allDailyTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const dateKey=value=>String(value||'').slice(0,10).replace(/[.]/g,'-');
- const dailyOpenPnl=allDailyTrades.filter(tr=>{const d=dateKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date);return d&&d<todayKey;}).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayOpeningBalance=startBalance+dailyOpenPnl;
+ const todayOpeningBalance=dailyLossStatus.openingBalance;
  const dailyLimit=todayOpeningBalance*0.05;
+ const dailyFloor=dailyLossStatus.dailyFloor;
  const ruleBreachesForObjectives=getTraderRuleBreaches(t);
- const dailyBreached=ruleBreachesForObjectives.includes('Maximum Daily Loss');
+ const dailyBreached=dailyLossStatus.breached;
  const overallBreached=ruleBreachesForObjectives.includes('Overall Loss');
  const profitPct=Math.max(0,Math.min(100,(pl/Math.max(1,profitTarget-startBalance))*100));
  const balancePct=Math.max(0,Math.min(100,((currentBalance-overallFloor)/Math.max(1,startBalance-overallFloor))*100));
@@ -2410,7 +2428,7 @@ function openTraderProfileCore(id){
  setObj('objectiveProfitStatus',currentBalance>=profitTarget?'Passed':'Ongoing');
  setBar('objectiveProfitBar',profitPct,currentBalance>=profitTarget?'#15ad60':'#3b82f6');
  setObj('objectiveDailyValue','-'+fmt(dailyLimit).replace('$','')+' USD');
- setObj('objectiveDailyFloor',fmt(todayOpeningBalance-dailyLimit).replace('$',''));setObj('objectiveDailyCurrent',fmt(todayOpeningBalance).replace('$',''));
+ setObj('objectiveDailyFloor',fmt(dailyFloor).replace('$',''));setObj('objectiveDailyCurrent',fmt(todayOpeningBalance).replace('$',''));
  setObj('objectiveDailyStatus',dailyBreached?'Breached':'Passed');
  setObj('objectiveDailyMeta',dailyBreached?'Maximum Daily Loss detected':'5% daily loss limit');
  setBar('objectiveDailyBar',dailyUsage,dailyBreached?'#ef4444':'#15ad60');
