@@ -835,7 +835,12 @@ html body #competitionTopBar .ctb-in,html body #globalSiteNav{padding:10px 12px!
 html body #competitionTopBar .ctb-center-links,html body #globalSiteNav .gsn-main{justify-content:flex-start!important;gap:20px!important}
 html body #competitionTopBar .ctb-center-links a,html body #competitionTopBar .ctb-center-links button,html body #globalSiteNav .gsn-main a{font-size:12px!important}
 }
-</style></head>
+</style><style id="hero-top-gap-polish">
+/* Add breathing room between the shared top navigation and the competition hero. */
+html body .competition-hero-layout{margin-top:14px!important}
+@media(max-width:800px){html body .competition-hero-layout{margin-top:10px!important}}
+</style>
+</head>
 <body>
 <header id="competitionTopBar"><div class="ctb-in"><a class="ctb-logo" href="https://u1trader.github.io/#home" data-home="#home"><img src="https://u1trader.github.io/u1trader-logo-mark.jpg" alt=""><span>U1<span>TRADER</span></span></a><nav class="ctb-center-links" aria-label="Main navigation"><a href="https://u1trader.github.io/#home">Home</a><a href="https://u1trader.github.io/#discounts">Discounts</a><a href="https://u1trader.github.io/#payouts">Payout Gallery</a><a href="https://u1trader.github.io/#giveaways">Giveaways</a><a href="https://u1trader.github.io/U1trader-Competition/competition.html" class="active">Competition</a><a href="https://u1trader.github.io/#about">About</a><a href="https://u1trader.github.io/#contact">Contact</a></nav><nav class="ctb-links" aria-hidden="true"></nav></div></header>
 <div class="wrap">
