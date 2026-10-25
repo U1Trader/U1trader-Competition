@@ -1090,13 +1090,17 @@ function isNewYorkDaylightTime(date){
  const dstEnd=new Date(year,10,nthSunday(10,1),2,0,0,0);
  return date>=dstStart&&date<dstEnd;
 }
-// Fixed daily trading-day reset at 03:29 India Standard Time (IST).
-// Browser-local date/time is used; the dashboard should be operated in IST.
+// Exness trading day resets at 03:29 Asia/Kolkata, regardless of browser timezone.
 function ruleDayKey(value){
  const ms=ruleDateValue(value);if(!Number.isFinite(ms))return '';
- const d=new Date(ms),resetMinutes=3*60+29;
- if(d.getHours()*60+d.getMinutes()<resetMinutes)d.setDate(d.getDate()-1);
- return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(ms));
+ const p={};parts.forEach(x=>p[x.type]=x.value);
+ let y=Number(p.year),m=Number(p.month),day=Number(p.day);
+ if(Number(p.hour)*60+Number(p.minute)<3*60+29){
+   const prior=new Date(Date.UTC(y,m-1,day)-86400000);
+   y=prior.getUTCFullYear();m=prior.getUTCMonth()+1;day=prior.getUTCDate();
+ }
+ return y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
@@ -1609,7 +1613,7 @@ async function analyzeProfileHistoricalMae(options={}){
     const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
     if(error)throw error;
     if(!result||!Array.isArray(result.results))throw new Error(result?.error||'Historical MAE service returned no results.');
-    (Array.isArray(result.dailyLossBreaches)?result.dailyLossBreaches:[]).forEach(b=>dailyBreaches.push({...b,traderId:t.id,resetVersion:'exness-dst-aware-v1'}));
+    (Array.isArray(result.dailyLossBreaches)?result.dailyLossBreaches:[]).forEach(b=>dailyBreaches.push({...b,traderId:t.id,resetVersion:'exness-0329-ist-v2'}));
     for(const r of result.results){
      const trade=batch[Number(r.tradeId)];
      if(!trade)continue;
