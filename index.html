@@ -2100,9 +2100,16 @@ function getDailyLossStatus(t){
  const todayKey=ruleDayKey(new Date());
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
  const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(tr=>({...tr,_reportDate:r.date})))];
- const todayTrades=trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime||tr.date||tr._reportDate)===todayKey);
+ const dayOf=tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime||tr.date||tr._reportDate);
+ const todayTrades=trades.filter(tr=>dayOf(tr)===todayKey);
+ const todayReports=reports.filter(r=>Array.isArray(r.trades)&&r.trades.some(tr=>dayOf({...tr,_reportDate:r.date})===todayKey));
  const todayPnl=todayTrades.reduce((sum,tr)=>{const v=tr.pnl??tr.profit??tr.netProfit;const n=Number(v);return v!==null&&v!==undefined&&v!==''&&Number.isFinite(n)?sum+n:sum;},0);
- return {todayKey,todayTrades,todayPnl,hasTodayActivity:todayTrades.length>0,breached:todayTrades.length>0&&todayPnl<=-RULE_DAILY_LOSS_LIMIT};
+ const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[]).filter(h=>h&&h.date&&Number.isFinite(Number(h.balance))).map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)})).filter(h=>h.day&&h.day<todayKey).sort((a,b)=>b.day.localeCompare(a.day)||b.date.localeCompare(a.date));
+ const firstReport=todayReports.filter(r=>r.balanceBefore!==null&&r.balanceBefore!==undefined&&r.balanceBefore!==''&&Number.isFinite(Number(r.balanceBefore))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))[0];
+ const currentBalance=Number(t.current)||Number(t.start)||RULE_ACCOUNT_BASE;
+ const openingBalance=history.length?history[0].balance:(firstReport?Number(firstReport.balanceBefore):currentBalance);
+ const dailyFloor=openingBalance-RULE_DAILY_LOSS_LIMIT;
+ return {todayKey,todayTrades,todayReports,todayPnl,openingBalance,dailyFloor,hasTodayActivity:todayTrades.length>0,breached:todayTrades.length>0&&todayPnl<=-RULE_DAILY_LOSS_LIMIT};
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
