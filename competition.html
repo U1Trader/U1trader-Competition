@@ -1179,7 +1179,7 @@ function getTraderRuleBreaches(t){
  const activityMs=activityValues.map(ruleDateValue).filter(Number.isFinite);
  if(activityMs.length){
    const last=Math.max(...activityMs);const today=new Date();const lastDate=new Date(last);const todayMid=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();const lastMid=new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate()).getTime();
-   if(Math.floor((todayMid-lastMid)/86400000)>=5)breaches.push('Inactivity');
+   if(breaches.length===0&&Math.floor((todayMid-lastMid)/86400000)>=5)breaches.push('Inactivity');
  }
  // Count overlapping entry-to-exit intervals. Missing timestamps cannot prove a layering breach.
  const seen=new Set(),events=[];
