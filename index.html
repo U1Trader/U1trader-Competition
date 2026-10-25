@@ -2112,11 +2112,21 @@ function getDailyLossStatus(t){
 function getTraderRuleBreaches(t){
  const breaches=[];
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
- // Daily loss is checked against the fixed $50,000 account: 5% = $2,500.
- // Sum all recorded report P&L for each trading date, so separate reports/trades combine.
+ // Maximum Daily Loss: 5% of the fixed $50,000 account ($2,500) within one
+ // competition trading day (03:29–03:28 IST). Combine dated report P&L and individual
+ // trade P&L per trading day; never use total account P&L as a daily breach.
  const pnlByDay=new Map();
- reports.forEach(r=>{const day=ruleDayKey(r.date||r.createdAt);const pnl=Number(r.dailyPnl);if(day&&Number.isFinite(pnl))pnlByDay.set(day,(pnlByDay.get(day)||0)+pnl);});
+ const addDailyPnl=(day,value)=>{const pnl=Number(value);if(day&&value!==null&&value!==undefined&&value!==''&&Number.isFinite(pnl))pnlByDay.set(day,(pnlByDay.get(day)||0)+pnl);};
+ reports.forEach(r=>{const day=ruleDayKey(r.date||r.createdAt);if(r.dailyPnl!==null&&r.dailyPnl!==undefined&&r.dailyPnl!=='')addDailyPnl(day,r.dailyPnl);});
  const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ const seenDailyTrades=new Set();
+ trades.forEach(tr=>{
+   const day=ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||tr.entryDateTime||tr.entryDate);
+   const key=String(tr.tradeNumber||tr.ticket||(String(tr.symbol||'')+'|'+String(tr.side||tr.type||'')+'|'+String(tr.entryDateTime||tr.entryDate||'')+'|'+String(tr.exitDateTime||tr.exitDate||tr.closedAt||'')+'|'+String(tr.pnl??tr.profit??'')));
+   if(seenDailyTrades.has(key))return;seenDailyTrades.add(key);
+   const value=tr.pnl??tr.profit;
+   if(value!==null&&value!==undefined&&value!=='')addDailyPnl(day,value);
+ });
  const equityByDay=new Map();
  reports.forEach(r=>{
    const day=ruleDayKey(r.date||r.createdAt),eq=Number(r.equity);
@@ -2130,7 +2140,7 @@ function getTraderRuleBreaches(t){
  // Use only dated daily reports/equity snapshots for historical daily breaches.
  // Never infer a daily breach from total account profit/loss or a broad historical flag.
  const reportDailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
- const dailyBreach=getDailyLossStatus(t).breached||equityDailyBreach||reportDailyBreach;
+ const dailyBreach=getDailyLossStatus(t).breached||equityDailyBreach||reportDailyBreach||combinedHistoricalDailyBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
