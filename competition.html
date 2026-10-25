@@ -1825,6 +1825,22 @@ body.admin-mode .grid,
  if(btn){btn.textContent='Show reports';btn.setAttribute('aria-expanded','false');}
 })();
 </script>
+
+<style id="competition-hero-top-gap-strong-final">
+/* Final override: keep a clear gap between the navigation border and the hero card. */
+html body .wrap > section.competition-hero-layout{
+  margin-top:20px!important;
+  position:relative!important;
+  top:auto!important;
+}
+html body .wrap{
+  padding-top:20px!important;
+}
+@media(max-width:800px){
+  html body .wrap > section.competition-hero-layout{margin-top:14px!important;}
+  html body .wrap{padding-top:14px!important;}
+}
+</style>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
