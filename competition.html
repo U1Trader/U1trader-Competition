@@ -1118,10 +1118,12 @@ function getDailyLossStatus(t){
  const todayKey=ruleDayKey(new Date());
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
  const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const hasTodayTrade=trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
- // Report header date is not the trade date; use the actual trade exit timestamp.
- const todayReports=reports.filter(r=>Array.isArray(r.trades)&&r.trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey));
- const hasTodayActivity=hasTodayTrade;
+ // Daily loss is an equity rule: closed P/L and floating P/L both count.
+ // Activity includes trades opened or closed today, a report created today, or a saved balance/equity snapshot today.
+ const hasTodayTrade=trades.some(tr=>ruleDayKey(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt||tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
+ const todayReports=reports.filter(r=>ruleDayKey(r.date||r.createdAt)===todayKey||Array.isArray(r.trades)&&r.trades.some(tr=>ruleDayKey(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt||tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey));
+ const todayHistory=(Array.isArray(t.balanceHistory)?t.balanceHistory:[]).some(h=>h&&ruleRecordDayKey(h.date)===todayKey);
+ const hasTodayActivity=hasTodayTrade||todayReports.length>0||todayHistory;
  const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[])
    .filter(h=>h&&h.date&&Number.isFinite(Number(h.balance)))
    .map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)}))
@@ -1136,8 +1138,9 @@ function getDailyLossStatus(t){
  const openingBalance=latestPriorBalance!==null?latestPriorBalance:
    (firstReportWithOpening?Number(firstReportWithOpening.balanceBefore):(!hasTodayActivity?currentBalance:startBalance));
  const dailyFloor=openingBalance*0.95;
- return {todayKey,openingBalance,dailyFloor,hasTodayActivity,breached:hasTodayActivity&&currentBalance<=dailyFloor,
-   todayReports,todayTrades:trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey)};
+ const currentEquity=Number.isFinite(Number(t.equity))?Number(t.equity):currentBalance;
+ return {todayKey,openingBalance,dailyFloor,hasTodayActivity,currentEquity,breached:hasTodayActivity&&currentEquity<=dailyFloor,
+   todayReports,todayTrades:trades.filter(tr=>ruleDayKey(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt||tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey)};
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
