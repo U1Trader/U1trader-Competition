@@ -1428,15 +1428,24 @@ function openTraderProfileCore(id){
  const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90;
  const allDailyTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
  const dateKey=value=>ruleDayKey(value);
+ // Daily loss must be calculated from the opening balance of THIS Exness trading day
+ // (03:29 Asia/Kolkata reset), not from the date a screenshot/report was uploaded.
+ // Prefer the last saved balance snapshot before today's trading day.
+ const priorBalanceSnapshots=(Array.isArray(t.balanceHistory)?t.balanceHistory:[])
+   .filter(h=>h&&h.date&&dateKey(h.date)<todayKey&&Number.isFinite(Number(h.balance)))
+   .sort((a,b)=>dateKey(b.date).localeCompare(dateKey(a.date))||String(b.date).localeCompare(String(a.date)));
  const dailyOpenPnl=allDailyTrades.filter(tr=>{const d=dateKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date);return d&&d<todayKey;}).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayOpeningBalance=startBalance+dailyOpenPnl;
+ const todayOpeningBalance=priorBalanceSnapshots.length?Number(priorBalanceSnapshots[0].balance):startBalance+dailyOpenPnl;
  const dailyLimit=todayOpeningBalance*0.05;
  const ruleBreachesForObjectives=getTraderRuleBreaches(t);
- // Daily loss is a current-day threshold, not a permanent historical status.
- // Compare current balance with the current trading day's floor; stale reports
- // from previous days must not keep this card red after the reset.
+ // A breach is current-day balance at/below the current trading day's 5% floor.
  const dailyBreached=currentBalance<=todayOpeningBalance-dailyLimit;
  const overallBreached=ruleBreachesForObjectives.includes('Overall Loss');
+ // Keep the profile headline in sync with the same day-based status shown on the card.
+ const finalProfileBreaches=[...new Set([...ruleBreachesForObjectives.filter(x=>x!=='Maximum Daily Loss'),...(dailyBreached?['Maximum Daily Loss']:[])])];
+ window.profileTraderHasBreach=finalProfileBreaches.length>0;
+ const finalBreachStatus=$('profileBreachStatus');
+ if(finalBreachStatus){finalBreachStatus.textContent=finalProfileBreaches.length?'BREACHED: '+finalProfileBreaches.join(', '):'Rule status: No breach';finalBreachStatus.classList.toggle('breached',finalProfileBreaches.length>0);}
  const profitPct=Math.max(0,Math.min(100,(pl/Math.max(1,profitTarget-startBalance))*100));
  const balancePct=Math.max(0,Math.min(100,((currentBalance-overallFloor)/Math.max(1,startBalance-overallFloor))*100));
  const dailyUsage=dailyBreached?100:0;
