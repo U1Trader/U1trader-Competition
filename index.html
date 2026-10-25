@@ -2099,38 +2099,33 @@ function ruleRecordDayKey(value){const raw=String(value??'').trim();return /^\d{
 function getDailyLossStatus(t){
  const todayKey=ruleDayKey(new Date());
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
- const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const todayTrades=trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
- const todayReports=reports.filter(r=>Array.isArray(r.trades)&&r.trades.some(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey));
- const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[]).filter(h=>h&&h.date&&Number.isFinite(Number(h.balance))).map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)})).filter(h=>h.day&&h.day<todayKey).sort((a,b)=>b.day.localeCompare(a.day)||b.date.localeCompare(a.date));
- const firstReport=todayReports.filter(r=>r.balanceBefore!==null&&r.balanceBefore!==undefined&&r.balanceBefore!==''&&Number.isFinite(Number(r.balanceBefore))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))[0];
- const currentBalance=Number(t.current)||Number(t.start)||RULE_ACCOUNT_BASE;
- const openingBalance=history.length?history[0].balance:(firstReport?Number(firstReport.balanceBefore):currentBalance);
- const dailyFloor=openingBalance*0.95;
- return {todayKey,todayTrades,todayReports,openingBalance,dailyFloor,hasTodayActivity:todayTrades.length>0,breached:todayTrades.length>0&&currentBalance<=dailyFloor};
+ const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(tr=>({...tr,_reportDate:r.date})))];
+ const todayTrades=trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime||tr.date||tr._reportDate)===todayKey);
+ const todayPnl=todayTrades.reduce((sum,tr)=>{const v=tr.pnl??tr.profit??tr.netProfit;const n=Number(v);return v!==null&&v!==undefined&&v!==''&&Number.isFinite(n)?sum+n:sum;},0);
+ return {todayKey,todayTrades,todayPnl,hasTodayActivity:todayTrades.length>0,breached:todayTrades.length>0&&todayPnl<=-RULE_DAILY_LOSS_LIMIT};
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
- // Maximum Daily Loss is evaluated by the ACTUAL trade exit date/time, not the
- // report title/date. One uploaded report can contain trades from several days.
- // Sum each day's closed-trade P&L across all reports; ignore report-level dailyPnl
- // because it may represent the whole upload period rather than one trading day.
- const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ // Calculate closed-trade P&L by the actual exit trading day; the trading day resets at 03:29 IST.
+ // The report date is a fallback only when an individual trade has no exit timestamp.
+ const reportTrades=reports.flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(tr=>({...tr,_reportDate:r.date})));
+ const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
  const tradePnlByDay=new Map(),seenDailyTrades=new Set();
  trades.forEach(tr=>{
-   const time=tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.date;
+   const time=tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime||tr.date||tr._reportDate;
    const day=ruleDayKey(time);
-   const key=String(tr.tradeNumber||tr.ticket||(String(tr.symbol||'')+'|'+String(tr.side||tr.type||'')+'|'+String(tr.entryDateTime||tr.entryDate||'')+'|'+String(tr.exitDateTime||tr.exitDate||tr.closedAt||'')+'|'+String(tr.pnl??tr.profit??'')));
-   if(!day||seenDailyTrades.has(key))return;
+   const value=tr.pnl??tr.profit??tr.netProfit,pnl=Number(value);
+   if(!day||value===null||value===undefined||value===''||!Number.isFinite(pnl))return;
+   const identity=String(tr.tradeNumber||tr.ticket||[tr.symbol||'',tr.side||tr.type||'',tr.entryDateTime||tr.entryDate||'',time,tr.entryPrice||'',tr.exitPrice||'',pnl].join('|'));
+   const key=day+'|'+identity;
+   if(seenDailyTrades.has(key))return;
    seenDailyTrades.add(key);
-   const value=tr.pnl??tr.profit,pnl=Number(value);
-   if(value===null||value===undefined||value===''||!Number.isFinite(pnl))return;
    tradePnlByDay.set(day,(tradePnlByDay.get(day)||0)+pnl);
  });
  const tradeDailyBreach=[...tradePnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
- // Only dated, day-specific evidence can trigger Maximum Daily Loss.
- const dailyBreach=getDailyLossStatus(t).breached||tradeDailyBreach;
+ // Do not use current-vs-opening balance as a daily-loss proxy; it can falsely tag overall losses.
+ const dailyBreach=tradeDailyBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
