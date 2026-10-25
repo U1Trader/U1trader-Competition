@@ -3764,3 +3764,15 @@ html body.in-main-site #competitionsHub{
  margin:0!important;padding-top:30px!important;scroll-margin-top:0!important;
 }
 </style>
+
+<style id="actual-first-competition-card-gap-final">
+/* Actual page uses #competitionsHub in index.html. Space the first card itself below the navbar. */
+html body #competitionsHub > .competition-hero-layout,
+html body #competitionsHub .competition-hero-layout{
+  margin-top:28px!important;
+}
+@media(max-width:800px){
+  html body #competitionsHub > .competition-hero-layout,
+  html body #competitionsHub .competition-hero-layout{margin-top:20px!important;}
+}
+</style>
