@@ -2075,9 +2075,29 @@ function ruleDateValue(value){
  if(mt5)return new Date(Number(mt5[1]),Number(mt5[2])-1,Number(mt5[3]),Number(mt5[4]||0),Number(mt5[5]||0),Number(mt5[6]||0)).getTime();
  const parsed=Date.parse(raw);return Number.isFinite(parsed)?parsed:NaN;
 }
+// U1Trader trading day is 03:29–03:28 Asia/Kolkata. Date-only report labels stay on their selected date.
 function ruleDayKey(value){
  const ms=ruleDateValue(value);if(!Number.isFinite(ms))return '';
- const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(ms));
+ const p={};parts.forEach(x=>p[x.type]=x.value);
+ let y=Number(p.year),m=Number(p.month),day=Number(p.day);
+ if(Number(p.hour)*60+Number(p.minute)<209){const prior=new Date(Date.UTC(y,m-1,day)-86400000);y=prior.getUTCFullYear();m=prior.getUTCMonth()+1;day=prior.getUTCDate();}
+ return y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+function ruleRecordDayKey(value){const raw=String(value??'').trim();return /^\\d{4}-\\d{2}-\\d{2}$/.test(raw)?raw:ruleDayKey(value);}
+function getDailyLossStatus(t){
+ const todayKey=ruleDayKey(new Date());
+ const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
+ const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
+ const todayReports=reports.filter(r=>ruleRecordDayKey(r.date||r.createdAt)===todayKey);
+ const todayTrades=trades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey);
+ const hasTodayActivity=todayReports.length>0||todayTrades.length>0;
+ const history=(Array.isArray(t.balanceHistory)?t.balanceHistory:[]).filter(h=>h&&h.date&&Number.isFinite(Number(h.balance))).map(h=>({day:ruleRecordDayKey(h.date),balance:Number(h.balance),date:String(h.date)})).filter(h=>h.day&&h.day<todayKey).sort((a,b)=>b.day.localeCompare(a.day)||b.date.localeCompare(a.date));
+ const firstReport=todayReports.filter(r=>r.balanceBefore!==null&&r.balanceBefore!==undefined&&r.balanceBefore!==''&&Number.isFinite(Number(r.balanceBefore))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))[0];
+ const currentBalance=Number(t.current)||Number(t.start)||RULE_ACCOUNT_BASE;
+ const openingBalance=history.length?history[0].balance:(firstReport?Number(firstReport.balanceBefore):currentBalance);
+ const dailyFloor=openingBalance*0.95;
+ return {todayKey,todayReports,todayTrades,openingBalance,dailyFloor,hasTodayActivity,breached:hasTodayActivity&&currentBalance<=dailyFloor};
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
@@ -2097,7 +2117,8 @@ function getTraderRuleBreaches(t){
  });
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
  const combinedHistoricalDailyBreach=(Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[]).some(r=>String(r.traderId)===String(t.id)&&Number(r.estimatedCombinedFloatingPnl)<=-RULE_DAILY_LOSS_LIMIT);
- const dailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT) || equityDailyBreach || combinedHistoricalDailyBreach;
+ // Shared current-day balance rule avoids stale historical report/MAE flags.
+ const dailyBreach=getDailyLossStatus(t).breached;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
@@ -2382,23 +2403,22 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
- const nowForTradingDay=new Date(); const todayKey=[nowForTradingDay.getFullYear(),String(nowForTradingDay.getMonth()+1).padStart(2,'0'),String(nowForTradingDay.getDate()).padStart(2,'0')].join('-');
- const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
- const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
+ const dailyLossStatus=getDailyLossStatus(t);
+ const todayKey=dailyLossStatus.todayKey;
+ const todayTrades=dailyLossStatus.todayTrades;
+ const todayTradePnl=todayTrades.reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
+ const todayReports=dailyLossStatus.todayReports;
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
  const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
  // Compact objective strip: no starting-balance card and no minimum-profitable-days card.
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
  const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90;
- const allDailyTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const dateKey=value=>String(value||'').slice(0,10).replace(/[.]/g,'-');
- const dailyOpenPnl=allDailyTrades.filter(tr=>{const d=dateKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date);return d&&d<todayKey;}).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayOpeningBalance=startBalance+dailyOpenPnl;
+ const todayOpeningBalance=dailyLossStatus.openingBalance;
  const dailyLimit=todayOpeningBalance*0.05;
+ const dailyFloor=dailyLossStatus.dailyFloor;
  const ruleBreachesForObjectives=getTraderRuleBreaches(t);
- const dailyBreached=ruleBreachesForObjectives.includes('Maximum Daily Loss');
+ const dailyBreached=dailyLossStatus.breached;
  const overallBreached=ruleBreachesForObjectives.includes('Overall Loss');
  const profitPct=Math.max(0,Math.min(100,(pl/Math.max(1,profitTarget-startBalance))*100));
  const balancePct=Math.max(0,Math.min(100,((currentBalance-overallFloor)/Math.max(1,startBalance-overallFloor))*100));
@@ -2410,7 +2430,2583 @@ function openTraderProfileCore(id){
  setObj('objectiveProfitStatus',currentBalance>=profitTarget?'Passed':'Ongoing');
  setBar('objectiveProfitBar',profitPct,currentBalance>=profitTarget?'#15ad60':'#3b82f6');
  setObj('objectiveDailyValue','-'+fmt(dailyLimit).replace('$','')+' USD');
- setObj('objectiveDailyFloor',fmt(todayOpeningBalance-dailyLimit).replace('$',''));setObj('objectiveDailyCurrent',fmt(todayOpeningBalance).replace('$',''));
+ setObj('objectiveDailyFloor',fmt(dailyFloor).replace('
+ setObj('objectiveDailyStatus',dailyBreached?'Breached':'Passed');
+ setObj('objectiveDailyMeta',dailyBreached?'Maximum Daily Loss detected':'5% daily loss limit');
+ setBar('objectiveDailyBar',dailyUsage,dailyBreached?'#ef4444':'#15ad60');
+ setObj('objectiveBalanceMeta',fmt(currentBalance));
+ setBar('objectiveBalanceBar',balancePct,currentBalance<=overallFloor?'#ef4444':'#15ad60');
+ setObj('objectivePlStatus',pl>=0?'Profit':'Loss');
+ setObj('objectivePlMeta',fmt(pl)+' total P/L');
+ setBar('objectivePlBar',profitPct,pl>=0?'#15ad60':'#ef4444');
+ setObj('objectiveMaxValue','-'+fmt(5000).replace('$','')+' USD');
+ setObj('objectiveMaxStatus',overallBreached?'Breached':'Passed');
+ setObj('objectiveMaxMeta','10% overall loss limit');
+ setBar('objectiveMaxBar',100-balancePct,overallBreached?'#ef4444':'#15ad60');
+ $('objectiveDailyStatus').classList.toggle('breach',dailyBreached);$('objectiveDailyStatus').classList.toggle('passed',!dailyBreached);
+ $('objectiveMaxStatus').classList.toggle('breach',overallBreached);$('objectiveMaxStatus').classList.toggle('passed',!overallBreached);
+ try{
+ const reportTradesForChart=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})).length?r.trades.map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})):[]);
+ const allChartTrades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTradesForChart]
+   .filter(x=>Number.isFinite(Number(x.pnl??x.profit)))
+   .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
+ const startVal=Number(t.start)||0;
+ let runningBalance=startVal;
+ // Plot every closed trade as its own cumulative balance point; only label each trading date once.
+ const uniqueTrades=new Map();
+ allChartTrades.forEach((trade,index)=>{
+   const raw=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const key=maeTradeKey(trade)||[raw,trade.symbol||'',trade.pnl??trade.profit??'',index].join('|');
+   if(!uniqueTrades.has(key))uniqueTrades.set(key,trade);
+ });
+ const tradePoints=Array.from(uniqueTrades.values()).sort((a,b)=>
+   String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||''))
+ );
+ const points=[{date:'Start',balance:startVal,day:'Start'}];
+ tradePoints.forEach(trade=>{
+   runningBalance+=Number(trade.pnl??trade.profit)||0;
+   const raw=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const day=raw.slice(0,10).replace(/[.]/g,'-');
+   points.push({date:raw||day||'Trade',day:day||'Unknown date',balance:runningBalance});
+ });
+ // If there are no closed trades, use the saved balance history as a fallback.
+ if(!tradePoints.length){
+   const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
+   const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),day:String(p.date),balance:Number(p.balance)}));
+   points.push(...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date))));
+   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',day:t.updated||'Current',balance:Number(t.current)||0});
+ }
+ const vals=points.map(p=>Number(p.balance)||0);
+ const maxLossLevel=startVal-5000;
+ const profitTargetLevel=startVal*1.03;
+ const currentDailyLossFloor=todayOpeningBalance-dailyLimit;
+ // Keep every point visible; the vertical scale includes at least +/-5% of starting balance.
+ // Only the top (+5%) and bottom (-5%) price labels are shown to keep the axis clean.
+ const fivePct=Math.max(Math.abs(startVal)*0.06,1);
+ const twoPct=Math.max(Math.abs(startVal)*0.02,1);
+ // Axis expands in 2% increments when balances move beyond the +/-5% reference range.
+ const rawMin=Math.min(startVal-fivePct,Math.min(...vals),maxLossLevel,currentDailyLossFloor,profitTargetLevel);
+ const rawMax=Math.max(startVal+fivePct,Math.max(...vals),maxLossLevel,currentDailyLossFloor,profitTargetLevel);
+ const step=twoPct;
+ const axisMin=startVal-Math.ceil((startVal-rawMin)/step)*step;
+ const axisMax=startVal+Math.ceil((rawMax-startVal)/step)*step;
+ const plotMin=axisMin,plotMax=axisMax,axisSpan=Math.max(plotMax-plotMin,1);
+ const yTop=12,yBottom=315,plotHeight=yBottom-yTop;
+ const yFor=v=>yBottom-((v-plotMin)/axisSpan)*plotHeight;
+ const plotLeft=130,plotRight=1035;
+ const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
+ const poly=coords.map(p=>p.x+','+p.y).join(' ');
+ let svg='<rect x="0" y="0" width="1100" height="375" fill="#0b1220"/>';
+ // Label the +/-5% limits and every 2% balance level inside them; continue 2% levels if the balance exceeds 5%.
+ const priceLevels=[];
+ for(let price=axisMax;price>=axisMin-twoPct*0.01;price-=twoPct){
+   priceLevels.push({price,kind:'two'});
+ }
+ [startVal+fivePct,startVal-fivePct].forEach(price=>{
+   if(!priceLevels.some(x=>Math.abs(x.price-price)<1))priceLevels.push({price,kind:'five'});
+ });
+ priceLevels.sort((a,b)=>b.price-a.price).forEach(item=>{
+   const y=yFor(item.price),isFive=item.kind==='five';
+   if(y>=yTop-1&&y<=yBottom+1){
+     svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="'+(isFive?'#8291a8':'#26364d')+'" stroke-width="'+(isFive?'1.25':'0.8')+'"/>';
+     svg+='<text x="10" y="'+Math.max(12,Math.min(yBottom+1,y-3))+'" fill="'+(isFive?'#ffffff':'#cbd5e1')+'" font-size="'+(isFive?'11.5':'10.5')+'" font-weight="'+(isFive?'800':'600')+'" font-family="Inter,Arial,sans-serif">'+esc(fmt(item.price))+'</text>';
+   }
+ });
+ // Risk/target reference lines remain visible even when the current daily floor is close to the max-loss line.
+ const maxLossY=yFor(maxLossLevel),dailyLossY=yFor(currentDailyLossFloor);
+ svg+='<line x1="130" y1="'+maxLossY+'" x2="1060" y2="'+maxLossY+'" stroke="#ff4355" stroke-width="2.2"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#18c99a" stroke-width="1.7"><title>Profit target: '+esc(fmt(profitTargetLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffc247" stroke-width="1.8" stroke-dasharray="4 5"><title>Daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
+ svg+='<polyline points="'+poly+'" fill="none" stroke="#3b9cff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+ // Each trade close has its own visible point; dates are printed once per day.
+ const labelledDays=new Set();
+ coords.forEach((p,i)=>{
+   const point=points[i],day=String(point.day||point.date||'');
+   const title=String(point.date||'').slice(0,19);
+   if(i===coords.length-1)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="7" fill="none" stroke="#ffffff" stroke-width="1.8"><title>Current balance: '+esc(fmt(point.balance))+'</title></circle>';
+   svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(i===coords.length-1?'3.6':'2.6')+'" fill="#f8fafc" stroke="#3b9cff" stroke-width="1.1"><title>'+esc(title)+' — Balance after close: '+esc(fmt(point.balance))+'</title></circle>';
+   if(i===0||!labelledDays.has(day)){
+     const label=i===0?'Start':day.slice(0,10);
+     svg+='<text x="'+p.x+'" y="337" text-anchor="'+(p.x<180?'start':p.x>990?'end':'middle')+'" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label)+'</text>';
+     labelledDays.add(day);
+   }
+ });
+ // High-contrast, readable legend for all three horizontal reference lines.
+ svg+='<line x1="72" y1="361" x2="94" y2="361" stroke="#ff4355" stroke-width="2.4"/><text x="101" y="365" fill="#ff7b87" font-size="11.5" font-weight="700">Max loss: '+esc(fmt(maxLossLevel))+'</text>';
+ svg+='<line x1="388" y1="361" x2="410" y2="361" stroke="#ffc247" stroke-width="2.2" stroke-dasharray="4 4"/><text x="417" y="365" fill="#ffd777" font-size="11.5" font-weight="700">Daily loss floor: '+esc(fmt(currentDailyLossFloor))+' (5% below day open)</text>';
+ svg+='<line x1="790" y1="361" x2="812" y2="361" stroke="#18c99a" stroke-width="2.2"/><text x="819" y="365" fill="#58e4bd" font-size="11.5" font-weight="700">Profit target: '+esc(fmt(profitTargetLevel))+'</text>';
+ $('profileBalanceChart').innerHTML=svg;
+
+
+ }catch(chartError){
+ console.error('Profile chart render failed:',chartError);
+ const chartEl=$('profileBalanceChart');
+ if(chartEl){
+  /* Keep a visible fallback chart if legacy trade data contains an unexpected field. */
+  const sb=Number(t.start)||0, cb=Number(t.current)||sb;
+  const low=Math.floor((Math.min(sb,cb)-5000)/1000)*1000, high=Math.ceil((Math.max(sb,cb)+3000)/1000)*1000;
+  const span=Math.max(1,high-low), y=v=>300-((v-low)/span)*250;
+  let fallback='<rect width="1100" height="375" fill="#0b1220"/>';
+  for(let v=low;v<=high;v+=1000)fallback+='<line x1="80" y1="'+y(v)+'" x2="1060" y2="'+y(v)+'" stroke="#26364d"/><text x="12" y="'+(y(v)-4)+'" fill="#f1f5f9" font-size="12">'+esc(Math.round(v).toLocaleString('en-US'))+'</text>';
+  fallback+='<line x1="130" y1="'+y(sb-5000)+'" x2="1060" y2="'+y(sb-5000)+'" stroke="#ff3048" stroke-width="2"/><line x1="130" y1="'+y(sb*1.03)+'" x2="1060" y2="'+y(sb*1.03)+'" stroke="#089981" stroke-width="1.5"/><polyline points="130,'+y(sb)+' 1060,'+y(cb)+'" fill="none" stroke="#2878d0" stroke-width="2.5"/><circle cx="130" cy="'+y(sb)+'" r="3" fill="#fff"/><circle cx="1060" cy="'+y(cb)+'" r="4" fill="#fff"/><text x="130" y="326" fill="#f1f5f9" font-size="11">Start</text><text x="1060" y="326" text-anchor="end" fill="#f1f5f9" font-size="11">Current</text><text x="108" y="364" fill="#d9364f" font-size="11">Red: Max loss</text><text x="390" y="364" fill="#9a6700" font-size="11">Yellow: Daily loss</text><text x="746" y="364" fill="#087f5b" font-size="11">Green: Profit target</text>';
+  chartEl.innerHTML=fallback;
+ }
+}
+ // Backfill missing lot values for previously saved traders from each report's retained OCR text, without replacing existing trade data.
+ let legacyLotsBackfilled=false;
+ (Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&Array.isArray(r.trades)&&r.ocrText).forEach(r=>{
+   const parsed=parseOcrTradeRows(r.ocrText);if(!parsed.length)return;
+   r.trades.forEach((trade,i)=>{
+     if(getTradeLot(trade)!=='—')return;
+     const match=parsed.find(p=>p.lot!==null&&String(p.symbol||'').toUpperCase()===String(trade.symbol||'').toUpperCase()&&String(p.side||'').toLowerCase()===String(trade.side||'').toLowerCase()) || parsed[i];
+     if(match&&match.lot!==null&&match.lot!==undefined){trade.lot=match.lot;legacyLotsBackfilled=true;}
+   });
+ });
+ if(legacyLotsBackfilled)persist();
+ const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
+ profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
+ // Backfill MAE once for already-confirmed screenshot reports that predate automatic analysis.
+ if(currentUser&&profileTradesCache.length)setTimeout(()=>analyzeProfileHistoricalMae({automatic:true}),0);
+}
+// Safe public click handler: open the modal immediately, then run profile rendering.
+function openTraderProfile(id){
+ const back=$('traderProfileBack');
+ if(back)back.style.display='flex';
+ try{
+   openTraderProfileCore(id);
+ }catch(error){
+   console.error('Trader profile could not fully render:',error);
+   const name=$('profileName');
+   if(name&&(!name.textContent||name.textContent==='Trader'))name.textContent='Trader Profile';
+   toast('Profile error: '+String(error&&error.message||error));
+ }
+}
+window.openTraderProfile=openTraderProfile;
+let maeAnalysisPromise=null;
+const MAE_API_REQUEST_GAP_MS=9000; // stay below Twelve Data's 8-credit/minute limit
+const MAE_RETRY_WAIT_MS=65000;
+const waitForMaeSlot=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function maeResultCanRetry(result){
+ if(!result||result.status==='ok')return false;
+ const message=String(result.message||'').toLowerCase();
+ const rateLimited=/credit|rate.?limit|too many requests|429|per minute|quota/.test(message);
+ if(!rateLimited)return false;
+ const age=Date.now()-Date.parse(result.analyzedAt||0);
+ return !Number.isFinite(age)||age>=MAE_RETRY_WAIT_MS;
+}
+async function analyzeProfileHistoricalMae(options={}){
+ if(maeAnalysisPromise)return maeAnalysisPromise;
+ maeAnalysisPromise=(async()=>{
+  const status=$('historicalMaeStatus');
+  if(!currentUser){if(!options.automatic){status.textContent='Admin login is required before historical analysis can run.';toast('Please log in as admin first');}return;}
+  const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
+  const allTrades=profileTradesCache;
+  if(!allTrades.length){status.textContent='No individual closed trades available for historical analysis.';return;}
+  const existing=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
+  const getSaved=trade=>existing.find(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade))||null;
+  const validTrades=allTrades.filter(x=>x.symbol&&['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())&&getTradeLot(x)!=='—'&&(x.entryDateTime||x.entryDate)&&(x.exitDateTime||x.exitDate||x.closedAt)&&x.entryPrice!==''&&x.entryPrice!==undefined&&x.exitPrice!==''&&x.exitPrice!==undefined);
+  if(!validTrades.length){status.textContent='No complete trade timestamps/prices/lots available for combined analysis.';return;}
+  const normalizeMaeSymbol=value=>{
+   let symbol=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+   if(/^XAUUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='GOLD')return 'XAUUSD';
+   if(/^XAGUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='SILVER')return 'XAGUSD';
+   const fx=symbol.match(/^([A-Z]{6})(?:M|\d+|PRO)$/);if(fx)return fx[1];
+   return symbol;
+  };
+  // Combined running-loss analysis requires all overlapping trades in one request.
+  // Keep the batch within the Edge Function's 20-trade limit.
+  const batches=[];
+  for(let i=0;i<validTrades.length;i+=20)batches.push(validTrades.slice(i,i+20));
+  let passed=0,failed=0,cloudSaveFailed=false;
+  const incomingMae=[];
+  const dailyBreaches=[];
+  for(let bi=0;bi<batches.length;bi++){
+   const batch=batches[bi];
+   const payload=batch.map((trade,index)=>({index,tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:normalizeMaeSymbol(trade.symbol),side:trade.side||trade.type||'',lot:getTradeLot(trade),entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',entryPrice:trade.entryPrice,exitPrice:trade.exitPrice,pnl:trade.pnl??trade.profit}));
+   status.textContent=`Analyzing ${batch.length} trade(s) together for overlapping positions and daily loss (${bi+1}/${batches.length})…`;
+   try{
+    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
+    if(error)throw error;
+    if(!result||!Array.isArray(result.results))throw new Error(result?.error||'Historical MAE service returned no results.');
+    (Array.isArray(result.dailyLossBreaches)?result.dailyLossBreaches:[]).forEach(b=>dailyBreaches.push({...b,traderId:t.id}));
+    for(const r of result.results){
+     const trade=batch[Number(r.tradeId)];
+     if(!trade)continue;
+     incomingMae.push({traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status||'unavailable',message:r.message||r.note||'',source:r.source||result.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,dailyLossBreachAt:r.dailyLossBreachAt||null,combinedDailyLossAtBreach:r.combinedDailyLossAtBreach??null,dailyLossBreachDate:r.dailyLossBreachDate||null,analyzedAt:new Date().toISOString()});
+     if(r.status==='ok')passed++;else failed++;
+    }
+   }catch(e){
+    failed+=batch.length;
+    status.textContent='Historical analysis request failed: '+String(e?.message||e);
+    // Do not replace previously successful records with request failures.
+   }
+  }
+  // Merge by trade identity; successful previous results are not discarded by later errors.
+  const merged=new Map((Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).map(r=>[String(r.traderId)+'|'+String(r.tradeKey||''),r]));
+  for(const incoming of incomingMae){
+   const key=String(incoming.traderId)+'|'+String(incoming.tradeKey||''),old=merged.get(key);
+   if(old&&old.status==='ok'&&incoming.status!=='ok')continue;
+   merged.set(key,incoming);
+  }
+  data.historicalMaeResults=Array.from(merged.values());
+  // Persist combined daily-loss breach summaries without touching trader/report data.
+  const oldDaily=Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[];
+  const keepDaily=oldDaily.filter(b=>String(b.traderId)!==String(t.id));
+  data.historicalDailyLossBreaches=[...keepDaily,...dailyBreaches];
+  const ok=await persist();
+  renderProfileTradePage();render();
+  const currentBreaches=getTraderRuleBreaches(t);window.profileTraderHasBreach=currentBreaches.length>0;
+  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=currentBreaches.length?'BREACHED: '+[...new Set(currentBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',currentBreaches.length>0);}
+  const breachCount=dailyBreaches.length;
+  if(!ok)status.textContent=`Analysis finished (${passed} successful, ${failed} unavailable), but cloud save failed.`;
+  else status.textContent=`Combined analysis saved: ${passed} successful, ${failed} unavailable. ${breachCount?breachCount+' Maximum Daily Loss breach date(s) detected.':'No combined daily-loss breach detected in the returned candle data.'}`;
+ })().catch(e=>{console.error(e);const status=$('historicalMaeStatus');if(status)status.textContent='Automatic MAE analysis error: '+(e.message||String(e));}).finally(()=>{maeAnalysisPromise=null;});
+ return maeAnalysisPromise;
+}
+$('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
+$('traderProfileBack').addEventListener('click',e=>{if(e.target===$('traderProfileBack'))$('traderProfileBack').style.display='none'});
+render();
+setAdminMode(null);
+(async()=>{
+ const {data:sessionData}=await sb.auth.getSession();
+ if(sessionData?.session?.user){setPublicUser(sessionData.session.user);setAdminMode(sessionData.session.user);}
+ await loadSharedData();
+ // Restore last competition view after refresh. Never force Welcome/Home.
+ let savedView='competition',savedId='main';
+ try{
+  savedView=localStorage.getItem('u1traderCompetitionView')||'competition';
+  savedId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main';
+ }catch(e){}
+ const openedFromMainSite=window.parent!==window;
+ /* Browser refresh while inside a competition: come back to that same competition.
+    (The main page clears this when Competition is opened fresh, so a fresh open still shows the list.) */
+ let restoreId=null;
+ if(openedFromMainSite){try{const v=JSON.parse(sessionStorage.getItem('u1traderCompView')||'null');if(v&&v.view==='dashboard'&&getCompetitionCatalog().some(x=>x.id===v.id))restoreId=v.id;}catch(e){}}
+ if(restoreId){
+  openCompetitionWorkspace(restoreId);setGlobalNavActive('competitions');
+ }else if(!openedFromMainSite&&savedView==='dashboard'&&getCompetitionCatalog().length){
+  if(!getCompetitionCatalog().some(x=>x.id===savedId))savedId=getCompetitionCatalog()[0]?.id||'main';
+  openCompetitionWorkspace(savedId);setGlobalNavActive('competitions');
+ }else{
+  document.body.classList.remove('page-welcome','page-dashboard');
+  openCompetitionsHub();setGlobalNavActive('competitions');
+ }
+ // Preserve the exact visible scroll position through a browser refresh.
+ try{
+  const priorScroll=sessionStorage.getItem('u1traderCompetitionScrollY');
+  if(priorScroll!==null&&(!openedFromMainSite||restoreId))requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
+ }catch(e){}
+ let scrollSaveQueued=false;
+ window.addEventListener('scroll',()=>{
+  if(scrollSaveQueued)return;
+  scrollSaveQueued=true;
+  requestAnimationFrame(()=>{
+   scrollSaveQueued=false;
+   try{sessionStorage.setItem('u1traderCompetitionScrollY',String(window.scrollY))}catch(e){}
+  });
+ },{passive:true});
+ // Keep the current page key explicit when the tab is refreshed or closed.
+ window.addEventListener('beforeunload',()=>{
+  const view=document.body.classList.contains('page-dashboard')?'dashboard':'competition';
+  try{
+   if(window.parent===window)localStorage.setItem('u1traderCompetitionView',view);
+   if(view==='dashboard'&&data._activeCompetitionId)localStorage.setItem('u1traderActiveCompetitionId',data._activeCompetitionId);
+  }catch(e){}
+ });
+ sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
+   const remote=payload.new?.dashboard_data;
+   if(remote&&stableJson(remote)!==lastRemoteJson){applyRemoteDashboard(remote);lastRemoteJson=stableJson(remote);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
+ }).subscribe();
+ // Polling fallback works even if Realtime is not enabled for the table.
+ setInterval(async()=>{
+   const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+   if(!error&&row?.dashboard_data){const remoteJson=stableJson(row.dashboard_data);if(remoteJson!==lastRemoteJson){applyRemoteDashboard(row.dashboard_data);lastRemoteJson=remoteJson;try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}}
+ },5000);
+ // Safari/iPhone can suspend timers while the tab is in the background; refresh immediately on return.
+ const refreshSharedDataOnReturn=async()=>{
+   if(document.visibilityState==='visible'){
+     const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+     if(!error&&row?.dashboard_data&&Object.keys(row.dashboard_data).length){
+       const remoteJson=stableJson(row.dashboard_data);
+       if(remoteJson!==lastRemoteJson){
+         applyRemoteDashboard(row.dashboard_data);
+         lastRemoteJson=remoteJson;
+         try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
+         render();
+       }
+       setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
+     }
+   }
+ };
+ document.addEventListener('visibilitychange',refreshSharedDataOnReturn);
+ window.addEventListener('focus',refreshSharedDataOnReturn);
+})();
+</script>
+
+<style id="admin-login-true-top-right-fix">
+/* Keep the brand at top-left and Admin Login at the same row's far top-right. */
+.top{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;align-items:flex-start!important;gap:12px!important;position:relative!important;width:100%!important}
+.top .brand{flex:0 1 auto!important;min-width:0!important;margin:0!important}
+.top .top-actions{display:flex!important;flex:0 0 auto!important;width:auto!important;max-width:max-content!important;justify-content:flex-end!important;align-items:flex-start!important;align-self:flex-start!important;margin:0 0 0 auto!important;padding:0!important}
+.top .top-actions .btn{white-space:nowrap!important}
+@media(max-width:800px){.top{flex-wrap:nowrap!important;align-items:flex-start!important}.top .brand{gap:9px!important}.top .logo{width:62px!important;height:62px!important;flex:0 0 62px!important}.top .brand h1{font-size:clamp(18px,5vw,25px)!important;line-height:1.12!important}.top .brand .eyebrow{font-size:9px!important;letter-spacing:1px!important}.top .top-actions{width:auto!important;flex:0 0 auto!important;justify-content:flex-end!important;margin:0 0 0 auto!important}.top .top-actions .btn{padding:9px 10px!important;font-size:11px!important}}
+@media(max-width:380px){.top{gap:6px!important}.top .logo{width:48px!important;height:48px!important;flex-basis:48px!important}.top .brand{gap:7px!important}.top .brand h1{font-size:17px!important}.top .brand .eyebrow{font-size:8px!important;letter-spacing:.6px!important}.top .top-actions .btn{padding:8px 7px!important;font-size:10px!important}}
+</style>
+
+<script>
+/* Header links / logo: return to the main site and scroll to the matching section. */
+document.querySelectorAll('#competitionTopBar a[href]').forEach(a=>a.addEventListener('click',e=>{
+  if(window.parent===window)return; /* opened on its own: normal link */
+  const href=a.getAttribute('href')||'';
+  const hash=a.dataset.home || (href.startsWith('https://u1trader.github.io/#') ? href.slice('https://u1trader.github.io/'.length) : '');
+  if(!/^#(home|about|discounts|payouts|giveaways|contact)$/.test(hash))return;
+  e.preventDefault();
+  window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash},'https://u1trader.github.io');
+}));
+</script>
+
+<style id="admin-controls-final-visibility-fix">
+/* Keep all admin controls hidden for ordinary users and visible for the verified site admin. */
+body.admin-mode .admin-only{display:inline-block!important}
+body.admin-mode section.card.admin-only,body.admin-mode footer.admin-only{display:block!important}
+body.admin-mode .admin-only.start-editor-label,body.admin-mode label.admin-only{display:inline-flex!important}
+body:not(.admin-mode) .admin-only{display:none!important}
+</style>
+
+<style id="final-register-black-panel-fix-v2">
+/* Final override: do not stretch or paint the schedule column below the Register Now CTA. */
+html body .competition-hero-layout{align-items:start!important}
+html body .competition-hero-layout .hero-schedule-card{
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ align-self:start!important;
+ justify-content:initial!important;
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+ overflow:visible!important;
+}
+html body .competition-hero-layout .hero-schedule-card .sidebody{
+ display:block!important;
+ flex:0 0 auto!important;
+ height:auto!important;
+ min-height:0!important;
+ background:transparent!important;
+}
+html body .competition-hero-layout .hero-schedule-card .register-cta{
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ margin-bottom:0!important;
+}
+</style>
+
+<style id="dashboard-top-gap-tighten-final">
+/* Pull the full competition dashboard upward without changing its internal layout. */
+html body.page-dashboard>.wrap{
+  padding-top:0!important;
+  margin-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top{
+  margin-top:0!important;
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top .top-actions{
+  margin-top:0!important;
+  align-self:flex-start!important;
+}
+</style>
+
+<style id="dashboard-top-gap-hard-fix-v2">
+/* Remove the leftover blank strip above the competition hero in dashboard view. */
+html body.page-dashboard,
+html body.in-main-site.page-dashboard{
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap,
+html body.in-main-site.page-dashboard>.wrap{
+  margin-top:0!important;
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top,
+html body.in-main-site.page-dashboard>.wrap>header.top{
+  display:flex!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:0!important;
+}
+html body.page-dashboard>.wrap>.hero,
+html body.in-main-site.page-dashboard>.wrap>.hero{
+  margin-top:0!important;
+}
+</style>
+
+<style id="dashboard-hero-nav-clearance-fix">
+/* Keep the hero fully below the shared site navigation; no large blank spacer. */
+html body.page-dashboard>.wrap,
+html body.in-main-site.page-dashboard>.wrap{
+  padding-top:12px!important;
+  margin-top:0!important;
+}
+html body.page-dashboard>.wrap>section.hero,
+html body.in-main-site.page-dashboard>.wrap>section.hero{
+  margin-top:0!important;
+  position:relative!important;
+  clear:both!important;
+}
+</style>
+
+<style id="u1trader-profile-modal-wide-chart-six-percent-final">
+/* Wider/taller profile workspace: use available screen area, keep chart and trade rows together. */
+html body #traderProfileBack .profile-modal{
+  width:min(1480px,calc(100vw - 48px))!important;
+  max-width:min(1480px,calc(100vw - 48px))!important;
+  height:calc(100dvh - 48px)!important;
+  max-height:calc(100dvh - 48px)!important;
+  padding:12px 16px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  gap:0!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  width:100%!important;
+  height:clamp(320px,42vh,470px)!important;
+  min-height:320px!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+  margin:10px 0 5px!important;
+  line-height:1.25!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{
+  margin:0!important;
+  min-height:0!important;
+  flex:0 0 auto!important;
+  overflow:auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades table{
+  width:100%!important;
+  min-width:1050px!important;
+  margin:0!important;
+  table-layout:auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades th,
+html body #traderProfileBack .profile-modal .profile-trades td{
+  padding:5px 7px!important;
+  line-height:1.2!important;
+}
+html body #traderProfileBack .profile-modal .profile-pagination{
+  padding:6px 0 0!important;
+  margin:0!important;
+}
+html body #traderProfileBack .profile-modal .profile-page-info{
+  padding-top:3px!important;
+  margin-bottom:0!important;
+}
+@media(max-width:760px){
+  html body #traderProfileBack .profile-modal{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    height:calc(100dvh - 24px)!important;
+    max-height:calc(100dvh - 24px)!important;
+    padding:10px!important;
+  }
+  html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+    height:320px!important;
+    min-height:320px!important;
+  }
+}
+</style>
+
+<style id="u1trader-profile-modal-actually-fullscreen-fix">
+/* Make the profile dialog itself use the viewport, not just stretch its contents. */
+html body #traderProfileBack.modalback{
+  padding:12px!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+html body #traderProfileBack > .modal.profile-modal{
+  box-sizing:border-box!important;
+  width:calc(100vw - 24px)!important;
+  max-width:calc(100vw - 24px)!important;
+  min-width:0!important;
+  height:calc(100dvh - 24px)!important;
+  max-height:calc(100dvh - 24px)!important;
+  min-height:0!important;
+  padding:14px 18px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  border-radius:16px!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileBalanceChart.profile-chart{
+  width:100%!important;
+  height:clamp(340px,43vh,500px)!important;
+  min-height:300px!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileBalanceHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileTradeHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack > .modal.profile-modal .profile-trades{
+  min-height:0!important;
+  flex:0 0 auto!important;
+  overflow:auto!important;
+  margin:0!important;
+}
+html body #traderProfileBack > .modal.profile-modal .profile-trades table{
+  width:100%!important;
+  min-width:1050px!important;
+}
+@media(max-width:700px){
+  html body #traderProfileBack > .modal.profile-modal{
+    width:calc(100vw - 12px)!important;
+    max-width:calc(100vw - 12px)!important;
+    height:calc(100dvh - 12px)!important;
+    max-height:calc(100dvh - 12px)!important;
+    padding:10px!important;
+  }
+  html body #traderProfileBack > .modal.profile-modal #profileBalanceChart.profile-chart{
+    height:320px!important;
+    min-height:320px!important;
+  }
+}
+</style>
+
+<style id="u1trader-profile-trade-history-text-size-only">
+/* Slightly enlarge only the Trade history heading and its table text. */
+html body #traderProfileBack .profile-modal #profileTradeHeading{font-size:16px!important;}
+html body #traderProfileBack .profile-modal .profile-trades table th{font-size:10px!important;}
+html body #traderProfileBack .profile-modal .profile-trades table td{font-size:11px!important;}
+</style>
+
+<style id="u1trader-profile-trade-history-text-size-only">
+/* Make Trade history noticeably easier to read; keep layout, chart and popup dimensions unchanged. */
+html body #traderProfileBack .profile-modal #profileTradeHeading{font-size:18px!important;line-height:1.4!important;}
+html body #traderProfileBack .profile-modal .profile-trades table th{font-size:12px!important;}
+html body #traderProfileBack .profile-modal .profile-trades table td{font-size:13px!important;}
+</style>
+</body>
+</html>
+<style id="first-prize-full-width-and-report-append-fix">
+.winner-stats{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+.winner-stats>.winner-card{grid-column:1/-1!important;width:100%!important;max-width:none!important;box-sizing:border-box!important}
+.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 120px)!important}
+@media(max-width:800px){.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 88px)!important}}
+</style>
+
+<style id="rule-breach-status-styles">
+.rule-breach{display:inline-block;color:#fff;background:#c62828;border:1px solid #ef5350;border-radius:5px;padding:5px 7px;font-size:11px;font-weight:800;line-height:1.4;max-width:190px;white-space:normal}
+.no-rule-breach{color:var(--muted,#8993a4);font-weight:600}
+</style>
+
+<style id="profile-breach-highlight-styles">
+.profile-breach-status{margin-top:8px;font-size:12px;font-weight:800;color:var(--muted,#94a5c3)}.profile-breach-status.breached{display:inline-block;background:#b91c1c;color:#fff;padding:6px 9px;border-radius:6px;border:1px solid #ef4444}.trade-breach-row td{background:rgba(185,28,28,.18)!important;color:#ffb4b4!important;border-top:1px solid #ef4444!important;border-bottom:1px solid #ef4444!important}.trade-breach-row td.positive,.trade-breach-row td.negative{color:#ffb4b4!important}
+</style>
+
+<style id="historical-mae-styles">#historicalMaeStatus{max-width:760px;line-height:1.45}.profile-trades td small{display:block;font-size:10px;color:#f0b90b}.profile-trades td{vertical-align:top}</style>
+
+<style id="user-requested-breach-visibility-fixes">
+body:not(.admin-mode) .admin-mae-only{display:none!important}
+#historicalMaeStatus{display:none!important}
+.trade-breach-row td{background:transparent!important;border-top:0!important;border-bottom:0!important}
+.position-breach-text{color:#ef4444!important;font-weight:800!important}
+.rule-breach{display:inline!important;color:#ef4444!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;max-width:none!important;white-space:normal}
+.profile-breach-status.breached{display:block!important;background:transparent!important;color:#ef4444!important;padding:0!important;border:0!important;border-radius:0!important}
+</style>
+
+<style id="use-main-site-login-for-admin">
+/* Navigation is the only entry point; remove all welcome-page action buttons/cards. */
+#welcomePage,.welcome-features,.welcome-enter-btn,#liveCompetitionBtn,#traderArenaBtn,#enterCompetitionBtn{display:none!important}
+/* Admin access is inherited from the shared U1Trader site login. */#authBtn{display:none!important}
+/* Multi-competition home: cards are independent competition workspaces. */
+#competitionsHub{display:none;min-height:100vh;padding:30px clamp(14px,4vw,48px);background:#10121a;color:#f4f5fb}
+body.page-competition #competitionsHub{display:block}
+body.page-competition>.wrap{display:none!important}
+body.page-dashboard>.wrap{display:block!important}
+.competition-hub-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:8px 0 24px}
+.competition-hub-head h1{font-size:clamp(26px,4vw,36px);margin:0;letter-spacing:-.7px}
+.competition-hub-head p{margin:6px 0 0;color:#9ca6ba}
+.competition-hub-actions{display:flex;gap:10px;flex-wrap:wrap}
+.competition-hub-tabs{display:flex;gap:24px;overflow:auto;border-bottom:1px solid #303342;margin-bottom:24px}
+.competition-hub-tab{border:0;border-bottom:2px solid transparent;background:transparent;color:#9ca6ba;padding:13px 4px;font:700 14px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.competition-hub-tab.active{color:#a99aff;border-bottom-color:#8b78ff}
+.competition-hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.competition-list-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid #303448;border-radius:13px;background:linear-gradient(180deg,#22243a,#171923);box-shadow:0 10px 28px #0002}
+.competition-list-art{height:145px;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#6657b8 0,#2c2c55 42%,#1a1b2b 80%);font-size:62px}
+.competition-list-body{display:flex;flex:1;flex-direction:column;padding:17px}
+.competition-list-status{align-self:flex-start;border-radius:5px;padding:4px 8px;margin-bottom:12px;font-size:10px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;background:#33384b;color:#e4e8f5}
+.competition-list-status.live{background:#173f35;color:#82f0bd}.competition-list-status.upcoming{background:#4b2634;color:#ff9bb0}.competition-list-status.completed{background:#303747;color:#c3ccdc}
+.competition-list-body h2{font-size:18px;line-height:1.3;margin:0 0 8px}.competition-list-dates{font-size:12px;color:#aab3c6;line-height:1.6;margin-bottom:16px}
+.competition-list-open{margin-top:auto;width:100%;border:0;border-radius:8px;padding:11px 14px;background:#6657ff;color:white;font-weight:800;cursor:pointer}
+.competition-list-open:hover{filter:brightness(1.1)}.competition-list-open:disabled{background:#343643;color:#85899a;cursor:default}
+.competition-hub-empty{grid-column:1/-1;padding:44px 20px;border:1px dashed #34394c;border-radius:12px;text-align:center;color:#9ca6ba}
+.competition-list-admin-row{display:flex;gap:8px;margin-top:10px}.competition-list-admin-row button{flex:1;border:1px solid #3a3d52;border-radius:7px;padding:8px;background:#171923;color:#dce1f2;cursor:pointer;font-weight:700}
+#backToCompetitions{display:none}.admin-mode #backToCompetitions{display:inline-flex}
+@media(max-width:900px){.competition-hub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.competition-hub-grid{grid-template-columns:1fr}#competitionsHub{padding:20px 12px}.competition-list-art{height:120px}}
+</style>
+
+<style id="user-requested-leaderboard-reports-layout">
+/* Keep the retired manual balance editor hidden even in admin mode. */
+#legacyBalanceUpdate[hidden],.competition-sidebar[hidden]{display:none!important}
+body.admin-mode .grid,.grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+.grid>section.card{grid-column:1/-1!important;width:100%!important;min-width:0!important;max-width:none!important}
+.grid .tablewrap{width:100%!important;max-width:none!important;overflow-x:auto}
+.grid .tablewrap table{width:100%!important;min-width:900px}
+#savedTradeReportsSection .cardhead{display:flex;align-items:center;justify-content:space-between;gap:16px}
+#savedTradeReportsSection .report-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-left:auto}
+#toggleDailyReports{display:inline-flex!important;align-items:center;justify-content:center;min-height:34px;padding:7px 13px;border:1px solid var(--gold,#caa24a);border-radius:8px;background:rgba(202,162,74,.12);color:var(--text,#f4eee2);font-weight:800;cursor:pointer;white-space:nowrap}
+#savedTradeReports[hidden]{display:none!important}
+#savedTradeReports{display:grid;gap:10px;padding:0 16px 16px}
+@media(max-width:650px){#savedTradeReportsSection .cardhead{align-items:flex-start}#savedTradeReportsSection .report-head-actions{gap:6px;flex-wrap:wrap}}
+</style>
+<script id="user-requested-daily-reports-toggle">
+(function(){
+ const host=document.getElementById('savedTradeReports');
+ const btn=document.getElementById('toggleDailyReports');
+ if(host)host.hidden=true;
+ if(btn){btn.textContent='Show reports';btn.setAttribute('aria-expanded','false');}
+ // Toggle is bound once by the layout-enforcement handler below.
+})();
+</script>
+
+
+<style id="user-requested-layout-enforcement-v2">
+/* Enforce the requested layout even when legacy admin code sets inline styles. */
+html body .competition-sidebar{display:none!important}
+html body .grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+html body .grid>section.card{grid-column:1/-1!important;width:100%!important;max-width:none!important;min-width:0!important}
+html body #legacyBalanceUpdate{display:none!important}
+html body #savedTradeReports[hidden]{display:none!important}
+html body #savedTradeReportsSection .report-head-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:12px!important;margin-left:auto!important}
+html body #toggleDailyReports{display:inline-flex!important;visibility:visible!important;opacity:1!important}
+</style>
+<script id="user-requested-layout-enforcement-v2">
+(function(){
+ function enforceRequestedLayout(){
+  const sidebar=document.querySelector('.competition-sidebar');
+  if(sidebar){sidebar.hidden=true;sidebar.style.setProperty('display','none','important');}
+  const oldEditor=document.getElementById('legacyBalanceUpdate');
+  if(oldEditor){oldEditor.hidden=true;oldEditor.style.setProperty('display','none','important');}
+  document.querySelectorAll('body .grid').forEach(grid=>{
+   grid.style.setProperty('display','grid','important');
+   grid.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+   grid.style.setProperty('width','100%','important');
+   grid.style.setProperty('max-width','none','important');
+  });
+  document.querySelectorAll('body .grid>section.card').forEach(card=>{
+   card.style.setProperty('grid-column','1/-1','important');
+   card.style.setProperty('width','100%','important');
+   card.style.setProperty('max-width','none','important');
+   card.style.setProperty('min-width','0','important');
+  });
+  const reports=document.getElementById('savedTradeReports');
+  const toggle=document.getElementById('toggleDailyReports');
+  if(reports&&toggle){
+   if(!toggle.dataset.bound){
+    toggle.dataset.bound='1';
+    reports.hidden=true;
+    reports.style.setProperty('display','none','important');
+    toggle.textContent='Show reports';
+    toggle.setAttribute('aria-expanded','false');
+    toggle.addEventListener('click',function(event){
+     event.preventDefault();
+     event.stopPropagation();
+     const open=reports.hidden;
+     reports.hidden=!open;
+     reports.style.setProperty('display',open?'grid':'none','important');
+     toggle.textContent=open?'Hide reports':'Show reports';
+     toggle.setAttribute('aria-expanded',open?'true':'false');
+    });
+   }
+   toggle.style.setProperty('display','inline-flex','important');
+   toggle.style.setProperty('visibility','visible','important');
+   toggle.style.setProperty('opacity','1','important');
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enforceRequestedLayout,{once:true});
+ else enforceRequestedLayout();
+ const observer=new MutationObserver(enforceRequestedLayout);
+ observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+})();
+</script>
+
+<style id="user-requested-admin-schedule-edit-fix">
+body.admin-mode .hero-schedule-card .start-editor-label,
+body.admin-mode .hero-schedule-card #competitionStartInput,
+body.admin-mode .hero-schedule-card #competitionEndInput,
+body.admin-mode .hero-schedule-card label[for="competitionEndInput"]{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+body.admin-mode .hero-schedule-card #competitionStartInput,
+body.admin-mode .hero-schedule-card #competitionEndInput{width:100%!important;min-width:0!important;max-width:100%!important;min-height:38px!important;margin-top:6px!important;padding:8px!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.65)!important;border-radius:8px!important;pointer-events:auto!important}
+body.admin-mode .hero-schedule-card input[type="datetime-local"]::-webkit-calendar-picker-indicator{cursor:pointer;filter:invert(1);opacity:1}
+</style>
+
+<style id="u1trader-final-report-date-fix">
+html body #savedTradeReports[hidden]{display:none!important}
+html body #savedTradeReports:not([hidden]){display:grid!important}
+html body.admin-mode .hero-schedule-card .datebox{min-height:0!important;height:auto!important;overflow:visible!important}
+html body.admin-mode .hero-schedule-card input[type="datetime-local"]{display:block!important;position:relative!important;z-index:20!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;user-select:auto!important;appearance:auto!important;color-scheme:dark!important;width:100%!important;min-height:42px!important;margin:8px 0 0!important;padding:9px!important;box-sizing:border-box!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.75)!important;border-radius:8px!important;font-size:13px!important}
+html body.admin-mode .hero-schedule-card .start-editor-label{display:block!important;position:relative!important;z-index:10!important;margin-top:10px!important}
+</style>
+
+<style id="u1trader-profile-modal-viewport-fix">
+/* Keep the trader profile modal fully below the sticky navigation so its top border remains visible. */
+html body #traderProfileBack{
+ position:fixed!important;
+ inset:0!important;
+ z-index:10000!important;
+ display:none;
+ align-items:flex-start!important;
+ justify-content:center!important;
+ box-sizing:border-box!important;
+ padding:96px 18px 24px!important;
+ overflow-y:auto!important;
+ overscroll-behavior:contain;
+}
+html body #traderProfileBack[style*="display: flex"],
+html body #traderProfileBack[style*="display:flex"]{display:flex!important}
+html body #traderProfileBack .profile-modal{
+ width:min(1600px,97vw)!important;
+ height:calc(100dvh - 120px)!important;
+ max-height:calc(100dvh - 120px)!important;
+ min-height:0!important;
+ margin:0 auto!important;
+ flex:0 0 auto!important;
+ box-sizing:border-box!important;
+ border:1px solid var(--line,#5b4a2b)!important;
+ border-radius:16px!important;
+ overflow:hidden!important;
+}
+html body #traderProfileBack .profile-balance-footer{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;max-height:0!important;flex:0 0 0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}
+@media(max-width:700px){
+ html body #traderProfileBack{padding:86px 8px 12px!important}
+ html body #traderProfileBack .profile-modal{width:100%!important;height:calc(100dvh - 98px)!important;max-height:calc(100dvh - 98px)!important;padding:12px!important}
+}
+</style>
+
+<style id="u1trader-profile-chart-spacing-fix">
+/* Give the chart more vertical room, then separate trade history from its legend. */
+html body #traderProfileBack .profile-modal #profileBalanceHeading{
+ margin:14px 0 8px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ display:block!important;
+ width:100%!important;
+ height:clamp(420px,48vh,500px)!important;
+ min-height:420px!important;
+ flex:0 0 auto!important;
+ box-sizing:border-box!important;
+}
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+ margin:18px 0 10px!important;
+ line-height:1.35!important;
+ flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{
+ margin-top:4px!important;
+ min-height:0!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades table{
+ margin-top:0!important;
+}
+@media(max-height:800px){
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:400px!important;
+  min-height:400px!important;
+ }
+}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:360px!important;
+  min-height:360px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileTradeHeading{
+  margin-top:14px!important;
+ }
+}
+</style>
+
+<style id="u1trader-profile-compact-daily-chart-five-trades">
+/* Compact trader profile so the chart and five trade rows fit together. */
+html body #traderProfileBack .profile-modal{height:calc(100dvh - 132px)!important;max-height:calc(100dvh - 132px)!important;padding:8px 14px 8px!important}
+html body #traderProfileBack .profile-modal #profileBalanceHeading{margin:6px 0 4px!important}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:clamp(230px,31vh,330px)!important;min-height:230px!important;flex:0 0 auto!important}
+html body #traderProfileBack .profile-modal #profileTradeHeading{margin:7px 0 4px!important}
+html body #traderProfileBack .profile-modal .profile-trades{margin-top:0!important;overflow:auto!important}
+html body #traderProfileBack .profile-modal .profile-trades th,html body #traderProfileBack .profile-modal .profile-trades td{padding:4px 6px!important;line-height:1.2!important}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:5px 0 0!important}
+@media(max-height:800px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 110px)!important;max-height:calc(100dvh - 110px)!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}}
+@media(max-width:700px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 100px)!important;max-height:calc(100dvh - 100px)!important;padding:8px!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:250px!important;min-height:250px!important}html body #traderProfileBack .profile-modal .profile-trades{overflow:auto!important}}
+</style>
+
+<style id="u1trader-profile-shorter-window-visible-breach-line">
+html body #traderProfileBack .profile-modal{
+ height:82dvh!important;max-height:82dvh!important;min-height:0!important;
+ overflow-y:auto!important;overflow-x:hidden!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ height:clamp(220px,27vh,290px)!important;min-height:220px!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!important}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal{height:84dvh!important;max-height:84dvh!important}
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}
+}
+</style>
+
+<style id="u1trader-profile-width-correction">
+/* Final profile modal sizing: centered, about 60% of desktop width, never edge-to-edge. */
+html body #traderProfileBack.modalback{
+ padding:12px!important;
+ display:none;
+ align-items:center!important;
+ justify-content:center!important;
+}
+html body #traderProfileBack .profile-modal{
+ width:60vw!important;
+ max-width:1200px!important;
+ min-width:0!important;
+ height:84dvh!important;
+ max-height:84dvh!important;
+ min-height:0!important;
+ box-sizing:border-box!important;
+ padding:14px 18px 12px!important;
+ overflow-x:hidden!important;
+ overflow-y:auto!important;
+ margin-left:auto!important;
+ margin-right:auto!important;
+ flex:0 1 1200px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ display:block!important;
+ width:100%!important;
+ height:clamp(280px,35vh,400px)!important;
+ min-height:260px!important;
+ flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceHeading,
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+ margin:12px 0 6px!important;
+}
+html body #traderProfileBack .profile-trades{
+ display:block!important;width:100%!important;max-width:100%!important;
+ min-width:0!important;flex:0 0 auto!important;
+ overflow-x:auto!important;overflow-y:auto!important;margin:0!important;
+}
+html body #traderProfileBack .profile-trades table{
+ width:100%!important;min-width:900px!important;max-width:none!important;table-layout:auto!important;
+}
+html body #traderProfileBack .profile-trades th,
+html body #traderProfileBack .profile-trades td{
+ padding:5px 6px!important;font-size:10px!important;line-height:1.25!important;white-space:nowrap!important;
+}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:7px 0 0!important}
+html body #traderProfileBack .profile-modal .profile-page-info{padding-top:4px!important;margin:0!important}
+@media(max-width:900px){
+ html body #traderProfileBack .profile-modal{
+  width:calc(100vw - 24px)!important;max-width:calc(100vw - 24px)!important;
+  height:90dvh!important;max-height:90dvh!important;padding:12px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:300px!important;min-height:260px!important;
+ }
+}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal{
+  width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important;
+  height:calc(100dvh - 12px)!important;max-height:calc(100dvh - 12px)!important;
+  padding:10px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:280px!important;min-height:240px!important;
+ }
+ html body #traderProfileBack .profile-trades table{min-width:900px!important}
+}
+</style>
+
+
+<style id="final-home-aligned-header-fix-v3">
+/* Keep every competition route aligned with the welcome page; neutralise legacy sidebar offsets. */
+html,body{margin:0!important;padding:0!important;}
+body.in-main-site{margin-left:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+body.in-main-site #globalCompetitionNav,body.in-main-site #sidebarToggleBtn{display:none!important;}
+body.in-main-site #competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;margin:0!important;}
+body.in-main-site #competitionTopBar .ctb-in{position:relative!important;width:calc(100% - 48px)!important;max-width:1300px!important;height:77px!important;min-height:77px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:nowrap!important;box-sizing:border-box!important;}
+body.in-main-site #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;flex:0 0 auto!important;margin:0!important;}
+body.in-main-site #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 300px)!important;height:77px!important;min-height:77px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2.1vw,34px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+body.in-main-site #competitionTopBar .ctb-center-links a,body.in-main-site #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+body.in-main-site #competitionTopBar .ctb-center-links a:hover,body.in-main-site #competitionTopBar .ctb-center-links button:hover,body.in-main-site #competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+body.in-main-site .wrap,body.in-main-site main.wrap,body.in-main-site #competitionsHub{margin-left:auto!important;margin-right:auto!important;}
+@media(max-width:900px){body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}body.in-main-site #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}}
+@media(max-width:520px){body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}body.in-main-site #competitionTopBar .ctb-center-links{gap:20px!important;}body.in-main-site #competitionTopBar .ctb-center-links a,body.in-main-site #competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
+
+
+<style id="final-home-aligned-header-fix-v4">
+/* Shared header geometry: apply on standalone pages AND the hash-routed welcome page. */
+html,body{margin:0!important;padding:0!important;}
+#competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;min-width:0!important;margin:0!important;z-index:99999!important;box-sizing:border-box!important;}
+#competitionTopBar .ctb-in{position:relative!important;width:min(1240px,calc(100% - 40px))!important;max-width:1240px!important;height:78px!important;min-height:78px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important;}
+#competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;display:inline-flex!important;align-items:center!important;flex:0 0 auto!important;margin:0!important;padding:0!important;}
+#competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 280px)!important;height:78px!important;min-height:78px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2vw,30px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+#competitionTopBar .ctb-center-links a,#competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+#competitionTopBar .ctb-center-links a:hover,#competitionTopBar .ctb-center-links button:hover,#competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+/* Remove legacy sidebar spacing whenever the competition view is embedded in the home page. */
+body.in-main-site{margin-left:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+body.in-main-site #globalCompetitionNav,body.in-main-site #sidebarToggleBtn{display:none!important;}
+body.in-main-site .wrap,body.in-main-site main.wrap,body.in-main-site #competitionsHub{margin-left:auto!important;margin-right:auto!important;}
+@media(max-width:900px){#competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:78px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}#competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}}
+@media(max-width:520px){#competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}#competitionTopBar .ctb-center-links{gap:20px!important;}#competitionTopBar .ctb-center-links a,#competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
+
+
+<style id="actual-embedded-competition-offset-fix-v5">
+/* ROOT FIX: the legacy layout reserves 236px for a sidebar that is hidden inside the home page. */
+html body.in-main-site{--nav-w:0px!important;margin:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+html body.in-main-site #globalCompetitionNav,html body.in-main-site #sidebarToggleBtn{display:none!important;visibility:hidden!important;pointer-events:none!important;}
+/* Match the welcome page header viewport, not the old sidebar content area. */
+html body.in-main-site #competitionTopBar{position:sticky!important;display:block!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:78px!important;min-height:78px!important;margin:0!important;padding:0!important;transform:none!important;}
+html body.in-main-site #competitionTopBar .ctb-in{position:relative!important;left:auto!important;right:auto!important;transform:none!important;width:min(1240px,calc(100% - 40px))!important;max-width:1240px!important;height:77px!important;min-height:77px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important;}
+html body.in-main-site #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;margin:0!important;flex:0 0 auto!important;}
+html body.in-main-site #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 280px)!important;height:77px!important;min-height:77px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2vw,30px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+html body.in-main-site #competitionTopBar .ctb-center-links a,html body.in-main-site #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+html body.in-main-site #competitionTopBar .ctb-center-links a:hover,html body.in-main-site #competitionTopBar .ctb-center-links button:hover,html body.in-main-site #competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+/* Main issue: older CSS fixes the competition hub at left:236px/top:77px. Reset both offsets when embedded. */
+html body.in-main-site #competitionsHub{position:relative!important;left:0!important;right:auto!important;top:auto!important;bottom:auto!important;width:100%!important;max-width:none!important;height:auto!important;min-height:calc(100vh - 78px)!important;margin:0!important;padding:30px max(16px,calc((100vw - 1468px)/2)) 40px!important;box-sizing:border-box!important;overflow:visible!important;}
+html body.in-main-site #welcomePage{margin-left:0!important;width:100%!important;}
+html body.in-main-site:not(.page-dashboard)>.wrap{display:none!important;}
+@media(max-width:900px){html body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}html body.in-main-site #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}html body.in-main-site #competitionsHub{padding:20px 12px 32px!important;}}
+@media(max-width:520px){html body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}html body.in-main-site #competitionTopBar .ctb-center-links{gap:20px!important;}html body.in-main-site #competitionTopBar .ctb-center-links a,html body.in-main-site #competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
+
+
+
+
+<style id="canonical-home-header-all-pages-v7">
+/* Use the home page's top navigation as the only header layout on every route. */
+html body #competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;display:block!important;width:100%!important;height:83px!important;min-height:83px!important;margin:0!important;padding:0!important;z-index:999999!important;box-sizing:border-box!important;background:#090909!important;border-bottom:1px solid rgba(217,181,109,.24)!important;transform:none!important}
+html body #competitionTopBar .ctb-in{position:relative!important;width:calc(100% - 140px)!important;max-width:none!important;height:82px!important;min-height:82px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important}
+html body #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;flex:0 0 auto!important;margin:0!important;padding:0!important;gap:9px!important;white-space:nowrap!important}
+html body #competitionTopBar .ctb-logo img{display:block!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;object-fit:contain!important;flex:0 0 30px!important;margin:0!important}
+html body #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 300px)!important;height:82px!important;min-height:82px!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(18px,2.5vw,36px)!important;overflow:visible!important;white-space:nowrap!important}
+html body #competitionTopBar .ctb-center-links a,html body #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important}
+html body #competitionTopBar .ctb-center-links a:hover,html body #competitionTopBar .ctb-center-links button:hover,html body #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body #competitionTopBar .ctb-links{display:none!important}
+@media(max-width:900px){html body #competitionTopBar{height:auto!important;min-height:78px!important}html body #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important}html body #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important}}
+@media(max-width:520px){html body #competitionTopBar .ctb-in{width:calc(100% - 20px)!important}html body #competitionTopBar .ctb-center-links{gap:20px!important}html body #competitionTopBar .ctb-center-links a,html body #competitionTopBar .ctb-center-links button{font-size:12px!important}}
+</style>
+
+<style id="home-header-canonical-final-v9">
+/* Final shared-header override: mirror the actual U1Trader home page geometry.
+   Keep this last so older competition-page CSS cannot override it. */
+html body > #competitionTopBar{
+  position:sticky!important;top:0!important;left:auto!important;right:auto!important;
+  display:block!important;width:100vw!important;max-width:none!important;min-width:0!important;
+  height:77px!important;min-height:77px!important;margin-left:calc(50% - 50vw)!important;
+  margin-right:0!important;padding:0!important;transform:none!important;z-index:999999!important;
+  box-sizing:border-box!important;background:#090909!important;
+  border-bottom:1px solid rgba(217,181,109,.24)!important;overflow:visible!important;
+}
+html body > #competitionTopBar .ctb-in{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;
+  width:min(1120px,calc(100% - 36px))!important;max-width:1120px!important;
+  height:76px!important;min-height:0!important;margin:0 auto!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  flex-wrap:nowrap!important;gap:0!important;box-sizing:border-box!important;
+}
+html body > #competitionTopBar .ctb-logo{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;display:inline-flex!important;align-items:center!important;align-self:center!important;
+  flex:0 0 auto!important;margin:0!important;padding:0!important;gap:9px!important;white-space:nowrap!important;
+  font-size:1.05rem!important;line-height:1!important;
+}
+html body > #competitionTopBar .ctb-logo img{
+  display:block!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;
+  object-fit:contain!important;flex:0 0 30px!important;margin:0!important;
+}
+html body > #competitionTopBar .ctb-center-links{
+  position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:auto!important;
+  transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 280px)!important;
+  height:76px!important;min-height:0!important;margin:0!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;
+  gap:clamp(14px,2.1vw,34px)!important;overflow:visible!important;white-space:nowrap!important;
+}
+html body > #competitionTopBar .ctb-center-links a,
+html body > #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;
+  margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;color:#e6dece!important;
+  font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body > #competitionTopBar .ctb-center-links a:hover,
+html body > #competitionTopBar .ctb-center-links button:hover,
+html body > #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body > #competitionTopBar .ctb-links{display:none!important}
+@media(max-width:900px){
+  html body > #competitionTopBar{height:auto!important;min-height:77px!important}
+  html body > #competitionTopBar .ctb-in{
+    width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+    flex-wrap:wrap!important;padding:10px 0!important;row-gap:8px!important;
+  }
+  html body > #competitionTopBar .ctb-center-links{
+    position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+    transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;
+    min-height:0!important;justify-content:flex-start!important;gap:clamp(16px,4vw,28px)!important;
+    overflow-x:auto!important;padding:0 0 3px!important;
+  }
+}
+@media(max-width:600px){
+  html body > #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+  html body > #competitionTopBar .ctb-center-links{gap:20px!important}
+  html body > #competitionTopBar .ctb-center-links a,
+  html body > #competitionTopBar .ctb-center-links button{font-size:12px!important}
+}
+</style>
+
+<style id="remove-duplicate-navigation-keep-home-header-v10">
+/* Keep the home-style global header as the only site navigation on competition pages. */
+html body #globalCompetitionNav,
+html body #sidebarToggleBtn{
+  display:none!important;visibility:hidden!important;pointer-events:none!important;
+}
+html body:not(.auth-required)>.wrap,
+html body:not(.auth-required) main.wrap,
+html body.in-main-site>.wrap,
+html body.in-main-site main.wrap{
+  margin-left:0!important;margin-right:auto!important;width:100%!important;
+  max-width:none!important;box-sizing:border-box!important;
+}
+/* Remove the duplicate U1TRADER/Trader Arena brand header; retain working competition/admin actions. */
+html body .wrap>header.top .brand{display:none!important}
+html body .wrap>header.top{
+  margin-top:0!important;padding-top:14px!important;
+  border-top:0!important;box-shadow:none!important;
+}
+html body.in-main-site #competitionsHub{
+  left:0!important;right:0!important;width:100%!important;margin:0!important;
+}
+@media(max-width:760px){
+  html body:not(.auth-required)>.wrap{padding-bottom:24px!important}
+}
+</style>
+
+<style id="actually-remove-duplicate-header-final-v11">
+/* Highest-specificity cleanup: old !important selectors previously overrode the hide rules. */
+html body:not(.auth-required) #globalCompetitionNav,
+html body:not(.auth-required) #sidebarToggleBtn,
+html body.in-main-site #globalCompetitionNav,
+html body.in-main-site #sidebarToggleBtn{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+/* Keep the shared top navigation, remove the competition page's second brand/header row. */
+html body .wrap>header.top .brand,
+html body .wrap>header.top> .brand,
+html body.in-main-site .wrap>header.top .brand{
+  display:none!important;
+  visibility:hidden!important;
+}
+html body .wrap>header.top,
+html body.in-main-site .wrap>header.top{
+  margin-top:0!important;
+  padding-top:14px!important;
+  border-top:0!important;
+  box-shadow:none!important;
+}
+/* Do not let the legacy fixed-sidebar layout shift content after its sidebar is hidden. */
+html body:not(.auth-required)>.wrap,
+html body.in-main-site>.wrap{
+  margin-left:0!important;
+  margin-right:auto!important;
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+</style>
+
+<style id="html-duplicate-navigation-removal-v12">
+/* The duplicate sidebar and competition brand were removed from HTML; retain only shared home header. */
+html body .wrap>header.top{margin-top:0!important;padding-top:14px!important;border-top:0!important;box-shadow:none!important}
+html body:not(.auth-required)>.wrap,html body.in-main-site>.wrap{margin-left:0!important;margin-right:auto!important;width:100%!important;max-width:none!important;box-sizing:border-box!important}
+</style>
+
+<style id="home-header-layout-match-final-v13">
+/* Match the real U1Trader home header geometry rather than centering the nav absolutely. */
+html body #competitionTopBar{
+  position:sticky!important;top:0!important;left:0!important;right:0!important;
+  display:block!important;width:100%!important;max-width:none!important;min-width:0!important;
+  height:77px!important;min-height:77px!important;margin:0!important;padding:0!important;
+  transform:none!important;z-index:999999!important;box-sizing:border-box!important;
+  background:rgba(9,9,9,.92)!important;backdrop-filter:blur(14px)!important;
+  border-bottom:1px solid rgba(217,181,109,.24)!important;overflow:visible!important;
+}
+html body #competitionTopBar .ctb-in{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  width:min(1120px,calc(100% - 36px))!important;max-width:1120px!important;
+  height:76px!important;min-height:76px!important;margin:0 auto!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important;transform:none!important;
+}
+html body #competitionTopBar .ctb-logo{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  flex:0 0 auto!important;margin:0!important;padding:0!important;gap:9px!important;
+  font-size:1.2rem!important;font-weight:900!important;letter-spacing:.11em!important;white-space:nowrap!important;
+}
+html body #competitionTopBar .ctb-logo img{
+  display:block!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;
+  flex:0 0 34px!important;object-fit:contain!important;border-radius:50%!important;margin:0!important;
+}
+html body #competitionTopBar .ctb-center-links{
+  position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;width:auto!important;max-width:none!important;height:76px!important;min-height:0!important;
+  margin:0!important;padding:0!important;display:flex!important;align-items:center!important;
+  justify-content:flex-end!important;flex-wrap:nowrap!important;gap:24px!important;
+  overflow:visible!important;white-space:nowrap!important;flex:0 1 auto!important;
+}
+html body #competitionTopBar .ctb-center-links a,
+html body #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;
+  margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;color:#d3cbb9!important;
+  font:600 .9rem Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body #competitionTopBar .ctb-center-links a:hover,
+html body #competitionTopBar .ctb-center-links button:hover,
+html body #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body #competitionTopBar .ctb-links{display:none!important}
+@media(max-width:900px){
+  html body #competitionTopBar{height:auto!important;min-height:76px!important}
+  html body #competitionTopBar .ctb-in{
+    width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+    flex-wrap:wrap!important;justify-content:space-between!important;padding:10px 0!important;row-gap:8px!important;
+  }
+  html body #competitionTopBar .ctb-center-links{
+    order:3!important;position:static!important;width:100%!important;max-width:100%!important;height:auto!important;
+    justify-content:flex-start!important;gap:clamp(16px,3.2vw,24px)!important;overflow-x:auto!important;padding:0 0 4px!important;
+  }
+}
+@media(max-width:600px){
+  html body #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+  html body #competitionTopBar .ctb-center-links{gap:20px!important}
+  html body #competitionTopBar .ctb-center-links a,
+  html body #competitionTopBar .ctb-center-links button{font-size:12px!important}
+}
+</style>
+
+<style id="shared-home-header-on-competition-v16">
+/* Competition opens in a full-screen iframe, so it must render the same shared header here.
+   Keep the duplicate profile widget hidden in the embedded view; the competition actions remain intact.
+   Header geometry and navigation typography mirror the main site's .nav / .navin / .navlinks. */
+html body.in-main-site > #competitionTopBar{
+  display:block!important;
+  position:fixed!important;top:0!important;left:0!important;right:0!important;
+  z-index:2147482000!important;
+  width:100%!important;height:76px!important;min-height:76px!important;
+  margin:0!important;padding:0!important;
+  background:rgba(9,9,9,.96)!important;
+  -webkit-backdrop-filter:blur(14px)!important;backdrop-filter:blur(14px)!important;
+  border-bottom:1px solid var(--line,rgba(217,181,109,.25))!important;
+  box-sizing:border-box!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-in{
+  position:relative!important;width:min(1120px,calc(100% - 36px))!important;
+  max-width:1120px!important;height:76px!important;min-height:76px!important;
+  margin:0 auto!important;padding:0!important;display:flex!important;
+  align-items:center!important;justify-content:space-between!important;gap:20px!important;
+  flex-wrap:nowrap!important;box-sizing:border-box!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-logo{
+  flex:0 0 auto!important;display:inline-flex!important;align-items:center!important;
+  gap:10px!important;margin:0!important;text-decoration:none!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links{
+  position:absolute!important;left:50%!important;top:0!important;transform:translateX(-50%)!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 1 auto!important;gap:24px!important;width:max-content!important;max-width:calc(100% - 240px)!important;
+  height:76px!important;margin:0!important;padding:0!important;overflow:visible!important;
+  white-space:nowrap!important;flex-wrap:nowrap!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links a,
+html body.in-main-site > #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;
+  border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  color:#d3cbb9!important;font:600 .9rem Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links a:hover,
+html body.in-main-site > #competitionTopBar .ctb-center-links button:hover,
+html body.in-main-site > #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body.in-main-site > #competitionTopBar .ctb-links{display:none!important}
+html body.in-main-site > #globalTopProfile,
+html body.in-main-site > #globalProfileDropdown{display:none!important}
+html body.in-main-site #competitionsHub{top:0!important;margin-top:0!important}
+@media(max-width:900px){
+ html body.in-main-site > #competitionTopBar{height:auto!important;min-height:76px!important}
+ html body.in-main-site > #competitionTopBar .ctb-in{
+  width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+  flex-wrap:wrap!important;justify-content:space-between!important;padding:10px 0!important;row-gap:8px!important;
+ }
+ html body.in-main-site > #competitionTopBar .ctb-center-links{
+  position:static!important;left:auto!important;top:auto!important;transform:none!important;
+  order:3!important;width:100%!important;max-width:100%!important;height:auto!important;
+  justify-content:flex-start!important;gap:clamp(16px,3.2vw,24px)!important;overflow-x:auto!important;padding:0 0 4px!important;
+ }
+}
+@media(max-width:600px){
+ html body.in-main-site > #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+ html body.in-main-site > #competitionTopBar .ctb-center-links{gap:20px!important}
+ html body.in-main-site > #competitionTopBar .ctb-center-links a,
+ html body.in-main-site > #competitionTopBar .ctb-center-links button{font-size:12px!important}
+}
+</style>
+
+<style id="competition-header-color-and-crop-fix-v17">
+/* Final embedded-view correction: full gold brand wordmark and keep the hub below the fixed header. */
+html body.in-main-site > #competitionTopBar .ctb-logo > span,
+html body.in-main-site > #competitionTopBar .ctb-logo > span > span{
+  color:#e5bd32!important;
+}
+html body.in-main-site #competitionsHub{
+  top:76px!important;
+  margin-top:0!important;
+  padding-top:24px!important;
+  box-sizing:border-box!important;
+}
+</style>
+
+<style id="fix-competition-header-overlay-crop-v18">
+/* The fixed shared nav overlays the hub in the embedded viewport; reserve real space beneath it. */
+html body.in-main-site #competitionsHub{
+  position:relative!important;
+  top:0!important;
+  bottom:auto!important;
+  margin-top:0!important;
+  padding-top:110px!important;
+  scroll-margin-top:90px!important;
+}
+html body.in-main-site #competitionsHub .competition-hub-head{
+  margin-top:0!important;
+}
+html body.in-main-site > #competitionTopBar{
+  top:0!important;
+}
+</style>
+
+<style id="use-parent-home-header-v19">
+/* The parent page keeps its actual .nav header visible above the iframe.
+   Hide this page's duplicate nav only in embedded mode and restore normal hub spacing. */
+html body.in-main-site > #competitionTopBar{display:none!important}
+html body.in-main-site #competitionsHub{
+ position:relative!important;top:0!important;bottom:auto!important;
+ margin:0!important;padding-top:30px!important;scroll-margin-top:0!important;
+}
+</style>
+,''));setObj('objectiveDailyCurrent',fmt(todayOpeningBalance).replace('
+ setObj('objectiveDailyStatus',dailyBreached?'Breached':'Passed');
+ setObj('objectiveDailyMeta',dailyBreached?'Maximum Daily Loss detected':'5% daily loss limit');
+ setBar('objectiveDailyBar',dailyUsage,dailyBreached?'#ef4444':'#15ad60');
+ setObj('objectiveBalanceMeta',fmt(currentBalance));
+ setBar('objectiveBalanceBar',balancePct,currentBalance<=overallFloor?'#ef4444':'#15ad60');
+ setObj('objectivePlStatus',pl>=0?'Profit':'Loss');
+ setObj('objectivePlMeta',fmt(pl)+' total P/L');
+ setBar('objectivePlBar',profitPct,pl>=0?'#15ad60':'#ef4444');
+ setObj('objectiveMaxValue','-'+fmt(5000).replace('$','')+' USD');
+ setObj('objectiveMaxStatus',overallBreached?'Breached':'Passed');
+ setObj('objectiveMaxMeta','10% overall loss limit');
+ setBar('objectiveMaxBar',100-balancePct,overallBreached?'#ef4444':'#15ad60');
+ $('objectiveDailyStatus').classList.toggle('breach',dailyBreached);$('objectiveDailyStatus').classList.toggle('passed',!dailyBreached);
+ $('objectiveMaxStatus').classList.toggle('breach',overallBreached);$('objectiveMaxStatus').classList.toggle('passed',!overallBreached);
+ try{
+ const reportTradesForChart=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})).length?r.trades.map(x=>({...x,exitDateTime:x.exitDateTime||x.exitDate||x.closedAt||r.date,pnl:x.pnl??x.profit})):[]);
+ const allChartTrades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTradesForChart]
+   .filter(x=>Number.isFinite(Number(x.pnl??x.profit)))
+   .sort((a,b)=>String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||'')));
+ const startVal=Number(t.start)||0;
+ let runningBalance=startVal;
+ // Plot every closed trade as its own cumulative balance point; only label each trading date once.
+ const uniqueTrades=new Map();
+ allChartTrades.forEach((trade,index)=>{
+   const raw=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const key=maeTradeKey(trade)||[raw,trade.symbol||'',trade.pnl??trade.profit??'',index].join('|');
+   if(!uniqueTrades.has(key))uniqueTrades.set(key,trade);
+ });
+ const tradePoints=Array.from(uniqueTrades.values()).sort((a,b)=>
+   String(a.exitDateTime||a.exitDate||a.closedAt||a.entryDateTime||a.entryDate||'').localeCompare(String(b.exitDateTime||b.exitDate||b.closedAt||b.entryDateTime||b.entryDate||''))
+ );
+ const points=[{date:'Start',balance:startVal,day:'Start'}];
+ tradePoints.forEach(trade=>{
+   runningBalance+=Number(trade.pnl??trade.profit)||0;
+   const raw=String(trade.exitDateTime||trade.exitDate||trade.closedAt||trade.entryDateTime||trade.entryDate||'');
+   const day=raw.slice(0,10).replace(/[.]/g,'-');
+   points.push({date:raw||day||'Trade',day:day||'Unknown date',balance:runningBalance});
+ });
+ // If there are no closed trades, use the saved balance history as a fallback.
+ if(!tradePoints.length){
+   const historyPoints=Array.isArray(t.balanceHistory)?t.balanceHistory.filter(p=>Number.isFinite(Number(p.balance))&&String(p.date)!=='Start'):[];
+   const byDate=new Map();historyPoints.forEach(p=>byDate.set(String(p.date),{date:String(p.date),day:String(p.date),balance:Number(p.balance)}));
+   points.push(...Array.from(byDate.values()).sort((a,b)=>String(a.date).localeCompare(String(b.date))));
+   if(points.length===1&&Number(t.current)!==Number(t.start))points.push({date:t.updated||'Current',day:t.updated||'Current',balance:Number(t.current)||0});
+ }
+ const vals=points.map(p=>Number(p.balance)||0);
+ const maxLossLevel=startVal-5000;
+ const profitTargetLevel=startVal*1.03;
+ const currentDailyLossFloor=todayOpeningBalance-dailyLimit;
+ // Keep every point visible; the vertical scale includes at least +/-5% of starting balance.
+ // Only the top (+5%) and bottom (-5%) price labels are shown to keep the axis clean.
+ const fivePct=Math.max(Math.abs(startVal)*0.06,1);
+ const twoPct=Math.max(Math.abs(startVal)*0.02,1);
+ // Axis expands in 2% increments when balances move beyond the +/-5% reference range.
+ const rawMin=Math.min(startVal-fivePct,Math.min(...vals),maxLossLevel,currentDailyLossFloor,profitTargetLevel);
+ const rawMax=Math.max(startVal+fivePct,Math.max(...vals),maxLossLevel,currentDailyLossFloor,profitTargetLevel);
+ const step=twoPct;
+ const axisMin=startVal-Math.ceil((startVal-rawMin)/step)*step;
+ const axisMax=startVal+Math.ceil((rawMax-startVal)/step)*step;
+ const plotMin=axisMin,plotMax=axisMax,axisSpan=Math.max(plotMax-plotMin,1);
+ const yTop=12,yBottom=315,plotHeight=yBottom-yTop;
+ const yFor=v=>yBottom-((v-plotMin)/axisSpan)*plotHeight;
+ const plotLeft=130,plotRight=1035;
+ const coords=vals.map((v,i)=>({x:plotLeft+i*((plotRight-plotLeft)/Math.max(1,vals.length-1)),y:yFor(v)}));
+ const poly=coords.map(p=>p.x+','+p.y).join(' ');
+ let svg='<rect x="0" y="0" width="1100" height="375" fill="#0b1220"/>';
+ // Label the +/-5% limits and every 2% balance level inside them; continue 2% levels if the balance exceeds 5%.
+ const priceLevels=[];
+ for(let price=axisMax;price>=axisMin-twoPct*0.01;price-=twoPct){
+   priceLevels.push({price,kind:'two'});
+ }
+ [startVal+fivePct,startVal-fivePct].forEach(price=>{
+   if(!priceLevels.some(x=>Math.abs(x.price-price)<1))priceLevels.push({price,kind:'five'});
+ });
+ priceLevels.sort((a,b)=>b.price-a.price).forEach(item=>{
+   const y=yFor(item.price),isFive=item.kind==='five';
+   if(y>=yTop-1&&y<=yBottom+1){
+     svg+='<line x1="70" y1="'+y+'" x2="1060" y2="'+y+'" stroke="'+(isFive?'#8291a8':'#26364d')+'" stroke-width="'+(isFive?'1.25':'0.8')+'"/>';
+     svg+='<text x="10" y="'+Math.max(12,Math.min(yBottom+1,y-3))+'" fill="'+(isFive?'#ffffff':'#cbd5e1')+'" font-size="'+(isFive?'11.5':'10.5')+'" font-weight="'+(isFive?'800':'600')+'" font-family="Inter,Arial,sans-serif">'+esc(fmt(item.price))+'</text>';
+   }
+ });
+ // Risk/target reference lines remain visible even when the current daily floor is close to the max-loss line.
+ const maxLossY=yFor(maxLossLevel),dailyLossY=yFor(currentDailyLossFloor);
+ svg+='<line x1="130" y1="'+maxLossY+'" x2="1060" y2="'+maxLossY+'" stroke="#ff4355" stroke-width="2.2"><title>Maximum loss threshold: '+esc(fmt(maxLossLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+yFor(profitTargetLevel)+'" x2="1060" y2="'+yFor(profitTargetLevel)+'" stroke="#18c99a" stroke-width="1.7"><title>Profit target: '+esc(fmt(profitTargetLevel))+'</title></line>';
+ svg+='<line x1="130" y1="'+dailyLossY+'" x2="1060" y2="'+dailyLossY+'" stroke="#ffc247" stroke-width="1.8" stroke-dasharray="4 5"><title>Daily loss floor: '+esc(fmt(currentDailyLossFloor))+'</title></line>';
+ svg+='<polyline points="'+poly+'" fill="none" stroke="#3b9cff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+ // Each trade close has its own visible point; dates are printed once per day.
+ const labelledDays=new Set();
+ coords.forEach((p,i)=>{
+   const point=points[i],day=String(point.day||point.date||'');
+   const title=String(point.date||'').slice(0,19);
+   if(i===coords.length-1)svg+='<circle class="current-balance-pulse" cx="'+p.x+'" cy="'+p.y+'" r="7" fill="none" stroke="#ffffff" stroke-width="1.8"><title>Current balance: '+esc(fmt(point.balance))+'</title></circle>';
+   svg+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(i===coords.length-1?'3.6':'2.6')+'" fill="#f8fafc" stroke="#3b9cff" stroke-width="1.1"><title>'+esc(title)+' — Balance after close: '+esc(fmt(point.balance))+'</title></circle>';
+   if(i===0||!labelledDays.has(day)){
+     const label=i===0?'Start':day.slice(0,10);
+     svg+='<text x="'+p.x+'" y="337" text-anchor="'+(p.x<180?'start':p.x>990?'end':'middle')+'" fill="#f1f5f9" font-size="10.5" font-weight="600">'+esc(label)+'</text>';
+     labelledDays.add(day);
+   }
+ });
+ // High-contrast, readable legend for all three horizontal reference lines.
+ svg+='<line x1="72" y1="361" x2="94" y2="361" stroke="#ff4355" stroke-width="2.4"/><text x="101" y="365" fill="#ff7b87" font-size="11.5" font-weight="700">Max loss: '+esc(fmt(maxLossLevel))+'</text>';
+ svg+='<line x1="388" y1="361" x2="410" y2="361" stroke="#ffc247" stroke-width="2.2" stroke-dasharray="4 4"/><text x="417" y="365" fill="#ffd777" font-size="11.5" font-weight="700">Daily loss floor: '+esc(fmt(currentDailyLossFloor))+' (5% below day open)</text>';
+ svg+='<line x1="790" y1="361" x2="812" y2="361" stroke="#18c99a" stroke-width="2.2"/><text x="819" y="365" fill="#58e4bd" font-size="11.5" font-weight="700">Profit target: '+esc(fmt(profitTargetLevel))+'</text>';
+ $('profileBalanceChart').innerHTML=svg;
+
+
+ }catch(chartError){
+ console.error('Profile chart render failed:',chartError);
+ const chartEl=$('profileBalanceChart');
+ if(chartEl){
+  /* Keep a visible fallback chart if legacy trade data contains an unexpected field. */
+  const sb=Number(t.start)||0, cb=Number(t.current)||sb;
+  const low=Math.floor((Math.min(sb,cb)-5000)/1000)*1000, high=Math.ceil((Math.max(sb,cb)+3000)/1000)*1000;
+  const span=Math.max(1,high-low), y=v=>300-((v-low)/span)*250;
+  let fallback='<rect width="1100" height="375" fill="#0b1220"/>';
+  for(let v=low;v<=high;v+=1000)fallback+='<line x1="80" y1="'+y(v)+'" x2="1060" y2="'+y(v)+'" stroke="#26364d"/><text x="12" y="'+(y(v)-4)+'" fill="#f1f5f9" font-size="12">'+esc(Math.round(v).toLocaleString('en-US'))+'</text>';
+  fallback+='<line x1="130" y1="'+y(sb-5000)+'" x2="1060" y2="'+y(sb-5000)+'" stroke="#ff3048" stroke-width="2"/><line x1="130" y1="'+y(sb*1.03)+'" x2="1060" y2="'+y(sb*1.03)+'" stroke="#089981" stroke-width="1.5"/><polyline points="130,'+y(sb)+' 1060,'+y(cb)+'" fill="none" stroke="#2878d0" stroke-width="2.5"/><circle cx="130" cy="'+y(sb)+'" r="3" fill="#fff"/><circle cx="1060" cy="'+y(cb)+'" r="4" fill="#fff"/><text x="130" y="326" fill="#f1f5f9" font-size="11">Start</text><text x="1060" y="326" text-anchor="end" fill="#f1f5f9" font-size="11">Current</text><text x="108" y="364" fill="#d9364f" font-size="11">Red: Max loss</text><text x="390" y="364" fill="#9a6700" font-size="11">Yellow: Daily loss</text><text x="746" y="364" fill="#087f5b" font-size="11">Green: Profit target</text>';
+  chartEl.innerHTML=fallback;
+ }
+}
+ // Backfill missing lot values for previously saved traders from each report's retained OCR text, without replacing existing trade data.
+ let legacyLotsBackfilled=false;
+ (Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&Array.isArray(r.trades)&&r.ocrText).forEach(r=>{
+   const parsed=parseOcrTradeRows(r.ocrText);if(!parsed.length)return;
+   r.trades.forEach((trade,i)=>{
+     if(getTradeLot(trade)!=='—')return;
+     const match=parsed.find(p=>p.lot!==null&&String(p.symbol||'').toUpperCase()===String(trade.symbol||'').toUpperCase()&&String(p.side||'').toLowerCase()===String(trade.side||'').toLowerCase()) || parsed[i];
+     if(match&&match.lot!==null&&match.lot!==undefined){trade.lot=match.lot;legacyLotsBackfilled=true;}
+   });
+ });
+ if(legacyLotsBackfilled)persist();
+ const reportTrades=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]).length?r.trades.map(x=>({...x,entryDate:x.entryDate||'—',exitDate:x.exitDate||x.closedAt||r.date,closedAt:x.closedAt||r.date})): [{entryDate:'—',exitDate:r.date,symbol:'Daily total',entryPrice:'—',exitPrice:'—',pnl:r.dailyPnl}] );const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reportTrades];
+ profileTradesCache=trades.slice().sort((a,b)=>String(b.exitDateTime||b.exitDate||b.closedAt||'').localeCompare(String(a.exitDateTime||a.exitDate||a.closedAt||'')));profileTradePage=1;renderProfileTradePage();$('traderProfileBack').style.display='flex';
+ // Backfill MAE once for already-confirmed screenshot reports that predate automatic analysis.
+ if(currentUser&&profileTradesCache.length)setTimeout(()=>analyzeProfileHistoricalMae({automatic:true}),0);
+}
+// Safe public click handler: open the modal immediately, then run profile rendering.
+function openTraderProfile(id){
+ const back=$('traderProfileBack');
+ if(back)back.style.display='flex';
+ try{
+   openTraderProfileCore(id);
+ }catch(error){
+   console.error('Trader profile could not fully render:',error);
+   const name=$('profileName');
+   if(name&&(!name.textContent||name.textContent==='Trader'))name.textContent='Trader Profile';
+   toast('Profile error: '+String(error&&error.message||error));
+ }
+}
+window.openTraderProfile=openTraderProfile;
+let maeAnalysisPromise=null;
+const MAE_API_REQUEST_GAP_MS=9000; // stay below Twelve Data's 8-credit/minute limit
+const MAE_RETRY_WAIT_MS=65000;
+const waitForMaeSlot=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function maeResultCanRetry(result){
+ if(!result||result.status==='ok')return false;
+ const message=String(result.message||'').toLowerCase();
+ const rateLimited=/credit|rate.?limit|too many requests|429|per minute|quota/.test(message);
+ if(!rateLimited)return false;
+ const age=Date.now()-Date.parse(result.analyzedAt||0);
+ return !Number.isFinite(age)||age>=MAE_RETRY_WAIT_MS;
+}
+async function analyzeProfileHistoricalMae(options={}){
+ if(maeAnalysisPromise)return maeAnalysisPromise;
+ maeAnalysisPromise=(async()=>{
+  const status=$('historicalMaeStatus');
+  if(!currentUser){if(!options.automatic){status.textContent='Admin login is required before historical analysis can run.';toast('Please log in as admin first');}return;}
+  const t=data.traders.find(x=>String(x.id)===String(profileTraderId));if(!t)return;
+  const allTrades=profileTradesCache;
+  if(!allTrades.length){status.textContent='No individual closed trades available for historical analysis.';return;}
+  const existing=Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[];
+  const getSaved=trade=>existing.find(r=>String(r.traderId)===String(t.id)&&r.tradeKey===maeTradeKey(trade))||null;
+  const validTrades=allTrades.filter(x=>x.symbol&&['buy','sell'].includes(String(x.side||x.type||'').toLowerCase())&&getTradeLot(x)!=='—'&&(x.entryDateTime||x.entryDate)&&(x.exitDateTime||x.exitDate||x.closedAt)&&x.entryPrice!==''&&x.entryPrice!==undefined&&x.exitPrice!==''&&x.exitPrice!==undefined);
+  if(!validTrades.length){status.textContent='No complete trade timestamps/prices/lots available for combined analysis.';return;}
+  const normalizeMaeSymbol=value=>{
+   let symbol=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+   if(/^XAUUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='GOLD')return 'XAUUSD';
+   if(/^XAGUSD(?:M|\d+|PRO|\.?)$/.test(symbol)||symbol==='SILVER')return 'XAGUSD';
+   const fx=symbol.match(/^([A-Z]{6})(?:M|\d+|PRO)$/);if(fx)return fx[1];
+   return symbol;
+  };
+  // Combined running-loss analysis requires all overlapping trades in one request.
+  // Keep the batch within the Edge Function's 20-trade limit.
+  const batches=[];
+  for(let i=0;i<validTrades.length;i+=20)batches.push(validTrades.slice(i,i+20));
+  let passed=0,failed=0,cloudSaveFailed=false;
+  const incomingMae=[];
+  const dailyBreaches=[];
+  for(let bi=0;bi<batches.length;bi++){
+   const batch=batches[bi];
+   const payload=batch.map((trade,index)=>({index,tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:normalizeMaeSymbol(trade.symbol),side:trade.side||trade.type||'',lot:getTradeLot(trade),entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',entryPrice:trade.entryPrice,exitPrice:trade.exitPrice,pnl:trade.pnl??trade.profit}));
+   status.textContent=`Analyzing ${batch.length} trade(s) together for overlapping positions and daily loss (${bi+1}/${batches.length})…`;
+   try{
+    const {data:result,error}=await sb.functions.invoke('historical-mae',{body:{trades:payload}});
+    if(error)throw error;
+    if(!result||!Array.isArray(result.results))throw new Error(result?.error||'Historical MAE service returned no results.');
+    (Array.isArray(result.dailyLossBreaches)?result.dailyLossBreaches:[]).forEach(b=>dailyBreaches.push({...b,traderId:t.id}));
+    for(const r of result.results){
+     const trade=batch[Number(r.tradeId)];
+     if(!trade)continue;
+     incomingMae.push({traderId:t.id,tradeKey:maeTradeKey(trade),tradeNumber:trade.tradeNumber||trade.ticket||'',symbol:trade.symbol||'',entryDateTime:trade.entryDateTime||trade.entryDate||'',exitDateTime:trade.exitDateTime||trade.exitDate||trade.closedAt||'',maeUsd:r.estimatedMAE??null,maePrice:r.estimatedMAEPrice??null,status:r.status||'unavailable',message:r.message||r.note||'',source:r.source||result.source||'Twelve Data 1-minute OHLC',estimatedDailyLossBreach:!!r.estimatedDailyLossBreach,dailyLossBreachAt:r.dailyLossBreachAt||null,combinedDailyLossAtBreach:r.combinedDailyLossAtBreach??null,dailyLossBreachDate:r.dailyLossBreachDate||null,analyzedAt:new Date().toISOString()});
+     if(r.status==='ok')passed++;else failed++;
+    }
+   }catch(e){
+    failed+=batch.length;
+    status.textContent='Historical analysis request failed: '+String(e?.message||e);
+    // Do not replace previously successful records with request failures.
+   }
+  }
+  // Merge by trade identity; successful previous results are not discarded by later errors.
+  const merged=new Map((Array.isArray(data.historicalMaeResults)?data.historicalMaeResults:[]).map(r=>[String(r.traderId)+'|'+String(r.tradeKey||''),r]));
+  for(const incoming of incomingMae){
+   const key=String(incoming.traderId)+'|'+String(incoming.tradeKey||''),old=merged.get(key);
+   if(old&&old.status==='ok'&&incoming.status!=='ok')continue;
+   merged.set(key,incoming);
+  }
+  data.historicalMaeResults=Array.from(merged.values());
+  // Persist combined daily-loss breach summaries without touching trader/report data.
+  const oldDaily=Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[];
+  const keepDaily=oldDaily.filter(b=>String(b.traderId)!==String(t.id));
+  data.historicalDailyLossBreaches=[...keepDaily,...dailyBreaches];
+  const ok=await persist();
+  renderProfileTradePage();render();
+  const currentBreaches=getTraderRuleBreaches(t);window.profileTraderHasBreach=currentBreaches.length>0;
+  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=currentBreaches.length?'BREACHED: '+[...new Set(currentBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',currentBreaches.length>0);}
+  const breachCount=dailyBreaches.length;
+  if(!ok)status.textContent=`Analysis finished (${passed} successful, ${failed} unavailable), but cloud save failed.`;
+  else status.textContent=`Combined analysis saved: ${passed} successful, ${failed} unavailable. ${breachCount?breachCount+' Maximum Daily Loss breach date(s) detected.':'No combined daily-loss breach detected in the returned candle data.'}`;
+ })().catch(e=>{console.error(e);const status=$('historicalMaeStatus');if(status)status.textContent='Automatic MAE analysis error: '+(e.message||String(e));}).finally(()=>{maeAnalysisPromise=null;});
+ return maeAnalysisPromise;
+}
+$('closeTraderProfile').onclick=()=>{$('traderProfileBack').style.display='none'};
+$('traderProfileBack').addEventListener('click',e=>{if(e.target===$('traderProfileBack'))$('traderProfileBack').style.display='none'});
+render();
+setAdminMode(null);
+(async()=>{
+ const {data:sessionData}=await sb.auth.getSession();
+ if(sessionData?.session?.user){setPublicUser(sessionData.session.user);setAdminMode(sessionData.session.user);}
+ await loadSharedData();
+ // Restore last competition view after refresh. Never force Welcome/Home.
+ let savedView='competition',savedId='main';
+ try{
+  savedView=localStorage.getItem('u1traderCompetitionView')||'competition';
+  savedId=localStorage.getItem('u1traderActiveCompetitionId')||data._activeCompetitionId||'main';
+ }catch(e){}
+ const openedFromMainSite=window.parent!==window;
+ /* Browser refresh while inside a competition: come back to that same competition.
+    (The main page clears this when Competition is opened fresh, so a fresh open still shows the list.) */
+ let restoreId=null;
+ if(openedFromMainSite){try{const v=JSON.parse(sessionStorage.getItem('u1traderCompView')||'null');if(v&&v.view==='dashboard'&&getCompetitionCatalog().some(x=>x.id===v.id))restoreId=v.id;}catch(e){}}
+ if(restoreId){
+  openCompetitionWorkspace(restoreId);setGlobalNavActive('competitions');
+ }else if(!openedFromMainSite&&savedView==='dashboard'&&getCompetitionCatalog().length){
+  if(!getCompetitionCatalog().some(x=>x.id===savedId))savedId=getCompetitionCatalog()[0]?.id||'main';
+  openCompetitionWorkspace(savedId);setGlobalNavActive('competitions');
+ }else{
+  document.body.classList.remove('page-welcome','page-dashboard');
+  openCompetitionsHub();setGlobalNavActive('competitions');
+ }
+ // Preserve the exact visible scroll position through a browser refresh.
+ try{
+  const priorScroll=sessionStorage.getItem('u1traderCompetitionScrollY');
+  if(priorScroll!==null&&(!openedFromMainSite||restoreId))requestAnimationFrame(()=>window.scrollTo(0,Number(priorScroll)||0));
+ }catch(e){}
+ let scrollSaveQueued=false;
+ window.addEventListener('scroll',()=>{
+  if(scrollSaveQueued)return;
+  scrollSaveQueued=true;
+  requestAnimationFrame(()=>{
+   scrollSaveQueued=false;
+   try{sessionStorage.setItem('u1traderCompetitionScrollY',String(window.scrollY))}catch(e){}
+  });
+ },{passive:true});
+ // Keep the current page key explicit when the tab is refreshed or closed.
+ window.addEventListener('beforeunload',()=>{
+  const view=document.body.classList.contains('page-dashboard')?'dashboard':'competition';
+  try{
+   if(window.parent===window)localStorage.setItem('u1traderCompetitionView',view);
+   if(view==='dashboard'&&data._activeCompetitionId)localStorage.setItem('u1traderActiveCompetitionId',data._activeCompetitionId);
+  }catch(e){}
+ });
+ sb.channel('competition-dashboard-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'competition_dashboard',filter:'id=eq.1'},payload=>{
+   const remote=payload.new?.dashboard_data;
+   if(remote&&stableJson(remote)!==lastRemoteJson){applyRemoteDashboard(remote);lastRemoteJson=stableJson(remote);try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}
+ }).subscribe();
+ // Polling fallback works even if Realtime is not enabled for the table.
+ setInterval(async()=>{
+   const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+   if(!error&&row?.dashboard_data){const remoteJson=stableJson(row.dashboard_data);if(remoteJson!==lastRemoteJson){applyRemoteDashboard(row.dashboard_data);lastRemoteJson=remoteJson;try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}render();setSyncStatus(currentUser?'Admin connected':'Live leaderboard')}}
+ },5000);
+ // Safari/iPhone can suspend timers while the tab is in the background; refresh immediately on return.
+ const refreshSharedDataOnReturn=async()=>{
+   if(document.visibilityState==='visible'){
+     const {data:row,error}=await sb.from('competition_dashboard').select('dashboard_data').eq('id',1).maybeSingle();
+     if(!error&&row?.dashboard_data&&Object.keys(row.dashboard_data).length){
+       const remoteJson=stableJson(row.dashboard_data);
+       if(remoteJson!==lastRemoteJson){
+         applyRemoteDashboard(row.dashboard_data);
+         lastRemoteJson=remoteJson;
+         try{localStorage.setItem('traderArenaSeparateFixedData',JSON.stringify(data))}catch(e){}
+         render();
+       }
+       setSyncStatus(currentUser?'Admin connected':'Live leaderboard');
+     }
+   }
+ };
+ document.addEventListener('visibilitychange',refreshSharedDataOnReturn);
+ window.addEventListener('focus',refreshSharedDataOnReturn);
+})();
+</script>
+
+<style id="admin-login-true-top-right-fix">
+/* Keep the brand at top-left and Admin Login at the same row's far top-right. */
+.top{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;align-items:flex-start!important;gap:12px!important;position:relative!important;width:100%!important}
+.top .brand{flex:0 1 auto!important;min-width:0!important;margin:0!important}
+.top .top-actions{display:flex!important;flex:0 0 auto!important;width:auto!important;max-width:max-content!important;justify-content:flex-end!important;align-items:flex-start!important;align-self:flex-start!important;margin:0 0 0 auto!important;padding:0!important}
+.top .top-actions .btn{white-space:nowrap!important}
+@media(max-width:800px){.top{flex-wrap:nowrap!important;align-items:flex-start!important}.top .brand{gap:9px!important}.top .logo{width:62px!important;height:62px!important;flex:0 0 62px!important}.top .brand h1{font-size:clamp(18px,5vw,25px)!important;line-height:1.12!important}.top .brand .eyebrow{font-size:9px!important;letter-spacing:1px!important}.top .top-actions{width:auto!important;flex:0 0 auto!important;justify-content:flex-end!important;margin:0 0 0 auto!important}.top .top-actions .btn{padding:9px 10px!important;font-size:11px!important}}
+@media(max-width:380px){.top{gap:6px!important}.top .logo{width:48px!important;height:48px!important;flex-basis:48px!important}.top .brand{gap:7px!important}.top .brand h1{font-size:17px!important}.top .brand .eyebrow{font-size:8px!important;letter-spacing:.6px!important}.top .top-actions .btn{padding:8px 7px!important;font-size:10px!important}}
+</style>
+
+<script>
+/* Header links / logo: return to the main site and scroll to the matching section. */
+document.querySelectorAll('#competitionTopBar a[href]').forEach(a=>a.addEventListener('click',e=>{
+  if(window.parent===window)return; /* opened on its own: normal link */
+  const href=a.getAttribute('href')||'';
+  const hash=a.dataset.home || (href.startsWith('https://u1trader.github.io/#') ? href.slice('https://u1trader.github.io/'.length) : '');
+  if(!/^#(home|about|discounts|payouts|giveaways|contact)$/.test(hash))return;
+  e.preventDefault();
+  window.parent.postMessage({type:'U1TRADER_CLOSE_COMPETITION',hash},'https://u1trader.github.io');
+}));
+</script>
+
+<style id="admin-controls-final-visibility-fix">
+/* Keep all admin controls hidden for ordinary users and visible for the verified site admin. */
+body.admin-mode .admin-only{display:inline-block!important}
+body.admin-mode section.card.admin-only,body.admin-mode footer.admin-only{display:block!important}
+body.admin-mode .admin-only.start-editor-label,body.admin-mode label.admin-only{display:inline-flex!important}
+body:not(.admin-mode) .admin-only{display:none!important}
+</style>
+
+<style id="final-register-black-panel-fix-v2">
+/* Final override: do not stretch or paint the schedule column below the Register Now CTA. */
+html body .competition-hero-layout{align-items:start!important}
+html body .competition-hero-layout .hero-schedule-card{
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ align-self:start!important;
+ justify-content:initial!important;
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+ overflow:visible!important;
+}
+html body .competition-hero-layout .hero-schedule-card .sidebody{
+ display:block!important;
+ flex:0 0 auto!important;
+ height:auto!important;
+ min-height:0!important;
+ background:transparent!important;
+}
+html body .competition-hero-layout .hero-schedule-card .register-cta{
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ margin-bottom:0!important;
+}
+</style>
+
+<style id="dashboard-top-gap-tighten-final">
+/* Pull the full competition dashboard upward without changing its internal layout. */
+html body.page-dashboard>.wrap{
+  padding-top:0!important;
+  margin-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top{
+  margin-top:0!important;
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top .top-actions{
+  margin-top:0!important;
+  align-self:flex-start!important;
+}
+</style>
+
+<style id="dashboard-top-gap-hard-fix-v2">
+/* Remove the leftover blank strip above the competition hero in dashboard view. */
+html body.page-dashboard,
+html body.in-main-site.page-dashboard{
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap,
+html body.in-main-site.page-dashboard>.wrap{
+  margin-top:0!important;
+  padding-top:0!important;
+}
+html body.page-dashboard>.wrap>header.top,
+html body.in-main-site.page-dashboard>.wrap>header.top{
+  display:flex!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:0!important;
+}
+html body.page-dashboard>.wrap>.hero,
+html body.in-main-site.page-dashboard>.wrap>.hero{
+  margin-top:0!important;
+}
+</style>
+
+<style id="dashboard-hero-nav-clearance-fix">
+/* Keep the hero fully below the shared site navigation; no large blank spacer. */
+html body.page-dashboard>.wrap,
+html body.in-main-site.page-dashboard>.wrap{
+  padding-top:12px!important;
+  margin-top:0!important;
+}
+html body.page-dashboard>.wrap>section.hero,
+html body.in-main-site.page-dashboard>.wrap>section.hero{
+  margin-top:0!important;
+  position:relative!important;
+  clear:both!important;
+}
+</style>
+
+<style id="u1trader-profile-modal-wide-chart-six-percent-final">
+/* Wider/taller profile workspace: use available screen area, keep chart and trade rows together. */
+html body #traderProfileBack .profile-modal{
+  width:min(1480px,calc(100vw - 48px))!important;
+  max-width:min(1480px,calc(100vw - 48px))!important;
+  height:calc(100dvh - 48px)!important;
+  max-height:calc(100dvh - 48px)!important;
+  padding:12px 16px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  gap:0!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  width:100%!important;
+  height:clamp(320px,42vh,470px)!important;
+  min-height:320px!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+  margin:10px 0 5px!important;
+  line-height:1.25!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{
+  margin:0!important;
+  min-height:0!important;
+  flex:0 0 auto!important;
+  overflow:auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades table{
+  width:100%!important;
+  min-width:1050px!important;
+  margin:0!important;
+  table-layout:auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades th,
+html body #traderProfileBack .profile-modal .profile-trades td{
+  padding:5px 7px!important;
+  line-height:1.2!important;
+}
+html body #traderProfileBack .profile-modal .profile-pagination{
+  padding:6px 0 0!important;
+  margin:0!important;
+}
+html body #traderProfileBack .profile-modal .profile-page-info{
+  padding-top:3px!important;
+  margin-bottom:0!important;
+}
+@media(max-width:760px){
+  html body #traderProfileBack .profile-modal{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    height:calc(100dvh - 24px)!important;
+    max-height:calc(100dvh - 24px)!important;
+    padding:10px!important;
+  }
+  html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+    height:320px!important;
+    min-height:320px!important;
+  }
+}
+</style>
+
+<style id="u1trader-profile-modal-actually-fullscreen-fix">
+/* Make the profile dialog itself use the viewport, not just stretch its contents. */
+html body #traderProfileBack.modalback{
+  padding:12px!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+html body #traderProfileBack > .modal.profile-modal{
+  box-sizing:border-box!important;
+  width:calc(100vw - 24px)!important;
+  max-width:calc(100vw - 24px)!important;
+  min-width:0!important;
+  height:calc(100dvh - 24px)!important;
+  max-height:calc(100dvh - 24px)!important;
+  min-height:0!important;
+  padding:14px 18px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  border-radius:16px!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileBalanceChart.profile-chart{
+  width:100%!important;
+  height:clamp(340px,43vh,500px)!important;
+  min-height:300px!important;
+  flex:0 0 auto!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileBalanceHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack > .modal.profile-modal #profileTradeHeading{
+  margin:10px 0 5px!important;
+}
+html body #traderProfileBack > .modal.profile-modal .profile-trades{
+  min-height:0!important;
+  flex:0 0 auto!important;
+  overflow:auto!important;
+  margin:0!important;
+}
+html body #traderProfileBack > .modal.profile-modal .profile-trades table{
+  width:100%!important;
+  min-width:1050px!important;
+}
+@media(max-width:700px){
+  html body #traderProfileBack > .modal.profile-modal{
+    width:calc(100vw - 12px)!important;
+    max-width:calc(100vw - 12px)!important;
+    height:calc(100dvh - 12px)!important;
+    max-height:calc(100dvh - 12px)!important;
+    padding:10px!important;
+  }
+  html body #traderProfileBack > .modal.profile-modal #profileBalanceChart.profile-chart{
+    height:320px!important;
+    min-height:320px!important;
+  }
+}
+</style>
+
+<style id="u1trader-profile-trade-history-text-size-only">
+/* Slightly enlarge only the Trade history heading and its table text. */
+html body #traderProfileBack .profile-modal #profileTradeHeading{font-size:16px!important;}
+html body #traderProfileBack .profile-modal .profile-trades table th{font-size:10px!important;}
+html body #traderProfileBack .profile-modal .profile-trades table td{font-size:11px!important;}
+</style>
+
+<style id="u1trader-profile-trade-history-text-size-only">
+/* Make Trade history noticeably easier to read; keep layout, chart and popup dimensions unchanged. */
+html body #traderProfileBack .profile-modal #profileTradeHeading{font-size:18px!important;line-height:1.4!important;}
+html body #traderProfileBack .profile-modal .profile-trades table th{font-size:12px!important;}
+html body #traderProfileBack .profile-modal .profile-trades table td{font-size:13px!important;}
+</style>
+</body>
+</html>
+<style id="first-prize-full-width-and-report-append-fix">
+.winner-stats{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+.winner-stats>.winner-card{grid-column:1/-1!important;width:100%!important;max-width:none!important;box-sizing:border-box!important}
+.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 120px)!important}
+@media(max-width:800px){.winner-stats .winner-card>*:not(.trophy-art){max-width:calc(100% - 88px)!important}}
+</style>
+
+<style id="rule-breach-status-styles">
+.rule-breach{display:inline-block;color:#fff;background:#c62828;border:1px solid #ef5350;border-radius:5px;padding:5px 7px;font-size:11px;font-weight:800;line-height:1.4;max-width:190px;white-space:normal}
+.no-rule-breach{color:var(--muted,#8993a4);font-weight:600}
+</style>
+
+<style id="profile-breach-highlight-styles">
+.profile-breach-status{margin-top:8px;font-size:12px;font-weight:800;color:var(--muted,#94a5c3)}.profile-breach-status.breached{display:inline-block;background:#b91c1c;color:#fff;padding:6px 9px;border-radius:6px;border:1px solid #ef4444}.trade-breach-row td{background:rgba(185,28,28,.18)!important;color:#ffb4b4!important;border-top:1px solid #ef4444!important;border-bottom:1px solid #ef4444!important}.trade-breach-row td.positive,.trade-breach-row td.negative{color:#ffb4b4!important}
+</style>
+
+<style id="historical-mae-styles">#historicalMaeStatus{max-width:760px;line-height:1.45}.profile-trades td small{display:block;font-size:10px;color:#f0b90b}.profile-trades td{vertical-align:top}</style>
+
+<style id="user-requested-breach-visibility-fixes">
+body:not(.admin-mode) .admin-mae-only{display:none!important}
+#historicalMaeStatus{display:none!important}
+.trade-breach-row td{background:transparent!important;border-top:0!important;border-bottom:0!important}
+.position-breach-text{color:#ef4444!important;font-weight:800!important}
+.rule-breach{display:inline!important;color:#ef4444!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;max-width:none!important;white-space:normal}
+.profile-breach-status.breached{display:block!important;background:transparent!important;color:#ef4444!important;padding:0!important;border:0!important;border-radius:0!important}
+</style>
+
+<style id="use-main-site-login-for-admin">
+/* Navigation is the only entry point; remove all welcome-page action buttons/cards. */
+#welcomePage,.welcome-features,.welcome-enter-btn,#liveCompetitionBtn,#traderArenaBtn,#enterCompetitionBtn{display:none!important}
+/* Admin access is inherited from the shared U1Trader site login. */#authBtn{display:none!important}
+/* Multi-competition home: cards are independent competition workspaces. */
+#competitionsHub{display:none;min-height:100vh;padding:30px clamp(14px,4vw,48px);background:#10121a;color:#f4f5fb}
+body.page-competition #competitionsHub{display:block}
+body.page-competition>.wrap{display:none!important}
+body.page-dashboard>.wrap{display:block!important}
+.competition-hub-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:8px 0 24px}
+.competition-hub-head h1{font-size:clamp(26px,4vw,36px);margin:0;letter-spacing:-.7px}
+.competition-hub-head p{margin:6px 0 0;color:#9ca6ba}
+.competition-hub-actions{display:flex;gap:10px;flex-wrap:wrap}
+.competition-hub-tabs{display:flex;gap:24px;overflow:auto;border-bottom:1px solid #303342;margin-bottom:24px}
+.competition-hub-tab{border:0;border-bottom:2px solid transparent;background:transparent;color:#9ca6ba;padding:13px 4px;font:700 14px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.competition-hub-tab.active{color:#a99aff;border-bottom-color:#8b78ff}
+.competition-hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.competition-list-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid #303448;border-radius:13px;background:linear-gradient(180deg,#22243a,#171923);box-shadow:0 10px 28px #0002}
+.competition-list-art{height:145px;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#6657b8 0,#2c2c55 42%,#1a1b2b 80%);font-size:62px}
+.competition-list-body{display:flex;flex:1;flex-direction:column;padding:17px}
+.competition-list-status{align-self:flex-start;border-radius:5px;padding:4px 8px;margin-bottom:12px;font-size:10px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;background:#33384b;color:#e4e8f5}
+.competition-list-status.live{background:#173f35;color:#82f0bd}.competition-list-status.upcoming{background:#4b2634;color:#ff9bb0}.competition-list-status.completed{background:#303747;color:#c3ccdc}
+.competition-list-body h2{font-size:18px;line-height:1.3;margin:0 0 8px}.competition-list-dates{font-size:12px;color:#aab3c6;line-height:1.6;margin-bottom:16px}
+.competition-list-open{margin-top:auto;width:100%;border:0;border-radius:8px;padding:11px 14px;background:#6657ff;color:white;font-weight:800;cursor:pointer}
+.competition-list-open:hover{filter:brightness(1.1)}.competition-list-open:disabled{background:#343643;color:#85899a;cursor:default}
+.competition-hub-empty{grid-column:1/-1;padding:44px 20px;border:1px dashed #34394c;border-radius:12px;text-align:center;color:#9ca6ba}
+.competition-list-admin-row{display:flex;gap:8px;margin-top:10px}.competition-list-admin-row button{flex:1;border:1px solid #3a3d52;border-radius:7px;padding:8px;background:#171923;color:#dce1f2;cursor:pointer;font-weight:700}
+#backToCompetitions{display:none}.admin-mode #backToCompetitions{display:inline-flex}
+@media(max-width:900px){.competition-hub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.competition-hub-grid{grid-template-columns:1fr}#competitionsHub{padding:20px 12px}.competition-list-art{height:120px}}
+</style>
+
+<style id="user-requested-leaderboard-reports-layout">
+/* Keep the retired manual balance editor hidden even in admin mode. */
+#legacyBalanceUpdate[hidden],.competition-sidebar[hidden]{display:none!important}
+body.admin-mode .grid,.grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+.grid>section.card{grid-column:1/-1!important;width:100%!important;min-width:0!important;max-width:none!important}
+.grid .tablewrap{width:100%!important;max-width:none!important;overflow-x:auto}
+.grid .tablewrap table{width:100%!important;min-width:900px}
+#savedTradeReportsSection .cardhead{display:flex;align-items:center;justify-content:space-between;gap:16px}
+#savedTradeReportsSection .report-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-left:auto}
+#toggleDailyReports{display:inline-flex!important;align-items:center;justify-content:center;min-height:34px;padding:7px 13px;border:1px solid var(--gold,#caa24a);border-radius:8px;background:rgba(202,162,74,.12);color:var(--text,#f4eee2);font-weight:800;cursor:pointer;white-space:nowrap}
+#savedTradeReports[hidden]{display:none!important}
+#savedTradeReports{display:grid;gap:10px;padding:0 16px 16px}
+@media(max-width:650px){#savedTradeReportsSection .cardhead{align-items:flex-start}#savedTradeReportsSection .report-head-actions{gap:6px;flex-wrap:wrap}}
+</style>
+<script id="user-requested-daily-reports-toggle">
+(function(){
+ const host=document.getElementById('savedTradeReports');
+ const btn=document.getElementById('toggleDailyReports');
+ if(host)host.hidden=true;
+ if(btn){btn.textContent='Show reports';btn.setAttribute('aria-expanded','false');}
+ // Toggle is bound once by the layout-enforcement handler below.
+})();
+</script>
+
+
+<style id="user-requested-layout-enforcement-v2">
+/* Enforce the requested layout even when legacy admin code sets inline styles. */
+html body .competition-sidebar{display:none!important}
+html body .grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:none!important}
+html body .grid>section.card{grid-column:1/-1!important;width:100%!important;max-width:none!important;min-width:0!important}
+html body #legacyBalanceUpdate{display:none!important}
+html body #savedTradeReports[hidden]{display:none!important}
+html body #savedTradeReportsSection .report-head-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:12px!important;margin-left:auto!important}
+html body #toggleDailyReports{display:inline-flex!important;visibility:visible!important;opacity:1!important}
+</style>
+<script id="user-requested-layout-enforcement-v2">
+(function(){
+ function enforceRequestedLayout(){
+  const sidebar=document.querySelector('.competition-sidebar');
+  if(sidebar){sidebar.hidden=true;sidebar.style.setProperty('display','none','important');}
+  const oldEditor=document.getElementById('legacyBalanceUpdate');
+  if(oldEditor){oldEditor.hidden=true;oldEditor.style.setProperty('display','none','important');}
+  document.querySelectorAll('body .grid').forEach(grid=>{
+   grid.style.setProperty('display','grid','important');
+   grid.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+   grid.style.setProperty('width','100%','important');
+   grid.style.setProperty('max-width','none','important');
+  });
+  document.querySelectorAll('body .grid>section.card').forEach(card=>{
+   card.style.setProperty('grid-column','1/-1','important');
+   card.style.setProperty('width','100%','important');
+   card.style.setProperty('max-width','none','important');
+   card.style.setProperty('min-width','0','important');
+  });
+  const reports=document.getElementById('savedTradeReports');
+  const toggle=document.getElementById('toggleDailyReports');
+  if(reports&&toggle){
+   if(!toggle.dataset.bound){
+    toggle.dataset.bound='1';
+    reports.hidden=true;
+    reports.style.setProperty('display','none','important');
+    toggle.textContent='Show reports';
+    toggle.setAttribute('aria-expanded','false');
+    toggle.addEventListener('click',function(event){
+     event.preventDefault();
+     event.stopPropagation();
+     const open=reports.hidden;
+     reports.hidden=!open;
+     reports.style.setProperty('display',open?'grid':'none','important');
+     toggle.textContent=open?'Hide reports':'Show reports';
+     toggle.setAttribute('aria-expanded',open?'true':'false');
+    });
+   }
+   toggle.style.setProperty('display','inline-flex','important');
+   toggle.style.setProperty('visibility','visible','important');
+   toggle.style.setProperty('opacity','1','important');
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enforceRequestedLayout,{once:true});
+ else enforceRequestedLayout();
+ const observer=new MutationObserver(enforceRequestedLayout);
+ observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+})();
+</script>
+
+<style id="user-requested-admin-schedule-edit-fix">
+body.admin-mode .hero-schedule-card .start-editor-label,
+body.admin-mode .hero-schedule-card #competitionStartInput,
+body.admin-mode .hero-schedule-card #competitionEndInput,
+body.admin-mode .hero-schedule-card label[for="competitionEndInput"]{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+body.admin-mode .hero-schedule-card #competitionStartInput,
+body.admin-mode .hero-schedule-card #competitionEndInput{width:100%!important;min-width:0!important;max-width:100%!important;min-height:38px!important;margin-top:6px!important;padding:8px!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.65)!important;border-radius:8px!important;pointer-events:auto!important}
+body.admin-mode .hero-schedule-card input[type="datetime-local"]::-webkit-calendar-picker-indicator{cursor:pointer;filter:invert(1);opacity:1}
+</style>
+
+<style id="u1trader-final-report-date-fix">
+html body #savedTradeReports[hidden]{display:none!important}
+html body #savedTradeReports:not([hidden]){display:grid!important}
+html body.admin-mode .hero-schedule-card .datebox{min-height:0!important;height:auto!important;overflow:visible!important}
+html body.admin-mode .hero-schedule-card input[type="datetime-local"]{display:block!important;position:relative!important;z-index:20!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;user-select:auto!important;appearance:auto!important;color-scheme:dark!important;width:100%!important;min-height:42px!important;margin:8px 0 0!important;padding:9px!important;box-sizing:border-box!important;background:#0c1527!important;color:#f4eee2!important;border:1px solid rgba(202,162,74,.75)!important;border-radius:8px!important;font-size:13px!important}
+html body.admin-mode .hero-schedule-card .start-editor-label{display:block!important;position:relative!important;z-index:10!important;margin-top:10px!important}
+</style>
+
+<style id="u1trader-profile-modal-viewport-fix">
+/* Keep the trader profile modal fully below the sticky navigation so its top border remains visible. */
+html body #traderProfileBack{
+ position:fixed!important;
+ inset:0!important;
+ z-index:10000!important;
+ display:none;
+ align-items:flex-start!important;
+ justify-content:center!important;
+ box-sizing:border-box!important;
+ padding:96px 18px 24px!important;
+ overflow-y:auto!important;
+ overscroll-behavior:contain;
+}
+html body #traderProfileBack[style*="display: flex"],
+html body #traderProfileBack[style*="display:flex"]{display:flex!important}
+html body #traderProfileBack .profile-modal{
+ width:min(1600px,97vw)!important;
+ height:calc(100dvh - 120px)!important;
+ max-height:calc(100dvh - 120px)!important;
+ min-height:0!important;
+ margin:0 auto!important;
+ flex:0 0 auto!important;
+ box-sizing:border-box!important;
+ border:1px solid var(--line,#5b4a2b)!important;
+ border-radius:16px!important;
+ overflow:hidden!important;
+}
+html body #traderProfileBack .profile-balance-footer{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;max-height:0!important;flex:0 0 0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}
+@media(max-width:700px){
+ html body #traderProfileBack{padding:86px 8px 12px!important}
+ html body #traderProfileBack .profile-modal{width:100%!important;height:calc(100dvh - 98px)!important;max-height:calc(100dvh - 98px)!important;padding:12px!important}
+}
+</style>
+
+<style id="u1trader-profile-chart-spacing-fix">
+/* Give the chart more vertical room, then separate trade history from its legend. */
+html body #traderProfileBack .profile-modal #profileBalanceHeading{
+ margin:14px 0 8px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ display:block!important;
+ width:100%!important;
+ height:clamp(420px,48vh,500px)!important;
+ min-height:420px!important;
+ flex:0 0 auto!important;
+ box-sizing:border-box!important;
+}
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+ margin:18px 0 10px!important;
+ line-height:1.35!important;
+ flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{
+ margin-top:4px!important;
+ min-height:0!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades table{
+ margin-top:0!important;
+}
+@media(max-height:800px){
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:400px!important;
+  min-height:400px!important;
+ }
+}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:360px!important;
+  min-height:360px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileTradeHeading{
+  margin-top:14px!important;
+ }
+}
+</style>
+
+<style id="u1trader-profile-compact-daily-chart-five-trades">
+/* Compact trader profile so the chart and five trade rows fit together. */
+html body #traderProfileBack .profile-modal{height:calc(100dvh - 132px)!important;max-height:calc(100dvh - 132px)!important;padding:8px 14px 8px!important}
+html body #traderProfileBack .profile-modal #profileBalanceHeading{margin:6px 0 4px!important}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:clamp(230px,31vh,330px)!important;min-height:230px!important;flex:0 0 auto!important}
+html body #traderProfileBack .profile-modal #profileTradeHeading{margin:7px 0 4px!important}
+html body #traderProfileBack .profile-modal .profile-trades{margin-top:0!important;overflow:auto!important}
+html body #traderProfileBack .profile-modal .profile-trades th,html body #traderProfileBack .profile-modal .profile-trades td{padding:4px 6px!important;line-height:1.2!important}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:5px 0 0!important}
+@media(max-height:800px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 110px)!important;max-height:calc(100dvh - 110px)!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}}
+@media(max-width:700px){html body #traderProfileBack .profile-modal{height:calc(100dvh - 100px)!important;max-height:calc(100dvh - 100px)!important;padding:8px!important}html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:250px!important;min-height:250px!important}html body #traderProfileBack .profile-modal .profile-trades{overflow:auto!important}}
+</style>
+
+<style id="u1trader-profile-shorter-window-visible-breach-line">
+html body #traderProfileBack .profile-modal{
+ height:82dvh!important;max-height:82dvh!important;min-height:0!important;
+ overflow-y:auto!important;overflow-x:hidden!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ height:clamp(220px,27vh,290px)!important;min-height:220px!important;
+}
+html body #traderProfileBack .profile-modal .profile-trades{flex:0 0 auto!important}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal{height:84dvh!important;max-height:84dvh!important}
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{height:230px!important;min-height:230px!important}
+}
+</style>
+
+<style id="u1trader-profile-width-correction">
+/* Final profile modal sizing: centered, about 60% of desktop width, never edge-to-edge. */
+html body #traderProfileBack.modalback{
+ padding:12px!important;
+ display:none;
+ align-items:center!important;
+ justify-content:center!important;
+}
+html body #traderProfileBack .profile-modal{
+ width:60vw!important;
+ max-width:1200px!important;
+ min-width:0!important;
+ height:84dvh!important;
+ max-height:84dvh!important;
+ min-height:0!important;
+ box-sizing:border-box!important;
+ padding:14px 18px 12px!important;
+ overflow-x:hidden!important;
+ overflow-y:auto!important;
+ margin-left:auto!important;
+ margin-right:auto!important;
+ flex:0 1 1200px!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+ display:block!important;
+ width:100%!important;
+ height:clamp(280px,35vh,400px)!important;
+ min-height:260px!important;
+ flex:0 0 auto!important;
+}
+html body #traderProfileBack .profile-modal #profileBalanceHeading,
+html body #traderProfileBack .profile-modal #profileTradeHeading{
+ margin:12px 0 6px!important;
+}
+html body #traderProfileBack .profile-trades{
+ display:block!important;width:100%!important;max-width:100%!important;
+ min-width:0!important;flex:0 0 auto!important;
+ overflow-x:auto!important;overflow-y:auto!important;margin:0!important;
+}
+html body #traderProfileBack .profile-trades table{
+ width:100%!important;min-width:900px!important;max-width:none!important;table-layout:auto!important;
+}
+html body #traderProfileBack .profile-trades th,
+html body #traderProfileBack .profile-trades td{
+ padding:5px 6px!important;font-size:10px!important;line-height:1.25!important;white-space:nowrap!important;
+}
+html body #traderProfileBack .profile-modal .profile-pagination{padding:7px 0 0!important}
+html body #traderProfileBack .profile-modal .profile-page-info{padding-top:4px!important;margin:0!important}
+@media(max-width:900px){
+ html body #traderProfileBack .profile-modal{
+  width:calc(100vw - 24px)!important;max-width:calc(100vw - 24px)!important;
+  height:90dvh!important;max-height:90dvh!important;padding:12px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:300px!important;min-height:260px!important;
+ }
+}
+@media(max-width:700px){
+ html body #traderProfileBack .profile-modal{
+  width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important;
+  height:calc(100dvh - 12px)!important;max-height:calc(100dvh - 12px)!important;
+  padding:10px!important;
+ }
+ html body #traderProfileBack .profile-modal #profileBalanceChart.profile-chart{
+  height:280px!important;min-height:240px!important;
+ }
+ html body #traderProfileBack .profile-trades table{min-width:900px!important}
+}
+</style>
+
+
+<style id="final-home-aligned-header-fix-v3">
+/* Keep every competition route aligned with the welcome page; neutralise legacy sidebar offsets. */
+html,body{margin:0!important;padding:0!important;}
+body.in-main-site{margin-left:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+body.in-main-site #globalCompetitionNav,body.in-main-site #sidebarToggleBtn{display:none!important;}
+body.in-main-site #competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;margin:0!important;}
+body.in-main-site #competitionTopBar .ctb-in{position:relative!important;width:calc(100% - 48px)!important;max-width:1300px!important;height:77px!important;min-height:77px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:nowrap!important;box-sizing:border-box!important;}
+body.in-main-site #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;flex:0 0 auto!important;margin:0!important;}
+body.in-main-site #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 300px)!important;height:77px!important;min-height:77px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2.1vw,34px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+body.in-main-site #competitionTopBar .ctb-center-links a,body.in-main-site #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+body.in-main-site #competitionTopBar .ctb-center-links a:hover,body.in-main-site #competitionTopBar .ctb-center-links button:hover,body.in-main-site #competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+body.in-main-site .wrap,body.in-main-site main.wrap,body.in-main-site #competitionsHub{margin-left:auto!important;margin-right:auto!important;}
+@media(max-width:900px){body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}body.in-main-site #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}}
+@media(max-width:520px){body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}body.in-main-site #competitionTopBar .ctb-center-links{gap:20px!important;}body.in-main-site #competitionTopBar .ctb-center-links a,body.in-main-site #competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
+
+
+<style id="final-home-aligned-header-fix-v4">
+/* Shared header geometry: apply on standalone pages AND the hash-routed welcome page. */
+html,body{margin:0!important;padding:0!important;}
+#competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;min-width:0!important;margin:0!important;z-index:99999!important;box-sizing:border-box!important;}
+#competitionTopBar .ctb-in{position:relative!important;width:min(1240px,calc(100% - 40px))!important;max-width:1240px!important;height:78px!important;min-height:78px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important;}
+#competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;display:inline-flex!important;align-items:center!important;flex:0 0 auto!important;margin:0!important;padding:0!important;}
+#competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 280px)!important;height:78px!important;min-height:78px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2vw,30px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+#competitionTopBar .ctb-center-links a,#competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+#competitionTopBar .ctb-center-links a:hover,#competitionTopBar .ctb-center-links button:hover,#competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+/* Remove legacy sidebar spacing whenever the competition view is embedded in the home page. */
+body.in-main-site{margin-left:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+body.in-main-site #globalCompetitionNav,body.in-main-site #sidebarToggleBtn{display:none!important;}
+body.in-main-site .wrap,body.in-main-site main.wrap,body.in-main-site #competitionsHub{margin-left:auto!important;margin-right:auto!important;}
+@media(max-width:900px){#competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:78px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}#competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}}
+@media(max-width:520px){#competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}#competitionTopBar .ctb-center-links{gap:20px!important;}#competitionTopBar .ctb-center-links a,#competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
+
+
+<style id="actual-embedded-competition-offset-fix-v5">
+/* ROOT FIX: the legacy layout reserves 236px for a sidebar that is hidden inside the home page. */
+html body.in-main-site{--nav-w:0px!important;margin:0!important;padding-left:0!important;width:100%!important;max-width:none!important;}
+html body.in-main-site #globalCompetitionNav,html body.in-main-site #sidebarToggleBtn{display:none!important;visibility:hidden!important;pointer-events:none!important;}
+/* Match the welcome page header viewport, not the old sidebar content area. */
+html body.in-main-site #competitionTopBar{position:sticky!important;display:block!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:78px!important;min-height:78px!important;margin:0!important;padding:0!important;transform:none!important;}
+html body.in-main-site #competitionTopBar .ctb-in{position:relative!important;left:auto!important;right:auto!important;transform:none!important;width:min(1240px,calc(100% - 40px))!important;max-width:1240px!important;height:77px!important;min-height:77px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important;}
+html body.in-main-site #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;margin:0!important;flex:0 0 auto!important;}
+html body.in-main-site #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 280px)!important;height:77px!important;min-height:77px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(14px,2vw,30px)!important;margin:0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;}
+html body.in-main-site #competitionTopBar .ctb-center-links a,html body.in-main-site #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;}
+html body.in-main-site #competitionTopBar .ctb-center-links a:hover,html body.in-main-site #competitionTopBar .ctb-center-links button:hover,html body.in-main-site #competitionTopBar .ctb-center-links .active{color:#e5bd32!important;}
+/* Main issue: older CSS fixes the competition hub at left:236px/top:77px. Reset both offsets when embedded. */
+html body.in-main-site #competitionsHub{position:relative!important;left:0!important;right:auto!important;top:auto!important;bottom:auto!important;width:100%!important;max-width:none!important;height:auto!important;min-height:calc(100vh - 78px)!important;margin:0!important;padding:30px max(16px,calc((100vw - 1468px)/2)) 40px!important;box-sizing:border-box!important;overflow:visible!important;}
+html body.in-main-site #welcomePage{margin-left:0!important;width:100%!important;}
+html body.in-main-site:not(.page-dashboard)>.wrap{display:none!important;}
+@media(max-width:900px){html body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important;}html body.in-main-site #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important;}html body.in-main-site #competitionsHub{padding:20px 12px 32px!important;}}
+@media(max-width:520px){html body.in-main-site #competitionTopBar .ctb-in{width:calc(100% - 20px)!important;}html body.in-main-site #competitionTopBar .ctb-center-links{gap:20px!important;}html body.in-main-site #competitionTopBar .ctb-center-links a,html body.in-main-site #competitionTopBar .ctb-center-links button{font-size:12px!important;}}
+</style>
+
+
+
+
+<style id="canonical-home-header-all-pages-v7">
+/* Use the home page's top navigation as the only header layout on every route. */
+html body #competitionTopBar{position:sticky!important;top:0!important;left:0!important;right:0!important;display:block!important;width:100%!important;height:83px!important;min-height:83px!important;margin:0!important;padding:0!important;z-index:999999!important;box-sizing:border-box!important;background:#090909!important;border-bottom:1px solid rgba(217,181,109,.24)!important;transform:none!important}
+html body #competitionTopBar .ctb-in{position:relative!important;width:calc(100% - 140px)!important;max-width:none!important;height:82px!important;min-height:82px!important;margin:0 auto!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important}
+html body #competitionTopBar .ctb-logo{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;flex:0 0 auto!important;margin:0!important;padding:0!important;gap:9px!important;white-space:nowrap!important}
+html body #competitionTopBar .ctb-logo img{display:block!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;object-fit:contain!important;flex:0 0 30px!important;margin:0!important}
+html body #competitionTopBar .ctb-center-links{position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:0!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 300px)!important;height:82px!important;min-height:82px!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:clamp(18px,2.5vw,36px)!important;overflow:visible!important;white-space:nowrap!important}
+html body #competitionTopBar .ctb-center-links a,html body #competitionTopBar .ctb-center-links button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#e6dece!important;font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important}
+html body #competitionTopBar .ctb-center-links a:hover,html body #competitionTopBar .ctb-center-links button:hover,html body #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body #competitionTopBar .ctb-links{display:none!important}
+@media(max-width:900px){html body #competitionTopBar{height:auto!important;min-height:78px!important}html body #competitionTopBar .ctb-in{width:calc(100% - 24px)!important;height:auto!important;min-height:77px!important;flex-wrap:wrap!important;padding:10px 0!important;row-gap:7px!important}html body #competitionTopBar .ctb-center-links{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;justify-content:flex-start!important;gap:clamp(14px,3vw,26px)!important;overflow-x:auto!important;padding:2px 0 4px!important}}
+@media(max-width:520px){html body #competitionTopBar .ctb-in{width:calc(100% - 20px)!important}html body #competitionTopBar .ctb-center-links{gap:20px!important}html body #competitionTopBar .ctb-center-links a,html body #competitionTopBar .ctb-center-links button{font-size:12px!important}}
+</style>
+
+<style id="home-header-canonical-final-v9">
+/* Final shared-header override: mirror the actual U1Trader home page geometry.
+   Keep this last so older competition-page CSS cannot override it. */
+html body > #competitionTopBar{
+  position:sticky!important;top:0!important;left:auto!important;right:auto!important;
+  display:block!important;width:100vw!important;max-width:none!important;min-width:0!important;
+  height:77px!important;min-height:77px!important;margin-left:calc(50% - 50vw)!important;
+  margin-right:0!important;padding:0!important;transform:none!important;z-index:999999!important;
+  box-sizing:border-box!important;background:#090909!important;
+  border-bottom:1px solid rgba(217,181,109,.24)!important;overflow:visible!important;
+}
+html body > #competitionTopBar .ctb-in{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;
+  width:min(1120px,calc(100% - 36px))!important;max-width:1120px!important;
+  height:76px!important;min-height:0!important;margin:0 auto!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  flex-wrap:nowrap!important;gap:0!important;box-sizing:border-box!important;
+}
+html body > #competitionTopBar .ctb-logo{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;display:inline-flex!important;align-items:center!important;align-self:center!important;
+  flex:0 0 auto!important;margin:0!important;padding:0!important;gap:9px!important;white-space:nowrap!important;
+  font-size:1.05rem!important;line-height:1!important;
+}
+html body > #competitionTopBar .ctb-logo img{
+  display:block!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;
+  object-fit:contain!important;flex:0 0 30px!important;margin:0!important;
+}
+html body > #competitionTopBar .ctb-center-links{
+  position:absolute!important;left:50%!important;right:auto!important;top:0!important;bottom:auto!important;
+  transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100% - 280px)!important;
+  height:76px!important;min-height:0!important;margin:0!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;
+  gap:clamp(14px,2.1vw,34px)!important;overflow:visible!important;white-space:nowrap!important;
+}
+html body > #competitionTopBar .ctb-center-links a,
+html body > #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;
+  margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;color:#e6dece!important;
+  font:600 13px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body > #competitionTopBar .ctb-center-links a:hover,
+html body > #competitionTopBar .ctb-center-links button:hover,
+html body > #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body > #competitionTopBar .ctb-links{display:none!important}
+@media(max-width:900px){
+  html body > #competitionTopBar{height:auto!important;min-height:77px!important}
+  html body > #competitionTopBar .ctb-in{
+    width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+    flex-wrap:wrap!important;padding:10px 0!important;row-gap:8px!important;
+  }
+  html body > #competitionTopBar .ctb-center-links{
+    position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+    transform:none!important;order:3!important;width:100%!important;max-width:100%!important;height:auto!important;
+    min-height:0!important;justify-content:flex-start!important;gap:clamp(16px,4vw,28px)!important;
+    overflow-x:auto!important;padding:0 0 3px!important;
+  }
+}
+@media(max-width:600px){
+  html body > #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+  html body > #competitionTopBar .ctb-center-links{gap:20px!important}
+  html body > #competitionTopBar .ctb-center-links a,
+  html body > #competitionTopBar .ctb-center-links button{font-size:12px!important}
+}
+</style>
+
+<style id="remove-duplicate-navigation-keep-home-header-v10">
+/* Keep the home-style global header as the only site navigation on competition pages. */
+html body #globalCompetitionNav,
+html body #sidebarToggleBtn{
+  display:none!important;visibility:hidden!important;pointer-events:none!important;
+}
+html body:not(.auth-required)>.wrap,
+html body:not(.auth-required) main.wrap,
+html body.in-main-site>.wrap,
+html body.in-main-site main.wrap{
+  margin-left:0!important;margin-right:auto!important;width:100%!important;
+  max-width:none!important;box-sizing:border-box!important;
+}
+/* Remove the duplicate U1TRADER/Trader Arena brand header; retain working competition/admin actions. */
+html body .wrap>header.top .brand{display:none!important}
+html body .wrap>header.top{
+  margin-top:0!important;padding-top:14px!important;
+  border-top:0!important;box-shadow:none!important;
+}
+html body.in-main-site #competitionsHub{
+  left:0!important;right:0!important;width:100%!important;margin:0!important;
+}
+@media(max-width:760px){
+  html body:not(.auth-required)>.wrap{padding-bottom:24px!important}
+}
+</style>
+
+<style id="actually-remove-duplicate-header-final-v11">
+/* Highest-specificity cleanup: old !important selectors previously overrode the hide rules. */
+html body:not(.auth-required) #globalCompetitionNav,
+html body:not(.auth-required) #sidebarToggleBtn,
+html body.in-main-site #globalCompetitionNav,
+html body.in-main-site #sidebarToggleBtn{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+/* Keep the shared top navigation, remove the competition page's second brand/header row. */
+html body .wrap>header.top .brand,
+html body .wrap>header.top> .brand,
+html body.in-main-site .wrap>header.top .brand{
+  display:none!important;
+  visibility:hidden!important;
+}
+html body .wrap>header.top,
+html body.in-main-site .wrap>header.top{
+  margin-top:0!important;
+  padding-top:14px!important;
+  border-top:0!important;
+  box-shadow:none!important;
+}
+/* Do not let the legacy fixed-sidebar layout shift content after its sidebar is hidden. */
+html body:not(.auth-required)>.wrap,
+html body.in-main-site>.wrap{
+  margin-left:0!important;
+  margin-right:auto!important;
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+</style>
+
+<style id="html-duplicate-navigation-removal-v12">
+/* The duplicate sidebar and competition brand were removed from HTML; retain only shared home header. */
+html body .wrap>header.top{margin-top:0!important;padding-top:14px!important;border-top:0!important;box-shadow:none!important}
+html body:not(.auth-required)>.wrap,html body.in-main-site>.wrap{margin-left:0!important;margin-right:auto!important;width:100%!important;max-width:none!important;box-sizing:border-box!important}
+</style>
+
+<style id="home-header-layout-match-final-v13">
+/* Match the real U1Trader home header geometry rather than centering the nav absolutely. */
+html body #competitionTopBar{
+  position:sticky!important;top:0!important;left:0!important;right:0!important;
+  display:block!important;width:100%!important;max-width:none!important;min-width:0!important;
+  height:77px!important;min-height:77px!important;margin:0!important;padding:0!important;
+  transform:none!important;z-index:999999!important;box-sizing:border-box!important;
+  background:rgba(9,9,9,.92)!important;backdrop-filter:blur(14px)!important;
+  border-bottom:1px solid rgba(217,181,109,.24)!important;overflow:visible!important;
+}
+html body #competitionTopBar .ctb-in{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  width:min(1120px,calc(100% - 36px))!important;max-width:1120px!important;
+  height:76px!important;min-height:76px!important;margin:0 auto!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  flex-wrap:nowrap!important;gap:20px!important;box-sizing:border-box!important;transform:none!important;
+}
+html body #competitionTopBar .ctb-logo{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  flex:0 0 auto!important;margin:0!important;padding:0!important;gap:9px!important;
+  font-size:1.2rem!important;font-weight:900!important;letter-spacing:.11em!important;white-space:nowrap!important;
+}
+html body #competitionTopBar .ctb-logo img{
+  display:block!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;
+  flex:0 0 34px!important;object-fit:contain!important;border-radius:50%!important;margin:0!important;
+}
+html body #competitionTopBar .ctb-center-links{
+  position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;width:auto!important;max-width:none!important;height:76px!important;min-height:0!important;
+  margin:0!important;padding:0!important;display:flex!important;align-items:center!important;
+  justify-content:flex-end!important;flex-wrap:nowrap!important;gap:24px!important;
+  overflow:visible!important;white-space:nowrap!important;flex:0 1 auto!important;
+}
+html body #competitionTopBar .ctb-center-links a,
+html body #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;
+  margin:0!important;padding:8px 0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;color:#d3cbb9!important;
+  font:600 .9rem Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body #competitionTopBar .ctb-center-links a:hover,
+html body #competitionTopBar .ctb-center-links button:hover,
+html body #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body #competitionTopBar .ctb-links{display:none!important}
+@media(max-width:900px){
+  html body #competitionTopBar{height:auto!important;min-height:76px!important}
+  html body #competitionTopBar .ctb-in{
+    width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+    flex-wrap:wrap!important;justify-content:space-between!important;padding:10px 0!important;row-gap:8px!important;
+  }
+  html body #competitionTopBar .ctb-center-links{
+    order:3!important;position:static!important;width:100%!important;max-width:100%!important;height:auto!important;
+    justify-content:flex-start!important;gap:clamp(16px,3.2vw,24px)!important;overflow-x:auto!important;padding:0 0 4px!important;
+  }
+}
+@media(max-width:600px){
+  html body #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+  html body #competitionTopBar .ctb-center-links{gap:20px!important}
+  html body #competitionTopBar .ctb-center-links a,
+  html body #competitionTopBar .ctb-center-links button{font-size:12px!important}
+}
+</style>
+
+<style id="shared-home-header-on-competition-v16">
+/* Competition opens in a full-screen iframe, so it must render the same shared header here.
+   Keep the duplicate profile widget hidden in the embedded view; the competition actions remain intact.
+   Header geometry and navigation typography mirror the main site's .nav / .navin / .navlinks. */
+html body.in-main-site > #competitionTopBar{
+  display:block!important;
+  position:fixed!important;top:0!important;left:0!important;right:0!important;
+  z-index:2147482000!important;
+  width:100%!important;height:76px!important;min-height:76px!important;
+  margin:0!important;padding:0!important;
+  background:rgba(9,9,9,.96)!important;
+  -webkit-backdrop-filter:blur(14px)!important;backdrop-filter:blur(14px)!important;
+  border-bottom:1px solid var(--line,rgba(217,181,109,.25))!important;
+  box-sizing:border-box!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-in{
+  position:relative!important;width:min(1120px,calc(100% - 36px))!important;
+  max-width:1120px!important;height:76px!important;min-height:76px!important;
+  margin:0 auto!important;padding:0!important;display:flex!important;
+  align-items:center!important;justify-content:space-between!important;gap:20px!important;
+  flex-wrap:nowrap!important;box-sizing:border-box!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-logo{
+  flex:0 0 auto!important;display:inline-flex!important;align-items:center!important;
+  gap:10px!important;margin:0!important;text-decoration:none!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links{
+  position:absolute!important;left:50%!important;top:0!important;transform:translateX(-50%)!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 1 auto!important;gap:24px!important;width:max-content!important;max-width:calc(100% - 240px)!important;
+  height:76px!important;margin:0!important;padding:0!important;overflow:visible!important;
+  white-space:nowrap!important;flex-wrap:nowrap!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links a,
+html body.in-main-site > #competitionTopBar .ctb-center-links button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 0 auto!important;margin:0!important;padding:8px 0!important;border:0!important;
+  border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  color:#d3cbb9!important;font:600 .9rem Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  line-height:1.2!important;text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+}
+html body.in-main-site > #competitionTopBar .ctb-center-links a:hover,
+html body.in-main-site > #competitionTopBar .ctb-center-links button:hover,
+html body.in-main-site > #competitionTopBar .ctb-center-links .active{color:#e5bd32!important}
+html body.in-main-site > #competitionTopBar .ctb-links{display:none!important}
+html body.in-main-site > #globalTopProfile,
+html body.in-main-site > #globalProfileDropdown{display:none!important}
+html body.in-main-site #competitionsHub{top:0!important;margin-top:0!important}
+@media(max-width:900px){
+ html body.in-main-site > #competitionTopBar{height:auto!important;min-height:76px!important}
+ html body.in-main-site > #competitionTopBar .ctb-in{
+  width:calc(100% - 24px)!important;height:auto!important;min-height:76px!important;
+  flex-wrap:wrap!important;justify-content:space-between!important;padding:10px 0!important;row-gap:8px!important;
+ }
+ html body.in-main-site > #competitionTopBar .ctb-center-links{
+  position:static!important;left:auto!important;top:auto!important;transform:none!important;
+  order:3!important;width:100%!important;max-width:100%!important;height:auto!important;
+  justify-content:flex-start!important;gap:clamp(16px,3.2vw,24px)!important;overflow-x:auto!important;padding:0 0 4px!important;
+ }
+}
+@media(max-width:600px){
+ html body.in-main-site > #competitionTopBar .ctb-in{width:calc(100% - 24px)!important}
+ html body.in-main-site > #competitionTopBar .ctb-center-links{gap:20px!important}
+ html body.in-main-site > #competitionTopBar .ctb-center-links a,
+ html body.in-main-site > #competitionTopBar .ctb-center-links button{font-size:12px!important}
+}
+</style>
+
+<style id="competition-header-color-and-crop-fix-v17">
+/* Final embedded-view correction: full gold brand wordmark and keep the hub below the fixed header. */
+html body.in-main-site > #competitionTopBar .ctb-logo > span,
+html body.in-main-site > #competitionTopBar .ctb-logo > span > span{
+  color:#e5bd32!important;
+}
+html body.in-main-site #competitionsHub{
+  top:76px!important;
+  margin-top:0!important;
+  padding-top:24px!important;
+  box-sizing:border-box!important;
+}
+</style>
+
+<style id="fix-competition-header-overlay-crop-v18">
+/* The fixed shared nav overlays the hub in the embedded viewport; reserve real space beneath it. */
+html body.in-main-site #competitionsHub{
+  position:relative!important;
+  top:0!important;
+  bottom:auto!important;
+  margin-top:0!important;
+  padding-top:110px!important;
+  scroll-margin-top:90px!important;
+}
+html body.in-main-site #competitionsHub .competition-hub-head{
+  margin-top:0!important;
+}
+html body.in-main-site > #competitionTopBar{
+  top:0!important;
+}
+</style>
+
+<style id="use-parent-home-header-v19">
+/* The parent page keeps its actual .nav header visible above the iframe.
+   Hide this page's duplicate nav only in embedded mode and restore normal hub spacing. */
+html body.in-main-site > #competitionTopBar{display:none!important}
+html body.in-main-site #competitionsHub{
+ position:relative!important;top:0!important;bottom:auto!important;
+ margin:0!important;padding-top:30px!important;scroll-margin-top:0!important;
+}
+</style>
+,''));
  setObj('objectiveDailyStatus',dailyBreached?'Breached':'Passed');
  setObj('objectiveDailyMeta',dailyBreached?'Maximum Daily Loss detected':'5% daily loss limit');
  setBar('objectiveDailyBar',dailyUsage,dailyBreached?'#ef4444':'#15ad60');
