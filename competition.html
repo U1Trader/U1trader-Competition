@@ -1106,7 +1106,7 @@ function ruleDayKey(value){
 // Keep those labels on the selected trading day; real trade timestamps still use the 03:29 IST boundary.
 function ruleRecordDayKey(value){
  const raw=String(value??'').trim();
- const match=raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+ const match=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
  return match?raw:ruleDayKey(value);
 }
 function getDailyLossStatus(t){
