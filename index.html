@@ -2112,21 +2112,30 @@ function getDailyLossStatus(t){
 function getTraderRuleBreaches(t){
  const breaches=[];
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
- // Maximum Daily Loss: 5% of the fixed $50,000 account ($2,500) within one
- // competition trading day (03:29–03:28 IST). Combine dated report P&L and individual
- // trade P&L per trading day; never use total account P&L as a daily breach.
- const pnlByDay=new Map();
- const addDailyPnl=(day,value)=>{const pnl=Number(value);if(day&&value!==null&&value!==undefined&&value!==''&&Number.isFinite(pnl))pnlByDay.set(day,(pnlByDay.get(day)||0)+pnl);};
- reports.forEach(r=>{const day=ruleDayKey(r.date||r.createdAt);if(r.dailyPnl!==null&&r.dailyPnl!==undefined&&r.dailyPnl!=='')addDailyPnl(day,r.dailyPnl);});
+ // Maximum Daily Loss: 5% of fixed $50,000 ($2,500) within one trading day
+ // (03:29–03:28 IST). Reports' dailyPnl is already a daily total, so do NOT add
+ // trade P&L to it or add multiple snapshots together. Use the worst recorded daily
+ // total for that day; only aggregate individual trades on days without a dailyPnl report.
+ const reportPnlByDay=new Map();
+ reports.forEach(r=>{
+   const day=ruleDayKey(r.date||r.createdAt),value=r.dailyPnl;
+   const pnl=Number(value);
+   if(day&&value!==null&&value!==undefined&&value!==''&&Number.isFinite(pnl)){
+     if(!reportPnlByDay.has(day)||pnl<reportPnlByDay.get(day))reportPnlByDay.set(day,pnl);
+   }
+ });
  const trades=[...(Array.isArray(t.trades)?t.trades:[]),...reports.flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const seenDailyTrades=new Set();
+ const tradePnlByDay=new Map(),seenDailyTrades=new Set();
  trades.forEach(tr=>{
    const day=ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||tr.entryDateTime||tr.entryDate);
    const key=String(tr.tradeNumber||tr.ticket||(String(tr.symbol||'')+'|'+String(tr.side||tr.type||'')+'|'+String(tr.entryDateTime||tr.entryDate||'')+'|'+String(tr.exitDateTime||tr.exitDate||tr.closedAt||'')+'|'+String(tr.pnl??tr.profit??'')));
-   if(seenDailyTrades.has(key))return;seenDailyTrades.add(key);
-   const value=tr.pnl??tr.profit;
-   if(value!==null&&value!==undefined&&value!=='')addDailyPnl(day,value);
+   if(!day||seenDailyTrades.has(key))return;seenDailyTrades.add(key);
+   const value=tr.pnl??tr.profit,pnl=Number(value);
+   if(value===null||value===undefined||value===''||!Number.isFinite(pnl)||reportPnlByDay.has(day))return;
+   tradePnlByDay.set(day,(tradePnlByDay.get(day)||0)+pnl);
  });
+ const reportDailyBreach=[...reportPnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
+ const tradeDailyBreach=[...tradePnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
  const equityByDay=new Map();
  reports.forEach(r=>{
    const day=ruleDayKey(r.date||r.createdAt),eq=Number(r.equity);
@@ -2136,11 +2145,8 @@ function getTraderRuleBreaches(t){
    }
  });
  const equityDailyBreach=[...equityByDay.values()].some(points=>{points.sort((a,b)=>a.time-b.time);return points.length>1&&Math.min(...points.map(p=>p.equity))<=points[0].equity-RULE_DAILY_LOSS_LIMIT;});
- const combinedHistoricalDailyBreach=(Array.isArray(data.historicalDailyLossBreaches)?data.historicalDailyLossBreaches:[]).some(r=>String(r.traderId)===String(t.id)&&Number(r.estimatedCombinedFloatingPnl)<=-RULE_DAILY_LOSS_LIMIT);
- // Use only dated daily reports/equity snapshots for historical daily breaches.
- // Never infer a daily breach from total account profit/loss or a broad historical flag.
- const reportDailyBreach=[...pnlByDay.values()].some(pnl=>pnl<=-RULE_DAILY_LOSS_LIMIT);
- const dailyBreach=getDailyLossStatus(t).breached||equityDailyBreach||reportDailyBreach||combinedHistoricalDailyBreach;
+ // Only dated, day-specific evidence can trigger Maximum Daily Loss.
+ const dailyBreach=getDailyLossStatus(t).breached||equityDailyBreach||reportDailyBreach||tradeDailyBreach;
  if(dailyBreach&&!breaches.includes('Maximum Daily Loss'))breaches.push('Maximum Daily Loss');
  if(hasLayeringBreachForTrader(t.id)&&!breaches.includes('Layering'))breaches.push('Layering');
  // Static overall limit is always based on $50,000, not the trader's current/start field.
