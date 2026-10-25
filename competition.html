@@ -1083,9 +1083,19 @@ function ruleDateValue(value){
  if(mt5)return new Date(Number(mt5[1]),Number(mt5[2])-1,Number(mt5[3]),Number(mt5[4]||0),Number(mt5[5]||0),Number(mt5[6]||0)).getTime();
  const parsed=Date.parse(raw);return Number.isFinite(parsed)?parsed:NaN;
 }
+function isNewYorkDaylightTime(date){
+ const year=date.getFullYear();
+ const nthSunday=(month,n)=>{const first=new Date(year,month,1);return 1+((7-first.getDay())%7)+(n-1)*7;};
+ const dstStart=new Date(year,2,nthSunday(2,2),2,0,0,0);
+ const dstEnd=new Date(year,10,nthSunday(10,1),2,0,0,0);
+ return date>=dstStart&&date<dstEnd;
+}
+// Exness daily rollover: 02:30 IST during US daylight time, 03:30 IST during US standard time.
 function ruleDayKey(value){
  const ms=ruleDateValue(value);if(!Number.isFinite(ms))return '';
- const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ const d=new Date(ms),resetMinutes=isNewYorkDaylightTime(d)?150:210;
+ if(d.getHours()*60+d.getMinutes()<resetMinutes)d.setDate(d.getDate()-1);
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function getTraderRuleBreaches(t){
  const breaches=[];
@@ -1393,10 +1403,10 @@ function openTraderProfileCore(id){
  const breachStatus=$('profileBreachStatus');if(breachStatus){breachStatus.textContent=traderBreaches.length?'BREACHED: '+[...new Set(traderBreaches)].join(', '):'Rule status: No breach';breachStatus.classList.toggle('breached',traderBreaches.length>0);}
  const login=String(t.accountLogin||'');$('profileAccount').textContent='MT5 account: '+(login?('••••'+login.slice(-4)):'Not linked');
  const profileStartEl=$('profileStart');if(profileStartEl)profileStartEl.textContent=fmt(t.start);const profileCurrentEl=$('profileCurrent');if(profileCurrentEl)profileCurrentEl.textContent=fmt(t.current);
- const todayKey=new Date().toLocaleDateString('en-CA');
+ const todayKey=ruleDayKey(new Date());
  const todayTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>(Array.isArray(r.trades)?r.trades:[]))];
- const todayTradePnl=todayTrades.filter(tr=>String(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date||'').slice(0,10).replace(/[.]/g,'-')===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
- const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&String(r.date||r.createdAt||'').slice(0,10).replace(/[.]/g,'-')===todayKey);
+ const todayTradePnl=todayTrades.filter(tr=>ruleDayKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
+ const todayReports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)&&ruleDayKey(r.createdAt||r.date)===todayKey);
  const reportPnl=todayReports.reduce((sum,r)=>sum+(Number(r.dailyPnl)||0),0);
  const todayPnlEl=$('profileTodayPnl');if(todayPnlEl){const todayPnl=todayReports.length?reportPnl:todayTradePnl;todayPnlEl.textContent=(todayPnl>=0?'+':'')+fmt(todayPnl);todayPnlEl.style.color=todayPnl>=0?'var(--green)':'var(--red)';}
  const pl=profit(t);$('profileProfit').textContent=(pl>=0?'+':'')+fmt(pl);$('profileProfit').style.color=pl>=0?'var(--green)':'var(--red)';
@@ -1404,7 +1414,7 @@ function openTraderProfileCore(id){
  const startBalance=Number(t.start)||50000,currentBalance=Number(t.current)||startBalance;
  const profitTarget=startBalance*1.03,overallFloor=startBalance*0.90;
  const allDailyTrades=[...(Array.isArray(t.trades)?t.trades:[]),...(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id)).flatMap(r=>Array.isArray(r.trades)?r.trades:[])];
- const dateKey=value=>String(value||'').slice(0,10).replace(/[.]/g,'-');
+ const dateKey=value=>ruleDayKey(value);
  const dailyOpenPnl=allDailyTrades.filter(tr=>{const d=dateKey(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date);return d&&d<todayKey;}).reduce((sum,tr)=>sum+(Number(tr.pnl??tr.profit)||0),0);
  const todayOpeningBalance=startBalance+dailyOpenPnl;
  const dailyLimit=todayOpeningBalance*0.05;
