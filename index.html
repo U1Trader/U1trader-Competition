@@ -1300,6 +1300,13 @@ html body #competitionsHub .competition-hero-layout{
   html body #competitionsHub .competition-hero-layout{margin-top:14px!important;}
 }
 </style>
+<style id="remove-embedded-competition-top-gap-final">
+/* In the embedded view the parent site already provides the top navigation; start the competition content immediately beneath it and paint the full area solid. */
+html body.in-main-site{background:#0b1020!important;min-height:100vh!important}
+html body.in-main-site #competitionsHub{position:relative!important;top:0!important;margin:0!important;padding-top:0!important;min-height:calc(100vh - 76px)!important;background:#0b1020!important;scroll-margin-top:0!important}
+html body.in-main-site #competitionsHub .competition-hub-head{margin-top:0!important;padding-top:0!important}
+html body.in-main-site>.wrap{background:#0b1020!important}
+</style>
 </head>
 <!-- U1 daily-loss syntax repair verified -->
 <body><script id="report-competition-route-to-parent">
