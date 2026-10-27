@@ -3051,6 +3051,14 @@ html body #competitionsHub .competition-hero-layout{
  html body #competitionsHub > .wrap,html body #competitionsHub .wrap{padding-top:20px!important;}
 }
 </style>
+
+<style id="admin-only-my-profile-visibility">
+/* Standalone competition page: My Profile is visible only to an authenticated admin. */
+html body.admin-mode #globalTopProfile{display:flex!important;visibility:visible!important;pointer-events:auto!important}
+html body.admin-mode #globalProfileDropdown:not([hidden]){display:block!important;visibility:visible!important;pointer-events:auto!important}
+html body.admin-mode #userProfileModalBack[style*="display: flex"]{display:flex!important}
+</style>
+
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
