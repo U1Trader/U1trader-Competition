@@ -813,17 +813,10 @@ body:not(.admin-mode) .grid>aside{display:none!important}
 /* Do not block the competition list/dashboard with a second login screen on startup. */
 #userAuthModalBack,#userProfileModalBack{display:none}
 
-/* Require public authentication before showing the competition welcome/dashboard page. */
-body.auth-required>.wrap{display:none!important}
-body.auth-required #userAuthModalBack{display:flex!important;z-index:10000!important;background:radial-gradient(ellipse at top,#14213b 0%,#0b1020 70%)!important}
-body.auth-required #userAuthModalBack .modal{width:min(460px,100%);padding:clamp(22px,5vw,34px);box-shadow:0 24px 80px #0008}
-body.auth-required #userAuthModalBack .modal h3{font-size:clamp(24px,5vw,30px);margin-bottom:8px}
-body.auth-required #userAuthModalBack .modal .hint{font-size:13px;line-height:1.6}
-body.auth-required #userAuthModalBack #closeUserAuth{display:none!important}
-body.auth-required #userAuthModalBack .account-tabs{margin-top:20px}
-body.auth-required #userAuthModalBack .modalactions{justify-content:stretch}
-body.auth-required #userAuthModalBack #submitUserAuth{flex:1}
-body.auth-required #userProfileModalBack{display:none!important}
+/* Temporary public access: the main site owns admin login; never require public login in the competition app. */
+body.auth-required>.wrap{display:block!important}
+body.auth-required #userAuthModalBack{display:none!important}
+#userAuthModalBack,#userAuthBtn,#userProfileModalBack{display:none!important}
 </style>
 
 <style id="welcome-first-page-styles">
@@ -1664,8 +1657,10 @@ function setAdminMode(user){
 }
 function setPublicUser(user){
  publicUser=user||null;
- // Authentication is controlled by the main website only.
+ // Temporary public mode: no visitor login or profile modal in the competition app.
  document.body.classList.remove('auth-required');
+ $('userAuthModalBack').style.display='none';
+ $('userProfileModalBack').style.display='none';
  const wasOnDashboard=document.body.classList.contains('page-dashboard');
  document.body.classList.remove('page-welcome','page-competition','page-dashboard');
  if(publicUser){
@@ -1678,14 +1673,10 @@ function setPublicUser(user){
   document.body.classList.add(['competition','dashboard'].includes(savedView)?'page-'+savedView:'page-competition');
  }
  const btn=$('userAuthBtn');
- if(btn)btn.textContent=publicUser?'My Profile':'Register / Login';
+ if(btn)btn.style.display='none';
  const welcomeName=$('welcomeUserName');
  if(welcomeName)welcomeName.textContent=publicUser?' '+String(user.user_metadata?.full_name||'').trim():'';
- if(publicUser){
-  $('userAuthModalBack').style.display='none';
- }else{
-  $('userAuthModalBack').style.display='flex';
- }
+ $('userAuthModalBack').style.display='none';
  syncGlobalSidebarUser();
 }
 function openUserAuth(mode='register'){
