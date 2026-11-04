@@ -2376,7 +2376,10 @@ function u1CertificateWinner(){
 }
 function updateU1CertificateEntry(){
  const entry=$('u1CertificateEntry');
- if(entry)entry.hidden=!u1CertificateWinner();
+ const end=data.endDateTime?new Date(data.endDateTime).getTime():NaN;
+ // Show the certificate entry once the competition is over.
+ // Winner eligibility is checked again when the certificate is opened.
+ if(entry)entry.hidden=!(Number.isFinite(end)&&Date.now()>=end);
 }
 function u1SvgEscape(value){
  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
