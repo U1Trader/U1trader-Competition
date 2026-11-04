@@ -1196,17 +1196,22 @@ function getTraderRuleBreaches(t){
  let open=0,layeringBreach=false;
  for(const event of events){open+=event.delta;if(open>3){layeringBreach=true;break;}}
  if(layeringBreach)breaches.push('Layering');
- // Only assign Inactivity after every other rule has been evaluated.
+ // Inactivity is based on the last actual trade only. Report uploads,
+ // balance edits and admin updates must not reset the inactivity clock.
+ // For a five-day gap, wait until the fifth trading-day close at 03:29 IST.
  if(breaches.length===0){
-   const activityValues=[];
-   reports.forEach(r=>activityValues.push(r.date,r.createdAt));
-   trades.forEach(tr=>activityValues.push(tr.entryDateTime||tr.entryDate,tr.exitDateTime||tr.exitDate||tr.closedAt));
-   (Array.isArray(t.balanceHistory)?t.balanceHistory:[]).forEach(h=>activityValues.push(h.date));
-   activityValues.push(t.updated);
-   const activityMs=activityValues.map(ruleDateValue).filter(Number.isFinite);
-   if(activityMs.length){
-     const last=Math.max(...activityMs);const today=new Date();const lastDate=new Date(last);const todayMid=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();const lastMid=new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate()).getTime();
-     if(Math.floor((todayMid-lastMid)/86400000)>=5)breaches.push('Inactivity');
+   const tradeTimes=trades.flatMap(tr=>[
+     ruleDateValue(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt),
+     ruleDateValue(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime)
+   ]).filter(Number.isFinite);
+   if(tradeTimes.length){
+     const lastTradeAt=Math.max(...tradeTimes);
+     const lastTradeDay=ruleDayKey(lastTradeAt);
+     const lastDayDate=new Date(lastTradeDay+'T00:00:00Z');
+     const fifthDayDate=new Date(lastDayDate.getTime()+5*86400000);
+     // The fifth trading day closes at 03:29 IST on the following civil date.
+     const marketCloseUtc=Date.UTC(fifthDayDate.getUTCFullYear(),fifthDayDate.getUTCMonth(),fifthDayDate.getUTCDate()+1)-121*60000;
+     if(Date.now()>=marketCloseUtc)breaches.push('Inactivity');
    }
  }
  return breaches;
