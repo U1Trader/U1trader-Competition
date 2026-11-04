@@ -1122,7 +1122,9 @@ function ruleRecordDayKey(value){
 // Exness trading day because the trading-day boundary is 03:29 IST).
 function ruleTradeDayKey(value){
  const raw=String(value??'').trim();
- const match=raw.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
+ // Preserve the calendar date printed by MT5, including timestamped values.
+ // Do not shift 01:40 trades to the prior day just because they precede 03:29 IST.
+ const match=raw.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})(?=$|[ T])/);
  if(match)return Number(match[1])+'-'+String(Number(match[2])).padStart(2,'0')+'-'+String(Number(match[3])).padStart(2,'0');
  return ruleDayKey(value);
 }
