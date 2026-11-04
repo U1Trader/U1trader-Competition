@@ -1301,6 +1301,19 @@ html body.in-main-site #competitionsHub{position:relative!important;top:0!import
 html body.in-main-site #competitionsHub .competition-hub-head{margin-top:0!important;padding-top:0!important}
 html body.in-main-site>.wrap{background:#0b1020!important}
 </style>
+<style id="u1-certificate-feature-styles">
+.u1-certificate-entry{display:flex!important;justify-content:center!important;align-items:center!important;width:100%!important;max-width:100%!important;margin:18px auto 0!important;position:relative;z-index:4}
+.u1-certificate-entry[hidden]{display:none!important}
+.u1-certificate-entry .btn{min-width:210px;padding:12px 22px;border:1px solid #d9ae4e;background:linear-gradient(135deg,#f5d783,#c18a25);color:#111a2b;font-weight:900;letter-spacing:.2px;box-shadow:0 5px 18px rgba(210,164,65,.2)}
+.u1-certificate-modal{width:min(1320px,98vw)!important;max-width:1320px!important;max-height:96vh!important;overflow:auto!important;padding:18px!important;background:#0d1729!important;border-color:rgba(215,176,91,.45)!important}
+.u1-certificate-modal-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}
+.u1-certificate-modal-head h3{margin:3px 0 0;font-size:20px}
+.u1-certificate-preview-wrap{width:100%;background:#050b15;border:1px solid rgba(215,176,91,.25);border-radius:10px;overflow:hidden;line-height:0}
+.u1-certificate-preview-wrap img{display:block;width:100%;height:auto;object-fit:contain}
+.u1-certificate-modal-actions{display:flex;justify-content:center;gap:10px;padding-top:15px}
+.u1-certificate-modal-actions .btn{min-width:230px}
+@media(max-width:600px){.u1-certificate-modal{padding:10px!important}.u1-certificate-modal-head h3{font-size:17px}.u1-certificate-modal-actions .btn{width:100%;min-width:0}.u1-certificate-entry .btn{width:100%;max-width:280px}}
+</style>
 </head>
 <!-- U1 daily-loss syntax repair verified -->
 <body><script id="report-competition-route-to-parent">
@@ -1360,6 +1373,7 @@ if(window.parent!==window){
     <strong id="topName">—</strong>
     <div class="sub" id="topReturn">Return: —</div>
     <div class="winner-prize" id="topPrize">Prize: Not set</div>
+    <div class="u1-certificate-entry" id="u1CertificateEntry" hidden><button type="button" class="btn primary" id="u1ViewCertificate">🏆 View Certificate</button></div>
   </div>
   </section>
 <div class="grid">
@@ -2199,6 +2213,7 @@ function render(){
  $('topName').textContent=firstWinner?firstWinner.name:(sorted.length?'Not eligible yet':'Waiting for trader');
  $('topReturn').textContent=firstWinner?'Return: '+pct(ret(firstWinner)):'Requires 3%+ return and zero rule breaches';
  $('topPrize').textContent='Prize: '+(data.firstPrize||'Not set');
+ updateU1CertificateEntry();
  $('leaderRows').innerHTML=sorted.map((t,i)=>{const breaches=getTraderRuleBreaches(t);const breachCell=breaches.length?`<span class="rule-breach">${esc([...new Set(breaches)].join(', '))}</span>`:'<span class="no-rule-breach">-</span>';return `<tr><td><span class="rank ${i===0?'first':''}">${i+1}</span></td><td><button class="trader-link" onclick="openTraderProfile('${t.id}')">${esc(t.name)}</button>${currentUser?`<div class="trader-row-actions"><button class="btn" onclick="selectTrader('${t.id}')">Edit</button> <button class="btn danger" onclick="removeTrader('${t.id}')">×</button></div>`:''}</td><td>${breachCell}</td><td>${fmt(t.start)}</td><td>${fmt(t.current)}</td><td class="${profit(t)>=0?'positive':'negative'}">${profit(t)>=0?'+':''}${fmt(profit(t))}</td><td class="${ret(t)>=0?'positive':'negative'}">${pct(ret(t))}</td><td class="muted">${esc(t.updated||'Not updated')}</td></tr>`}).join('');
  // Keep Last Update as the final column.
  $('leaderRows').querySelectorAll('tr').forEach(row=>{while(row.cells.length>8)row.deleteCell(row.cells.length-1);});
@@ -2351,6 +2366,32 @@ function updateCompetitionClock(){
  if(Number.isFinite(start)&&Number.isFinite(end)&&end>start){const total=end-start;duration.textContent=`${Math.floor(total/86400000)} days, ${Math.floor((total%86400000)/3600000)} hours, ${Math.floor((total%3600000)/60000)} minutes`;if(now<start)countdown.textContent='Starts in '+parts(start-now);else if(now<end)countdown.textContent='Ends in '+parts(end-now);else countdown.textContent='Competition ended';}
  else{duration.textContent='Set start and end times';countdown.textContent='Countdown will appear when both dates are set';}
 }
+// ===== U1TRADER FINAL WINNER CERTIFICATE =====
+// The approved UTRADER certificate layout and original brand wording are kept fixed.
+// It becomes available only when the configured competition end time has passed.
+function u1CertificateWinner(){
+ const end=data.endDateTime?new Date(data.endDateTime).getTime():NaN;
+ if(!Number.isFinite(end)||Date.now()<end)return null;
+ return [...(Array.isArray(data.traders)?data.traders:[])]
+  .filter(t=>ret(t)>=3&&getTraderRuleBreaches(t).length===0)
+  .sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0))[0]||null;
+}
+function updateU1CertificateEntry(){
+ const entry=$('u1CertificateEntry');
+ if(!entry)return;
+ entry.hidden=!u1CertificateWinner();
+}
+function u1SvgEscape(value){
+ return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
+}
+function u1CertificateDate(value){
+ const d=new Date(value);
+ return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'long',year:'numeric'}).format(d).toUpperCase();
+}
+function u1CertificateMoney(value,decimals=2){
+ const n=Number(value)||0;
+ return '
+
 setInterval(updateCompetitionClock,1000);
 $('updateDate').value=localDateString();$('updateDate').onchange=()=>render();
 $('exportBtn').onclick=()=>{const rows=[['Rank','Trader','Breach Status','Starting Balance','Current Balance','Profit/Loss','Return %','Last Update'],...sortLeaderboardTraders(data.traders).map((t,i)=>[i+1,t.name,getTraderRuleBreaches(t).join(', ')||'-',t.start,t.current,profit(t),ret(t),t.updated||''])];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trader-arena-leaderboard.csv';a.click();URL.revokeObjectURL(a.href)};
@@ -3059,6 +3100,12 @@ html body.admin-mode #globalProfileDropdown:not([hidden]){display:block!importan
 html body.admin-mode #userProfileModalBack[style*="display: flex"]{display:flex!important}
 </style>
 
+<div class="modalback" id="u1CertificateModalBack" role="dialog" aria-modal="true" aria-labelledby="u1CertificateModalTitle">
+  <div class="modal u1-certificate-modal">
+    <div class="u1-certificate-modal-head"><div><div class="eyebrow">UTRADER · OFFICIAL AWARD</div><h3 id="u1CertificateModalTitle">Certificate of Achievement</h3></div><button type="button" class="btn" id="u1CloseCertificate">Close</button></div>
+    <div class="u1-certificate-preview-wrap"><img id="u1CertificatePreview" alt="U1TRADER first place certificate preview"></div>
+    <div class="u1-certificate-modal-actions"><button type="button" class="btn primary" id="u1DownloadCertificate">⬇ Download Certificate (PNG)</button></div>
+  </div>
 </body>
 </html>
 <style id="first-prize-full-width-and-report-append-fix">
