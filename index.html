@@ -2395,85 +2395,42 @@ function u1CertificateMoney(value,decimals=2){
 function buildU1CertificateSvg(t){
  const start=data.startDateTime?u1CertificateDate(data.startDateTime):'—';
  const end=data.endDateTime?u1CertificateDate(data.endDateTime):u1CertificateDate(Date.now());
- const name=u1SvgEscape(t.name||'Winner');
- const account=u1SvgEscape(u1CertificateMoney(t.start,2));
- const pnl=profit(t),profitText=(pnl>=0?'+':'−')+u1CertificateMoney(Math.abs(pnl),2);
+ const name=u1SvgEscape(t.name||'Winner'),account='$'+u1SvgEscape(u1CertificateMoney(t.start,2));
+ const pnl=profit(t),profitText=(pnl>=0?'+':'−')+'$'+u1CertificateMoney(Math.abs(pnl),2);
  const returnText=(ret(t)>=0?'+':'−')+Math.abs(ret(t)).toFixed(2)+'%';
- const profitColor=pnl>=0?'#13833c':'#c33b3b';
- const certId='UTC-'+new Date(data.endDateTime).getFullYear()+'-'+String(t.id||'WIN').replace(/[^a-z0-9]/gi,'').slice(-6).toUpperCase();
- return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067" viewBox="0 0 1600 1067">
+ const profitColor=pnl>=0?'#16823b':'#c13d3d';
+ const year=new Date(data.endDateTime||Date.now()).getFullYear();
+ const certId='UTC-'+year+'-'+String(t.id||'001').replace(/[^a-z0-9]/gi,'').slice(-3).padStart(3,'0').toUpperCase();
+ return \`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067" viewBox="0 0 1600 1067">
  <defs>
-  <linearGradient id="navy" x2="1" y2="1"><stop stop-color="#071426"/><stop offset=".55" stop-color="#102b4b"/><stop offset="1" stop-color="#061326"/></linearGradient>
-  <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fff0a6"/><stop offset=".3" stop-color="#d7a52f"/><stop offset=".62" stop-color="#ffdc75"/><stop offset="1" stop-color="#9c6818"/></linearGradient>
-  <linearGradient id="paper" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#f2f3f5"/></linearGradient>
-  <linearGradient id="ribbon" x2="0" y2="1"><stop stop-color="#f9d66f"/><stop offset=".5" stop-color="#d6a12e"/><stop offset="1" stop-color="#a86d16"/></linearGradient>
-  <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="#b5c2d0" stroke-opacity=".18" stroke-width="1"/></pattern>
-  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#071426" flood-opacity=".25"/></filter>
-  <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <linearGradient id="navy" x2="1" y2="1"><stop stop-color="#061326"/><stop offset=".55" stop-color="#102d50"/><stop offset="1" stop-color="#07152b"/></linearGradient>
+ <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fff3b4"/><stop offset=".25" stop-color="#d49b22"/><stop offset=".5" stop-color="#ffe18a"/><stop offset=".75" stop-color="#a66c12"/><stop offset="1" stop-color="#f7d66e"/></linearGradient>
+ <linearGradient id="ribbon" x2="0" y2="1"><stop stop-color="#ffe89a"/><stop offset=".5" stop-color="#d9a52d"/><stop offset="1" stop-color="#a76e12"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#081326" flood-opacity=".25"/></filter>
  </defs>
- <rect width="1600" height="1067" fill="#061326"/>
- <path d="M12 12H1588V1055H12Z" fill="url(#paper)" stroke="url(#gold)" stroke-width="8"/>
- <path d="M20 20H1580V1047H20Z" fill="none" stroke="#c89a38" stroke-width="1.5"/>
- <path d="M20 20H1580V178Q1390 245 1180 198Q800 280 420 198Q190 245 20 178Z" fill="url(#navy)"/>
- <path d="M20 178Q190 245 420 198Q800 280 1180 198Q1390 245 1580 178" fill="none" stroke="url(#gold)" stroke-width="4"/>
- <path d="M20 20H1580V1047H20Z" fill="url(#grid)" opacity=".32"/>
- <g opacity=".18" stroke="#728ba8" fill="#728ba8">
-  <path d="M30 560L30 640M48 530L48 615M66 510L66 575M84 490L84 565M102 470L102 550M120 445L120 535M138 460L138 530M156 430L156 505M174 420L174 490M1420 330L1420 410M1440 300L1440 380M1460 280L1460 360M1480 250L1480 340M1500 230L1500 320M1520 210L1520 300M1540 190L1540 280"/>
-  <path d="M30 590v-30h8v30zM48 560v-45h8v45zM66 540v-28h8v28zM84 520v-44h8v44zM102 500v-38h8v38zM120 480v-52h8v52zM138 500v-30h8v30zM156 470v-48h8v48zM174 460v-40h8v40zM1420 375v-45h8v45zM1440 350v-55h8v55zM1460 330v-48h8v48zM1480 305v-60h8v60zM1500 285v-55h8v55zM1520 265v-65h8v65zM1540 245v-60h8v60z"/>
- </g>
- <!-- Original geometric UTRADER-style mark and exact wordmark/tagline -->
- <g transform="translate(800 55)" fill="none" stroke="url(#gold)" stroke-width="5" stroke-linejoin="round">
-  <path d="M0 -34L39 -27L57 8L37 43L-7 47L-45 20L-40 -20L-10 -45Z"/>
-  <path d="M0 -34L-10 -5L-40 -20M-10 -5L39 -27L57 8L-10 -5L-7 47L37 43L57 8M-40 -20L-7 47M-45 20L-10 -5M-45 20L-7 47"/>
- </g>
- <text x="800" y="132" text-anchor="middle" font-family="Arial,sans-serif" font-size="47" font-weight="800" letter-spacing="3" fill="#fff"><tspan fill="#e8b83e">U</tspan>TRADER</text>
- <text x="800" y="160" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" letter-spacing="4" fill="#f4f6fb">PATIENCE | DISCIPLINE | CONSISTENCY</text>
- <text x="1510" y="66" text-anchor="end" font-family="Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="1.5" fill="#101c30">CERTIFICATE ID</text>
- <text x="1510" y="91" text-anchor="end" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="#101c30">${u1SvgEscape(certId)}</text>
- <!-- First-place medal and ribbon -->
- <g filter="url(#shadow)" transform="translate(122 292)">
-  <path d="M-55 -178H-10L-10 12L-55 65Z M10 -178H55V65L10 12Z" fill="url(#navy)" stroke="url(#gold)" stroke-width="3"/>
-  <circle r="118" fill="url(#gold)" stroke="#9d701e" stroke-width="4"/>
-  <circle r="101" fill="url(#navy)" stroke="#f8dc85" stroke-width="4"/>
-  <circle r="88" fill="none" stroke="url(#gold)" stroke-width="2"/>
-  <path d="M-64 48Q-90 5 -72 -42M64 48Q90 5 72 -42" fill="none" stroke="url(#gold)" stroke-width="5"/>
-  <text x="0" y="-38" text-anchor="middle" font-family="Georgia,serif" font-size="68" fill="#f7d56d">1ST</text>
-  <text x="0" y="9" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="800" fill="#f7d56d">PLACE</text>
-  <text x="0" y="60" text-anchor="middle" font-size="23" fill="#f7d56d">★ ★ ★</text>
- </g>
- <g fill="#c18a25" opacity=".95"><path d="M430 260Q390 205 410 170Q418 220 447 248Q430 225 432 195Q450 227 462 252Z"/><path d="M1170 260Q1210 205 1190 170Q1182 220 1153 248Q1170 225 1168 195Q1150 227 1138 252Z"/></g>
- <text x="850" y="270" text-anchor="middle" font-family="Georgia,serif" font-size="68" font-weight="700" letter-spacing="1" fill="#0b1b33">CERTIFICATE</text>
- <text x="850" y="323" text-anchor="middle" font-family="Georgia,serif" font-size="43" letter-spacing="8" fill="#152943">OF ACHIEVEMENT</text>
- <path d="M500 350H1200" stroke="url(#gold)" stroke-width="3"/><path d="M846 340l12 10-12 10-12-10z" fill="url(#gold)"/>
- <text x="850" y="405" text-anchor="middle" font-family="Arial,sans-serif" font-size="23" font-weight="700" letter-spacing="7" fill="#13233b">PROUDLY PRESENTED TO</text>
- <text x="850" y="500" text-anchor="middle" font-family="Georgia,serif" font-size="82" font-style="italic" font-weight="700" fill="#10223b">${name}</text>
- <path d="M450 526H1250" stroke="url(#gold)" stroke-width="2"/>
- <text x="850" y="578" text-anchor="middle" font-family="Georgia,serif" font-size="26" fill="#12223a">For securing 1st Place in the UTRADER Trading Competition,</text>
- <text x="850" y="615" text-anchor="middle" font-family="Georgia,serif" font-size="26" fill="#12223a">with exceptional trading performance, discipline, and consistency.</text>
- <!-- Performance detail panels -->
- <g fill="#fff" fill-opacity=".72" stroke="#c3922c" stroke-width="1.5">
-  <rect x="205" y="650" width="370" height="112" rx="14"/><rect x="615" y="650" width="370" height="112" rx="14"/><rect x="1025" y="650" width="370" height="112" rx="14"/>
- </g>
- <g font-family="Arial,sans-serif" fill="#14243c">
-  <text x="390" y="686" text-anchor="middle" font-size="18" font-weight="700" letter-spacing="2">ACCOUNT SIZE</text>
-  <text x="390" y="738" text-anchor="middle" font-size="42" font-weight="800">${account}</text>
-  <text x="800" y="686" text-anchor="middle" font-size="18" font-weight="700" letter-spacing="2">TOTAL PROFIT</text>
-  <text x="800" y="738" text-anchor="middle" font-size="42" font-weight="800" fill="${profitColor}">${u1SvgEscape(profitText)}</text>
-  <text x="1210" y="686" text-anchor="middle" font-size="18" font-weight="700" letter-spacing="2">RETURN</text>
-  <text x="1210" y="738" text-anchor="middle" font-size="42" font-weight="800" fill="${profitColor}">${u1SvgEscape(returnText)}</text>
- </g>
- <path d="M520 795H570L590 822L570 850H520L540 822Z M1080 795H1030L1010 822L1030 850H1080L1060 822Z" fill="url(#ribbon)"/>
- <path d="M560 795H1040V850H560Z" fill="url(#ribbon)" stroke="#b17a1e"/>
- <text x="800" y="833" text-anchor="middle" font-family="Georgia,serif" font-size="35" font-weight="700" letter-spacing="3" fill="#111e31">1ST PLACE WINNER</text>
- <text x="800" y="900" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" font-weight="700" letter-spacing="5" fill="#14243c">UTRADER TRADING COMPETITION</text>
- <text x="800" y="934" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" letter-spacing="3" fill="#14243c">${u1SvgEscape(start)} — ${u1SvgEscape(end)}</text>
- <path d="M95 955H315" stroke="#15243b" stroke-width="1.5"/><text x="205" y="944" text-anchor="middle" font-family="cursive" font-size="38" font-style="italic" fill="#111e31">UTRADER</text>
- <text x="205" y="980" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="2" fill="#14243c">UTRADER TEAM</text>
- <g transform="translate(800 985)" fill="none" stroke="url(#gold)" stroke-width="5"><path d="M-45 -10Q-65 -50 -30 -65M45 -10Q65 -50 30 -65"/><path d="M-24 -45H24L18 -5Q0 12 -18 -5Z M-24 -38H-48Q-45 -10 -18 -10 M24 -38H48Q45 -10 18 -10 M-5 12V23M-22 25H22"/></g>
- <path d="M20 1000Q300 950 520 1012Q800 1060 1080 1010Q1330 960 1580 1000V1047H20Z" fill="url(#navy)"/>
- <path d="M20 1000Q300 950 520 1012Q800 1060 1080 1010Q1330 960 1580 1000" fill="none" stroke="url(#gold)" stroke-width="6"/>
- <path d="M20 1020Q300 970 520 1032Q800 1080 1080 1030Q1330 980 1580 1020" fill="none" stroke="#f4d477" stroke-width="2"/>
- </svg>`;
+ <rect width="1600" height="1067" fill="#061326"/><rect x="13" y="13" width="1574" height="1041" fill="#fbfbf8" stroke="url(#gold)" stroke-width="9"/><rect x="27" y="27" width="1546" height="1013" fill="none" stroke="#bd8a25" stroke-width="2"/>
+ <path d="M15 15H1585V174Q1380 260 1190 206Q800 300 410 206Q215 260 15 174Z" fill="url(#navy)"/><path d="M15 174Q215 260 410 206Q800 300 1190 206Q1380 260 1585 174" fill="none" stroke="url(#gold)" stroke-width="5"/>
+ <g opacity=".14" stroke="#9aa8ba" fill="#9aa8ba" stroke-width="3"><path d="M50 620V552M90 590V500M130 560V465M170 520V430M210 490V390M250 455V365M290 430V340M1310 430V345M1350 390V300M1390 350V265M1430 315V225M1470 280V190M1510 245V155"/><path d="M42 575h17v28H42zM82 532h17v35H82zM122 490h17v42H122zM162 462h17v34H162zM202 425h17v42h-17zM242 395h17v36h-17zM282 370h17v38h-17zM1302 385h17v30h-17zM1342 345h17v30h-17zM1382 315h17v26h-17zM1422 270h17v35h-17zM1462 235h17v32h-17zM1502 202h17v30h-17z"/></g>
+ <!-- UTRADER mark and wordmark -->
+ <g transform="translate(800 58)" fill="none" stroke="url(#gold)" stroke-width="5"><path d="M0 -39L40 -29L57 8L37 43L-7 47L-45 20L-40 -20L-10 -45Z"/><path d="M0 -39L-10 -5L-40 -20M-10 -5L40 -29L57 8L-10 -5L-7 47L37 43L57 8M-40 -20L-7 47"/></g>
+ <text x="800" y="132" text-anchor="middle" font-family="Arial" font-size="47" font-weight="800" letter-spacing="3" fill="#fff"><tspan fill="#e7b63c">U</tspan>TRADER</text><text x="800" y="160" text-anchor="middle" font-family="Arial" font-size="17" letter-spacing="3.8" fill="#f4f6fb">PATIENCE | DISCIPLINE | CONSISTENCY</text>
+ <text x="1515" y="77" text-anchor="end" font-family="Arial" font-size="17" font-weight="700" letter-spacing="1.3" fill="#10203a">CERTIFICATE ID</text><text x="1515" y="109" text-anchor="end" font-family="Arial" font-size="24" font-weight="700" fill="#10203a">\${u1SvgEscape(certId)}</text><path d="M1358 126H1515" stroke="url(#gold)" stroke-width="3"/>
+ <!-- medal with crown, laurel and ribbon tails -->
+ <g filter="url(#shadow)" transform="translate(185 315)"><path d="M-77 -205H-18V26L-88 104Z M18 -205H77V104L18 26Z" fill="url(#navy)" stroke="url(#gold)" stroke-width="5"/><circle r="139" fill="url(#gold)" stroke="#986717" stroke-width="5"/><circle r="122" fill="url(#navy)" stroke="#ffe49a" stroke-width="5"/><circle r="106" fill="none" stroke="url(#gold)" stroke-width="3"/><path d="M-47 -70V-105L-15 -87L0 -120L17 -87L49 -105V-70Z" fill="url(#gold)"/><text x="0" y="-7" text-anchor="middle" font-family="Georgia" font-size="76" font-weight="700" fill="#f6d36d">1ST</text><text x="0" y="47" text-anchor="middle" font-family="Georgia" font-size="42" font-weight="700" fill="#f6d36d">PLACE</text><text x="0" y="88" text-anchor="middle" font-size="30" fill="#f6d36d">★ ★ ★ ★ ★</text></g>
+ <g fill="none" stroke="url(#gold)" stroke-width="5"><path d="M415 380Q370 310 398 245M1185 380Q1230 310 1202 245"/></g><g fill="#d5a43b"><path d="M394 350Q347 342 350 304Q385 312 394 350ZM389 328Q348 308 364 276Q393 292 389 328ZM390 302Q365 267 390 244Q411 272 390 302ZM402 278Q390 242 421 228Q433 258 402 278ZM414 260Q417 224 451 222Q449 252 414 260Z M1206 350Q1253 342 1250 304Q1215 312 1206 350ZM1211 328Q1252 308 1236 276Q1207 292 1211 328ZM1210 302Q1235 267 1210 244Q1189 272 1210 302ZM1198 278Q1210 242 1179 228Q1167 258 1198 278ZM1186 260Q1183 224 1149 222Q1151 252 1186 260Z"/></g>
+ <text x="800" y="280" text-anchor="middle" font-family="Georgia" font-size="78" font-weight="700" letter-spacing="2" fill="#0a1b34">CERTIFICATE</text><text x="800" y="337" text-anchor="middle" font-family="Arial" font-size="39" font-weight="700" letter-spacing="12" fill="#10223d">OF ACHIEVEMENT</text><path d="M500 365H745M855 365H1100" stroke="url(#gold)" stroke-width="3"/><path d="M800 352L814 365L800 378L786 365Z" fill="url(#gold)"/>
+ <text x="800" y="427" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" letter-spacing="7" fill="#15243b">PROUDLY PRESENTED TO</text><text x="800" y="525" text-anchor="middle" font-family="Georgia" font-size="94" font-style="italic" font-weight="700" fill="#0b1d38">\${name}</text><path d="M520 548H1080" stroke="url(#gold)" stroke-width="2"/>
+ <text x="800" y="602" text-anchor="middle" font-family="Georgia" font-size="28" fill="#13233b">For securing 1st Place in the UTRADER Trading Competition,</text><text x="800" y="640" text-anchor="middle" font-family="Georgia" font-size="28" fill="#13233b">with exceptional trading performance, discipline, and consistency.</text>
+ <!-- three performance cards -->
+ <g filter="url(#shadow)"><rect x="205" y="680" width="370" height="124" rx="15" fill="#fff" stroke="#c69a38" stroke-width="2"/><rect x="615" y="680" width="370" height="124" rx="15" fill="#fff" stroke="#c69a38" stroke-width="2"/><rect x="1025" y="680" width="370" height="124" rx="15" fill="#fff" stroke="#c69a38" stroke-width="2"/></g>
+ <g fill="none" stroke="url(#gold)" stroke-width="7" stroke-linejoin="round"><path d="M270 725L290 710L310 725L290 740Z M270 742L290 757L310 742 M270 759L290 774L310 759"/><path d="M675 770V746H697V770M710 770V725H732V770M745 770V703H767V770"/><circle cx="1210" cy="742" r="31"/><path d="M1197 754L1223 728M1200 728H1207V735M1214 749H1221V756"/></g>
+ <g font-family="Arial" fill="#10213a"><text x="405" y="718" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="2">ACCOUNT SIZE</text><text x="405" y="775" text-anchor="middle" font-size="43" font-weight="800">\${account}</text><text x="800" y="718" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="2">TOTAL PROFIT</text><text x="800" y="775" text-anchor="middle" font-size="43" font-weight="800" fill="\${profitColor}">\${u1SvgEscape(profitText)}</text><text x="1210" y="718" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="2">RETURN</text><text x="1210" y="775" text-anchor="middle" font-size="43" font-weight="800" fill="\${profitColor}">\${u1SvgEscape(returnText)}</text></g>
+ <path d="M510 832H1090L1052 870H548Z" fill="url(#ribbon)" stroke="#a97819" stroke-width="2"/><path d="M510 832L470 810V888L548 870M1090 832L1130 810V888L1052 870" fill="url(#ribbon)" stroke="#a97819" stroke-width="2"/><text x="800" y="861" text-anchor="middle" font-family="Georgia" font-size="36" font-weight="700" letter-spacing="2" fill="#101e32">1ST PLACE WINNER</text>
+ <text x="800" y="925" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" letter-spacing="5" fill="#14243d">UTRADER TRADING COMPETITION</text><text x="800" y="965" text-anchor="middle" font-family="Arial" font-size="21" letter-spacing="3" fill="#14243d">\${u1SvgEscape(start)} — \${u1SvgEscape(end)}</text>
+ <path d="M100 963H325" stroke="#15243b" stroke-width="1.5"/><text x="212" y="951" text-anchor="middle" font-family="cursive" font-size="38" font-style="italic" fill="#111e31">UTRADER</text><text x="212" y="993" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" letter-spacing="2" fill="#14243c">UTRADER TEAM</text>
+ <g transform="translate(800 1008)" fill="none" stroke="url(#gold)" stroke-width="6"><path d="M-42 -45H42L34 -5Q0 28 -34 -5Z M-42 -36H-68Q-64 8 -31 7 M42 -36H68Q64 8 31 7 M0 28V45M-29 48H29"/><path d="M-75 -47Q-94 -70 -80 -89M75 -47Q94 -70 80 -89"/></g>
+ <path d="M15 1010Q260 980 470 1020Q800 1075 1130 1020Q1360 980 1585 1010V1054H15Z" fill="url(#navy)"/><path d="M15 1010Q260 980 470 1020Q800 1075 1130 1020Q1360 980 1585 1010" fill="none" stroke="url(#gold)" stroke-width="6"/>
+ </svg>\`;
 }
 function openU1Certificate(){
  const winner=u1CertificateWinner();
