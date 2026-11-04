@@ -2366,122 +2366,24 @@ function updateCompetitionClock(){
  if(Number.isFinite(start)&&Number.isFinite(end)&&end>start){const total=end-start;duration.textContent=`${Math.floor(total/86400000)} days, ${Math.floor((total%86400000)/3600000)} hours, ${Math.floor((total%3600000)/60000)} minutes`;if(now<start)countdown.textContent='Starts in '+parts(start-now);else if(now<end)countdown.textContent='Ends in '+parts(end-now);else countdown.textContent='Competition ended';}
  else{duration.textContent='Set start and end times';countdown.textContent='Countdown will appear when both dates are set';}
 }
-// ===== U1TRADER FINAL WINNER CERTIFICATE =====
-function u1CertificateWinner(){
- const end=data.endDateTime?new Date(data.endDateTime).getTime():NaN;
- if(!Number.isFinite(end)||Date.now()<end)return null;
- return [...(Array.isArray(data.traders)?data.traders:[])]
-  .filter(t=>ret(t)>=3&&getTraderRuleBreaches(t).length===0)
-  .sort((a,b)=>(Number(b.current)||0)-(Number(a.current)||0))[0]||null;
-}
+// ===== U1TRADER MANUALLY UPLOADED CERTIFICATE =====
+const U1_MANUAL_CERTIFICATE_IMAGE='assets/certificates/raghul-1st-place.webp';
 function updateU1CertificateEntry(){
  const entry=$('u1CertificateEntry');
- const end=data.endDateTime?new Date(data.endDateTime).getTime():NaN;
- // Show the certificate entry once the competition is over.
- // Winner eligibility is checked again when the certificate is opened.
- if(entry)entry.hidden=!(Number.isFinite(end)&&Date.now()>=end);
-}
-function u1SvgEscape(value){
- return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
-}
-function u1CertificateDate(value){
- const d=new Date(value);
- return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'long',year:'numeric'}).format(d).toUpperCase();
-}
-function u1CertificateMoney(value,decimals=2){
- const n=Number(value)||0;
- return n.toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
-}
-function buildU1CertificateSvg(t){
- const start=data.startDateTime?u1CertificateDate(data.startDateTime):'—';
- const end=data.endDateTime?u1CertificateDate(data.endDateTime):u1CertificateDate(Date.now());
- const name=u1SvgEscape(t.name||'Winner'),account='$'+u1SvgEscape(u1CertificateMoney(t.start,2));
- const pnl=profit(t),profitText=(pnl>=0?'+':'−')+'$'+u1CertificateMoney(Math.abs(pnl),2);
- const returnText=(ret(t)>=0?'+':'−')+Math.abs(ret(t)).toFixed(2)+'%';
- const profitColor=pnl>=0?'#16823b':'#c13d3d';
- const year=new Date(data.endDateTime||Date.now()).getFullYear();
- const certId='UTC-'+year+'-'+String(t.id||'001').replace(/[^a-z0-9]/gi,'').slice(-3).padStart(3,'0').toUpperCase();
- return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067" viewBox="0 0 1600 1067">
- <defs>
- <linearGradient id="navy" x2="1" y2="1"><stop stop-color="#061326"/><stop offset=".55" stop-color="#102d50"/><stop offset="1" stop-color="#07152b"/></linearGradient>
- <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fff3b4"/><stop offset=".25" stop-color="#d49b22"/><stop offset=".5" stop-color="#ffe18a"/><stop offset=".75" stop-color="#a66c12"/><stop offset="1" stop-color="#f7d66e"/></linearGradient>
- <linearGradient id="ribbon" x2="0" y2="1"><stop stop-color="#ffe89a"/><stop offset=".5" stop-color="#d9a52d"/><stop offset="1" stop-color="#a76e12"/></linearGradient>
- <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#081326" flood-opacity=".25"/></filter>
- </defs>
- <rect width="1600" height="1067" fill="#061326"/><rect x="13" y="13" width="1574" height="1041" fill="#fbfbf8" stroke="url(#gold)" stroke-width="9"/><rect x="27" y="27" width="1546" height="1013" fill="none" stroke="#bd8a25" stroke-width="2"/>
- <path d="M15 15H1585V174Q1380 260 1190 206Q800 300 410 206Q215 260 15 174Z" fill="url(#navy)"/><path d="M15 174Q215 260 410 206Q800 300 1190 206Q1380 260 1585 174" fill="none" stroke="url(#gold)" stroke-width="5"/>
- <g opacity=".14" stroke="#9aa8ba" fill="#9aa8ba" stroke-width="3"><path d="M50 620V552M90 590V500M130 560V465M170 520V430M210 490V390M250 455V365M290 430V340M1310 430V345M1350 390V300M1390 350V265M1430 315V225M1470 280V190M1510 245V155"/><path d="M42 575h17v28H42zM82 532h17v35H82zM122 490h17v42H122zM162 462h17v34H162zM202 425h17v42h-17zM242 395h17v36h-17zM282 370h17v38h-17zM1302 385h17v30h-17zM1342 345h17v30h-17zM1382 315h17v26h-17zM1422 270h17v35h-17zM1462 235h17v32h-17zM1502 202h17v30h-17z"/></g>
- <!-- UTRADER mark and wordmark -->
- <g transform="translate(800 58)" fill="none" stroke="url(#gold)" stroke-width="5"><path d="M0 -39L40 -29L57 8L37 43L-7 47L-45 20L-40 -20L-10 -45Z"/><path d="M0 -39L-10 -5L-40 -20M-10 -5L40 -29L57 8L-10 -5L-7 47L37 43L57 8M-40 -20L-7 47"/></g>
- <text x="800" y="132" text-anchor="middle" font-family="Arial" font-size="47" font-weight="800" letter-spacing="3" fill="#fff"><tspan fill="#e7b63c">U</tspan>TRADER</text><text x="800" y="160" text-anchor="middle" font-family="Arial" font-size="17" letter-spacing="3.8" fill="#f4f6fb">PATIENCE | DISCIPLINE | CONSISTENCY</text>
- <text x="1515" y="77" text-anchor="end" font-family="Arial" font-size="17" font-weight="700" letter-spacing="1.3" fill="#10203a">CERTIFICATE ID</text><text x="1515" y="109" text-anchor="end" font-family="Arial" font-size="24" font-weight="700" fill="#10203a">${u1SvgEscape(certId)}</text><path d="M1358 126H1515" stroke="url(#gold)" stroke-width="3"/>
- <!-- medal with crown, laurel and ribbon tails -->
- <g filter="url(#shadow)" transform="translate(185 315)"><path d="M-77 -205H-18V26L-88 104Z M18 -205H77V104L18 26Z" fill="url(#navy)" stroke="url(#gold)" stroke-width="5"/><circle r="139" fill="url(#gold)" stroke="#986717" stroke-width="5"/><circle r="122" fill="url(#navy)" stroke="#ffe49a" stroke-width="5"/><circle r="106" fill="none" stroke="url(#gold)" stroke-width="3"/><path d="M-47 -70V-105L-15 -87L0 -120L17 -87L49 -105V-70Z" fill="url(#gold)"/><text x="0" y="-7" text-anchor="middle" font-family="Georgia" font-size="76" font-weight="700" fill="#f6d36d">1ST</text><text x="0" y="47" text-anchor="middle" font-family="Georgia" font-size="42" font-weight="700" fill="#f6d36d">PLACE</text><text x="0" y="88" text-anchor="middle" font-size="30" fill="#f6d36d">★ ★ ★ ★ ★</text></g>
- <g fill="none" stroke="url(#gold)" stroke-width="5"><path d="M415 380Q370 310 398 245M1185 380Q1230 310 1202 245"/></g><g fill="#d5a43b"><path d="M394 350Q347 342 350 304Q385 312 394 350ZM389 328Q348 308 364 276Q393 292 389 328ZM390 302Q365 267 390 244Q411 272 390 302ZM402 278Q390 242 421 228Q433 258 402 278ZM414 260Q417 224 451 222Q449 252 414 260Z M1206 350Q1253 342 1250 304Q1215 312 1206 350ZM1211 328Q1252 308 1236 276Q1207 292 1211 328ZM1210 302Q1235 267 1210 244Q1189 272 1210 302ZM1198 278Q1210 242 1179 228Q1167 258 1198 278ZM1186 260Q1183 224 1149 222Q1151 252 1186 260Z"/></g>
- <text x="800" y="280" text-anchor="middle" font-family="Georgia" font-size="78" font-weight="700" letter-spacing="2" fill="#0a1b34">CERTIFICATE</text><text x="800" y="337" text-anchor="middle" font-family="Arial" font-size="39" font-weight="700" letter-spacing="12" fill="#10223d">OF ACHIEVEMENT</text><path d="M500 365H745M855 365H1100" stroke="url(#gold)" stroke-width="3"/><path d="M800 352L814 365L800 378L786 365Z" fill="url(#gold)"/>
- <text x="800" y="427" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" letter-spacing="7" fill="#15243b">PROUDLY PRESENTED TO</text><text x="800" y="525" text-anchor="middle" font-family="Georgia" font-size="94" font-style="italic" font-weight="700" fill="#0b1d38">${name}</text><path d="M520 548H1080" stroke="url(#gold)" stroke-width="2"/>
- <text x="800" y="602" text-anchor="middle" font-family="Georgia" font-size="28" fill="#13233b">For securing 1st Place in the UTRADER Trading Competition,</text><text x="800" y="640" text-anchor="middle" font-family="Georgia" font-size="28" fill="#13233b">with exceptional trading performance, discipline, and consistency.</text>
- <!-- three performance cards -->
- <g filter="url(#shadow)"><rect x="205" y="680" width="370" height="124" rx="15" fill="#fff" stroke="#c69a38" stroke-width="2"/><rect x="615" y="680" width="370" height="124" rx="15" fill="#fff" stroke="#c69a38" stroke-width="2"/><rect x="1025" y="680" width="370" height="124" rx="15" fill="#fff" stroke="#c69a38" stroke-width="2"/></g>
- <g fill="none" stroke="url(#gold)" stroke-width="7" stroke-linejoin="round"><path d="M270 725L290 710L310 725L290 740Z M270 742L290 757L310 742 M270 759L290 774L310 759"/><path d="M675 770V746H697V770M710 770V725H732V770M745 770V703H767V770"/><circle cx="1210" cy="742" r="31"/><path d="M1197 754L1223 728M1200 728H1207V735M1214 749H1221V756"/></g>
- <g font-family="Arial" fill="#10213a"><text x="405" y="718" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="2">ACCOUNT SIZE</text><text x="405" y="775" text-anchor="middle" font-size="43" font-weight="800">${account}</text><text x="800" y="718" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="2">TOTAL PROFIT</text><text x="800" y="775" text-anchor="middle" font-size="43" font-weight="800" fill="${profitColor}">${u1SvgEscape(profitText)}</text><text x="1210" y="718" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="2">RETURN</text><text x="1210" y="775" text-anchor="middle" font-size="43" font-weight="800" fill="${profitColor}">${u1SvgEscape(returnText)}</text></g>
- <path d="M510 832H1090L1052 870H548Z" fill="url(#ribbon)" stroke="#a97819" stroke-width="2"/><path d="M510 832L470 810V888L548 870M1090 832L1130 810V888L1052 870" fill="url(#ribbon)" stroke="#a97819" stroke-width="2"/><text x="800" y="861" text-anchor="middle" font-family="Georgia" font-size="36" font-weight="700" letter-spacing="2" fill="#101e32">1ST PLACE WINNER</text>
- <text x="800" y="925" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" letter-spacing="5" fill="#14243d">UTRADER TRADING COMPETITION</text><text x="800" y="965" text-anchor="middle" font-family="Arial" font-size="21" letter-spacing="3" fill="#14243d">${u1SvgEscape(start)} — ${u1SvgEscape(end)}</text>
- <path d="M100 963H325" stroke="#15243b" stroke-width="1.5"/><text x="212" y="951" text-anchor="middle" font-family="cursive" font-size="38" font-style="italic" fill="#111e31">UTRADER</text><text x="212" y="993" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" letter-spacing="2" fill="#14243c">UTRADER TEAM</text>
- <g transform="translate(800 1008)" fill="none" stroke="url(#gold)" stroke-width="6"><path d="M-42 -45H42L34 -5Q0 28 -34 -5Z M-42 -36H-68Q-64 8 -31 7 M42 -36H68Q64 8 31 7 M0 28V45M-29 48H29"/><path d="M-75 -47Q-94 -70 -80 -89M75 -47Q94 -70 80 -89"/></g>
- <path d="M15 1010Q260 980 470 1020Q800 1075 1130 1020Q1360 980 1585 1010V1054H15Z" fill="url(#navy)"/><path d="M15 1010Q260 980 470 1020Q800 1075 1130 1020Q1360 980 1585 1010" fill="none" stroke="url(#gold)" stroke-width="6"/>
- </svg>`;
+ if(entry)entry.hidden=false;
 }
 function openU1Certificate(){
- const winner=u1CertificateWinner();
- if(!winner){toast('Certificate will be available after the competition ends and final eligibility is confirmed.');return}
- const svg=buildU1CertificateSvg(winner);
  const img=$('u1CertificatePreview');
- img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+ img.src=U1_MANUAL_CERTIFICATE_IMAGE+'?v=f347e2e';
  $('u1CertificateModalBack').style.display='flex';
- $('u1CertificateModalBack').dataset.svg=svg;
 }
 function downloadU1Certificate(){
- const back=$('u1CertificateModalBack'),svg=back?.dataset.svg;
- if(!svg){toast('Open the certificate first');return}
- const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
- const objectUrl=URL.createObjectURL(blob);
- const img=new Image();
- img.onload=()=>{
-  try{
-   const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1067;
-   const ctx=canvas.getContext('2d');
-   if(!ctx)throw new Error('Canvas unavailable');
-   ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-   const savePng=dataUrl=>{
-    const link=document.createElement('a');link.href=dataUrl;link.download='UTRADER-1st-Place-Certificate.png';
-    link.style.display='none';document.body.appendChild(link);link.click();link.remove();
-   };
-   if(canvas.toBlob){
-    canvas.toBlob(png=>{
-     if(png){
-      const pngUrl=URL.createObjectURL(png),link=document.createElement('a');
-      link.href=pngUrl;link.download='UTRADER-1st-Place-Certificate.png';
-      document.body.appendChild(link);link.click();link.remove();
-      setTimeout(()=>URL.revokeObjectURL(pngUrl),1500);
-     }else{savePng(canvas.toDataURL('image/png'))}
-     URL.revokeObjectURL(objectUrl);
-    },'image/png');
-   }else{savePng(canvas.toDataURL('image/png'));URL.revokeObjectURL(objectUrl)}
-  }catch(error){
-   URL.revokeObjectURL(objectUrl);
-   toast('PNG export failed. Please try again in Chrome.');
-   console.error('Certificate PNG export failed',error);
-  }
- };
- img.onerror=()=>{
-  URL.revokeObjectURL(objectUrl);
-  toast('Certificate image could not be prepared. Please reopen it and retry.');
- };
- img.src=objectUrl;
+ const link=document.createElement('a');
+ link.href=U1_MANUAL_CERTIFICATE_IMAGE+'?v=f347e2e';
+ link.download='UTRADER-Raghul-First-Place-Certificate.webp';
+ document.body.appendChild(link);link.click();link.remove();
 }
-
-// Capture delegated clicks so controls appended after the script remain reliable.
+// Capture delegated clicks so modal controls work even though the modal markup is after the script.
 document.addEventListener('click',event=>{
  const target=event.target instanceof Element?event.target:null;
  if(!target)return;
@@ -3209,7 +3111,7 @@ html body.admin-mode #userProfileModalBack[style*="display: flex"]{display:flex!
   <div class="modal u1-certificate-modal">
     <div class="u1-certificate-modal-head"><div><div class="eyebrow">UTRADER · OFFICIAL AWARD</div><h3 id="u1CertificateModalTitle">Certificate of Achievement</h3></div><button type="button" class="btn" id="u1CloseCertificate">Close</button></div>
     <div class="u1-certificate-preview-wrap"><img id="u1CertificatePreview" alt="U1TRADER first place certificate preview"></div>
-    <div class="u1-certificate-modal-actions"><button type="button" class="btn primary" id="u1DownloadCertificate">⬇ Download Certificate (PNG)</button></div>
+    <div class="u1-certificate-modal-actions"><button type="button" class="btn primary" id="u1DownloadCertificate">⬇ Download Certificate</button></div>
   </div>
 </body>
 </html>
