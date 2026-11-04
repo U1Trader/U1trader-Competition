@@ -1157,7 +1157,7 @@ function getDailyLossStatus(t){
  return {todayKey,openingBalance,dailyFloor,hasTodayActivity,currentEquity,breached:hasTodayActivity&&currentEquity<=dailyFloor,
    todayReports,todayTrades:trades.filter(tr=>ruleDayKey(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt||tr.exitDateTime||tr.exitDate||tr.closedAt||tr.date)===todayKey)};
 }
-function getTraderRuleBreaches(t){
+function getTraderRuleBreaches(t,asOf=(()=>{const end=data.endDateTime?new Date(data.endDateTime).getTime():NaN;return Number.isFinite(end)&&Date.now()>=end?end:Date.now()})()){
  const breaches=[];
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
  // Daily loss limit: fixed $50,000 account, 5% = $2,500.
@@ -1226,7 +1226,7 @@ function getTraderRuleBreaches(t){
      const fifthDayDate=new Date(lastDayDate.getTime()+5*86400000);
      // Inactivity starts only after the fifth full day has closed at 03:29 IST.
      const marketCloseUtc=Date.UTC(fifthDayDate.getUTCFullYear(),fifthDayDate.getUTCMonth(),fifthDayDate.getUTCDate()+1)-121*60000;
-     if(Date.now()>=marketCloseUtc)breaches.push('Inactivity');
+     if(asOf>=marketCloseUtc)breaches.push('Inactivity');
    }
  }
  return breaches;
