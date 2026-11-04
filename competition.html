@@ -1117,6 +1117,15 @@ function ruleRecordDayKey(value){
  const match=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
  return match?raw:ruleDayKey(value);
 }
+// Trade exports can contain date-only values (YYYY-MM-DD, YYYY.MM.DD or YYYY/MM/DD).
+// Treat those as the stated trade date, not midnight IST (which belongs to the prior
+// Exness trading day because the trading-day boundary is 03:29 IST).
+function ruleTradeDayKey(value){
+ const raw=String(value??'').trim();
+ const match=raw.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
+ if(match)return Number(match[1])+'-'+String(Number(match[2])).padStart(2,'0')+'-'+String(Number(match[3])).padStart(2,'0');
+ return ruleDayKey(value);
+}
 function getDailyLossStatus(t){
  const todayKey=ruleDayKey(new Date());
  const reports=(Array.isArray(data.dailyTradeReports)?data.dailyTradeReports:[]).filter(r=>String(r.traderId)===String(t.id));
@@ -1200,16 +1209,19 @@ function getTraderRuleBreaches(t){
  // balance edits and admin updates must not reset the inactivity clock.
  // For a five-day gap, wait until the fifth trading-day close at 03:29 IST.
  if(breaches.length===0){
-   const tradeTimes=trades.flatMap(tr=>[
-     ruleDateValue(tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt),
-     ruleDateValue(tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime)
-   ]).filter(Number.isFinite);
-   if(tradeTimes.length){
-     const lastTradeAt=Math.max(...tradeTimes);
-     const lastTradeDay=ruleDayKey(lastTradeAt);
+   const tradeRecords=trades.flatMap(tr=>[
+     tr.entryDateTime||tr.entryDate||tr.openTime||tr.openedAt,
+     tr.exitDateTime||tr.exitDate||tr.closedAt||tr.closeTime||tr.closedAtTime
+   ]).map(value=>({value,ms:ruleDateValue(value),day:ruleTradeDayKey(value)}))
+     .filter(record=>Number.isFinite(record.ms)&&record.day)
+     .sort((a,b)=>b.ms-a.ms);
+   if(tradeRecords.length){
+     // Use the actual last trade's stated trading date. Date-only exports must not
+     // roll back one day merely because midnight is before the 03:29 IST reset.
+     const lastTradeDay=tradeRecords[0].day;
      const lastDayDate=new Date(lastTradeDay+'T00:00:00Z');
      const fifthDayDate=new Date(lastDayDate.getTime()+5*86400000);
-     // The fifth trading day closes at 03:29 IST on the following civil date.
+     // Inactivity starts only after the fifth full day has closed at 03:29 IST.
      const marketCloseUtc=Date.UTC(fifthDayDate.getUTCFullYear(),fifthDayDate.getUTCMonth(),fifthDayDate.getUTCDate()+1)-121*60000;
      if(Date.now()>=marketCloseUtc)breaches.push('Inactivity');
    }
