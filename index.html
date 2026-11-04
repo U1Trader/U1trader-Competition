@@ -2456,34 +2456,15 @@ function downloadU1Certificate(){
  img.onerror=()=>{URL.revokeObjectURL(url);toast('Could not prepare PNG. Please reopen the certificate and try again.')};
  img.src=url;
 }
-function openU1Certificate(){
- const winner=u1CertificateWinner();
- if(!winner){toast('Certificate will be available after the competition ends and final eligibility is confirmed.');return}
- const svg=buildU1CertificateSvg(winner);
- const img=$('u1CertificatePreview');
- img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
- $('u1CertificateModalBack').style.display='flex';
- $('u1CertificateModalBack').dataset.svg=svg;
-}
-function downloadU1Certificate(){
- const back=$('u1CertificateModalBack'),svg=back?.dataset.svg;
- if(!svg){toast('Open the certificate first');return}
- const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
- const url=URL.createObjectURL(blob);
- const img=new Image();
- img.onload=()=>{
-  const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1067;
-  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  URL.revokeObjectURL(url);
-  const a=document.createElement('a');a.download='UTRADER-1st-Place-Certificate.png';a.href=canvas.toDataURL('image/png');document.body.appendChild(a);a.click();a.remove();
- };
- img.onerror=()=>{URL.revokeObjectURL(url);toast('Could not prepare PNG. Please reopen the certificate and try again.')};
- img.src=url;
-}
-$('u1ViewCertificate').addEventListener('click',openU1Certificate);
-$('u1DownloadCertificate').addEventListener('click',downloadU1Certificate);
-$('u1CloseCertificate').addEventListener('click',()=>$('u1CertificateModalBack').style.display='none');
-$('u1CertificateModalBack').addEventListener('click',e=>{if(e.target===$('u1CertificateModalBack'))$('u1CertificateModalBack').style.display='none'});
+// Use delegated clicks because the certificate modal markup is appended after the main page script.
+document.addEventListener('click',event=>{
+ const target=event.target;
+ if(target.closest('#u1ViewCertificate')){event.preventDefault();openU1Certificate();return;}
+ if(target.closest('#u1CloseCertificate')){event.preventDefault();const modal=$('u1CertificateModalBack');if(modal)modal.style.display='none';return;}
+ if(target.closest('#u1DownloadCertificate')){event.preventDefault();downloadU1Certificate();return;}
+ const modal=$('u1CertificateModalBack');
+ if(modal&&target===modal)modal.style.display='none';
+});
 setInterval(()=>{updateCompetitionClock();updateU1CertificateEntry();},1000);
 
 setInterval(updateCompetitionClock,1000);
