@@ -2367,20 +2367,20 @@ function updateCompetitionClock(){
  else{duration.textContent='Set start and end times';countdown.textContent='Countdown will appear when both dates are set';}
 }
 // ===== U1TRADER MANUALLY UPLOADED CERTIFICATE =====
-const U1_MANUAL_CERTIFICATE_IMAGE='assets/certificates/raghul-1st-place.webp';
+const U1_MANUAL_CERTIFICATE_IMAGE='assets/certificates/a_high_quality_professional_certificate_graphic.png';
 function updateU1CertificateEntry(){
  const entry=$('u1CertificateEntry');
  if(entry)entry.hidden=false;
 }
 function openU1Certificate(){
  const img=$('u1CertificatePreview');
- img.src=U1_MANUAL_CERTIFICATE_IMAGE+'?v=f347e2e';
+ img.src=U1_MANUAL_CERTIFICATE_IMAGE+'?v=07a0fc6';
  $('u1CertificateModalBack').style.display='flex';
 }
 function downloadU1Certificate(){
  const link=document.createElement('a');
- link.href=U1_MANUAL_CERTIFICATE_IMAGE+'?v=f347e2e';
- link.download='UTRADER-Raghul-First-Place-Certificate.webp';
+ link.href=U1_MANUAL_CERTIFICATE_IMAGE+'?v=07a0fc6';
+ link.download='UTRADER-Raghul-First-Place-Certificate.png';
  document.body.appendChild(link);link.click();link.remove();
 }
 // Capture delegated clicks so modal controls work even though the modal markup is after the script.
